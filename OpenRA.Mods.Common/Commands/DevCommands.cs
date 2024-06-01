@@ -75,6 +75,9 @@ namespace OpenRA.Mods.Common.Commands
 		[TranslationReference]
 		const string DisposeSelectedActorsDescription = "description-dispose-selected-actors";
 
+		[TranslationReference]
+		const string MoveActorsDescription = "move-actors";
+
 		readonly IDictionary<string, (string Description, Action<string, World> Handler)> commandHandlers = new Dictionary<string, (string, Action<string, World>)>
 		{
 			{ "visibility", (ToggleVisiblityDescription, Visibility) },
@@ -91,7 +94,8 @@ namespace OpenRA.Mods.Common.Commands
 			{ "player-experience", (PlayerExperienceDescription, PlayerExperience) },
 			{ "power-outage", (PowerOutageDescription, PowerOutage) },
 			{ "kill", (KillSelectedActorsDescription, Kill) },
-			{ "dispose", (DisposeSelectedActorsDescription, Dispose) }
+			{ "dispose", (DisposeSelectedActorsDescription, Dispose) },
+			{ "moveactor", ("move <actorId> <direction> <distance> actors", ServerCommands.MoveActorCommand) },
 		};
 
 		World world;
