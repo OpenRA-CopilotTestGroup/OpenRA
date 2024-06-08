@@ -21,6 +21,11 @@ namespace OpenRA
 			this.world = world;
 		}
 
+		~CopilotCommandServer()
+		{
+			End();
+		}
+
 		public void Start()
 		{
 			listener.Start();
@@ -47,10 +52,13 @@ namespace OpenRA
 
 		public void End()
 		{
-			isRunning = false;
-			listener.Stop();
-			listener.Close();
-			Console.WriteLine("CopilotServer has been stopped.");
+			if (isRunning)
+			{
+				isRunning = false;
+				listener.Stop();
+				listener.Close();
+				Console.WriteLine("CopilotServer has been stopped.");
+			}
 		}
 
 		void HandleRequest(HttpListenerContext context)

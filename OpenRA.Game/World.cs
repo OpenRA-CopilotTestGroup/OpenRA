@@ -636,6 +636,7 @@ namespace OpenRA
 			Map.Dispose();
 
 			Game.FinishBenchmark();
+			CopilotServer?.End();
 		}
 
 		public void OutOfSync()
