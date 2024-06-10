@@ -2,6 +2,8 @@ using System;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace OpenRA
 {
@@ -12,8 +14,10 @@ namespace OpenRA
 		readonly World world;
 		bool isRunning;
 
-		public delegate void MoveActorHandler(string args, World world);
-		public event MoveActorHandler OnMoveActorCommand;
+		public delegate string CommondHandler(JObject json, World world);
+		public event CommondHandler OnMoveActorCommand;
+		public delegate JObject QueryHandler(JObject json, World world);
+		public event QueryHandler QueryActor;
 		public CopilotCommandServer(string url, World world)
 		{
 			this.url = url;
@@ -43,7 +47,6 @@ namespace OpenRA
 					}
 					catch (HttpListenerException) when (!isRunning)
 					{
-						// Listener was stopped, exit the loop
 						break;
 					}
 				}
@@ -65,36 +68,74 @@ namespace OpenRA
 		{
 			var request = context.Request;
 			var response = context.Response;
-
-			if (request.HttpMethod == "POST" && request.Url.AbsolutePath == "/moveactor")
+			try
 			{
-				using (var reader = new System.IO.StreamReader(request.InputStream, request.ContentEncoding))
+				if (request.HttpMethod == "POST")
 				{
-					var body = reader.ReadToEnd();
-					var parameters = body.Split('&');
-					var actorId = parameters[0].Split('=')[1];
-					var direction = parameters[1].Split('=')[1];
-					var distance = parameters[2].Split('=')[1];
+					using (var reader = new System.IO.StreamReader(request.InputStream, request.ContentEncoding))
+					{
+						var body = reader.ReadToEnd();
 
-					OnMoveActorCommand?.Invoke($"{actorId} {direction} {distance}", world);
+						JObject json;
+						try
+						{
+							json = JObject.Parse(body);
+						}
+						catch (JsonReaderException)
+						{
+							SendResponse(response, "Invalid JSON format", HttpStatusCode.BadRequest);
+							return;
+						}
+						var command = json["command"]?.ToString();
+						string result;
+						JObject reslut_j;
+						switch (command)
+						{
+							case "moveactor":
+								result = OnMoveActorCommand?.Invoke(json, world);
+
+								SendResponse(response, result ?? "Actor moved");
+								break;
+							case "queryactor":
+								reslut_j = QueryActor?.Invoke(json, world);
+								var jsonResult = reslut_j.ToString();
+								SendJsonResponse(response, jsonResult);
+								break;
+							default:
+								SendResponse(response, "Unknown command", HttpStatusCode.BadRequest);
+								break;
+						}
+					}
 				}
-
-				const string ResponseString = "Actor moved";
-				var buffer = Encoding.UTF8.GetBytes(ResponseString);
-				response.ContentLength64 = buffer.Length;
-				var output = response.OutputStream;
-				output.Write(buffer, 0, buffer.Length);
-				output.Close();
+				else
+				{
+					SendResponse(response, "Invalid request", HttpStatusCode.BadRequest);
+				}
 			}
-			else
+			catch (Exception ex)
 			{
-				const string ResponseString = "Invalid request";
-				var buffer = Encoding.UTF8.GetBytes(ResponseString);
-				response.ContentLength64 = buffer.Length;
-				var output = response.OutputStream;
-				output.Write(buffer, 0, buffer.Length);
-				output.Close();
+				SendResponse(response, $"Internal Server Error: {ex.Message}", HttpStatusCode.InternalServerError);
 			}
+		}
+
+		static void SendResponse(HttpListenerResponse response, string message, HttpStatusCode statusCode = HttpStatusCode.OK)
+		{
+			var buffer = Encoding.UTF8.GetBytes(message);
+			response.ContentLength64 = buffer.Length;
+			response.StatusCode = (int)statusCode;
+			var output = response.OutputStream;
+			output.Write(buffer, 0, buffer.Length);
+			output.Close();
+		}
+		static void SendJsonResponse(HttpListenerResponse response, string json, HttpStatusCode statusCode = HttpStatusCode.OK)
+		{
+			var buffer = Encoding.UTF8.GetBytes(json);
+			response.ContentLength64 = buffer.Length;
+			response.StatusCode = (int)statusCode;
+			response.ContentType = "application/json";
+			var output = response.OutputStream;
+			output.Write(buffer, 0, buffer.Length);
+			output.Close();
 		}
 	}
 }

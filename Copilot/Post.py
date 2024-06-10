@@ -1,13 +1,31 @@
 import requests
+import json
 
-url = 'http://localhost:8080/moveactor'
+url = 'http://localhost:8080' 
+headers = {'Content-Type': 'application/json'}
+
 data = {
-    'actorId': '245',  
-    'direction': '2',          
-    'distance': '3'            
+    'command': 'moveactor',
+    'groupId': '1', 
+    'location': {
+        "X": '74',
+        "Y": '81'
+    },
+    'direction': 7,          
+    'distance': 2            
 }
+json_data = json.dumps(data)
 
-response = requests.post(url, data=data)
+try:
+    response = requests.post(url, headers=headers, data=json_data)
 
-print(f'Status Code: {response.status_code}')
-print(f'Response: {response.text}')
+    if 'application/json' in response.headers.get('Content-Type', ''):
+        response_data = response.json()
+        print("Response JSON:")
+        print(json.dumps(response_data, indent=4))
+    else:
+        print("Response is not in JSON format")
+        print("Response Text:")
+        print(response.text)
+except requests.exceptions.RequestException as e:
+    print(f'Request failed: {e}')

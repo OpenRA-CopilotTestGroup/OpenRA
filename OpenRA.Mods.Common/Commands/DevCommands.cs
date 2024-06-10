@@ -95,7 +95,6 @@ namespace OpenRA.Mods.Common.Commands
 			{ "power-outage", (PowerOutageDescription, PowerOutage) },
 			{ "kill", (KillSelectedActorsDescription, Kill) },
 			{ "dispose", (DisposeSelectedActorsDescription, Dispose) },
-			{ "moveactor", ("move <actorId> <direction> <distance> actors", ServerCommands.MoveActorCommand) },
 		};
 
 		World world;
