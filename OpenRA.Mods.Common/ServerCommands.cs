@@ -22,7 +22,7 @@ namespace OpenRA.Mods.Common.Commands
 			CPos? location;
 			location = null;
 			var locationJson = json["location"];
-			if (locationJson != null)
+			if (locationJson != null && locationJson.Contains("X") && locationJson.Contains("Y"))
 			{
 				var x = locationJson["X"]?.ToObject<int>();
 				var y = locationJson["Y"]?.ToObject<int>();
@@ -53,11 +53,11 @@ namespace OpenRA.Mods.Common.Commands
 			{
 				if (location != null)
 				{
-					return MoveGroupToLocation((int)groupId, (CPos)location, attackmove ?? false, world);
+					return MoveGroupToLocation((int)groupId - 1, (CPos)location, attackmove ?? false, world);
 				}
 				else if (direction != null && distance != null)
 				{
-					return MoveGroupInDirection((int)groupId, (int)direction, (int)distance, attackmove ?? false, world);
+					return MoveGroupInDirection((int)groupId - 1, (int)direction, (int)distance, attackmove ?? false, world);
 				}
 				else
 				{
