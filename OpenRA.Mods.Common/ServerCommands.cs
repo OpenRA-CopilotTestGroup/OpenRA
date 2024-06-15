@@ -17,22 +17,22 @@ namespace OpenRA.Mods.Common.Commands
 		World world;
 		public static string MoveActorCommand(JObject json, World world)
 		{
-			var actorId = json["actorId"]?.ToObject<uint>();
-			var groupId = json["groupId"]?.ToObject<int>();
+
+			var actorId = json.TryGetFieldValue("actorId")?.ToObject<uint>();
+			var groupId = json.TryGetFieldValue("groupId")?.ToObject<int>();
 			CPos? location;
 			location = null;
-			var locationJson = json["location"];
-			if (locationJson != null && locationJson.Contains("X") && locationJson.Contains("Y"))
+			var locationJson = json.TryGetFieldValue("location");
+			if (locationJson != null)
 			{
-				var x = locationJson["X"]?.ToObject<int>();
-				var y = locationJson["Y"]?.ToObject<int>();
+				var x = locationJson.TryGetFieldValue("X")?.ToObject<int>();
+				var y = locationJson.TryGetFieldValue("Y")?.ToObject<int>();
 				if (x != null && y != null)
 					location = new CPos((int)x, (int)y);
 			}
-
-			var direction = json["direction"]?.ToObject<int>();
-			var distance = json["distance"]?.ToObject<int>();
-			var attackmove = json["attackmove"]?.ToObject<bool>();
+			var direction = json.TryGetFieldValue("direction")?.ToObject<int>();
+			var distance = json.TryGetFieldValue("distance")?.ToObject<int>();
+			var attackmove = json.TryGetFieldValue("attackmove")?.ToObject<bool>();
 
 			if (actorId != null)
 			{

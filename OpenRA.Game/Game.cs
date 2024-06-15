@@ -18,12 +18,39 @@ using System.Linq;
 using System.Net;
 using System.Runtime;
 using System.Threading;
+using Newtonsoft.Json.Linq;
 using OpenRA.Graphics;
 using OpenRA.Network;
 using OpenRA.Primitives;
 using OpenRA.Server;
 using OpenRA.Support;
 using OpenRA.Widgets;
+
+namespace Newtonsoft.Json
+{
+	public static class JObjectExtensions
+	{
+		public static JToken TryGetFieldValue(this JObject jObject, string fieldName)
+		{
+			if (jObject == null || !jObject.TryGetValue(fieldName, out var value))
+			{
+				return null;
+			}
+
+			return value;
+		}
+
+		public static JToken TryGetFieldValue(this JToken token, string fieldName)
+		{
+			if (token is JObject jObject && jObject.TryGetValue(fieldName, out JToken value))
+			{
+				return value;
+			}
+
+			return null;
+		}
+	}
+}
 
 namespace OpenRA
 {
