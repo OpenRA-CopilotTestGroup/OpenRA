@@ -10,10 +10,13 @@
 #endregion
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using OpenRA.Primitives;
 using OpenRA.Traits;
+using static OpenRA.GameInformation;
+using TagLib.Mpeg4;
 
 namespace OpenRA.Mods.Common.Traits
 {
@@ -441,7 +444,9 @@ namespace OpenRA.Mods.Common.Traits
 
 					var cost = GetProductionCost(unit);
 					var time = GetBuildTime(unit, bi);
-					var amountToBuild = Math.Min(fromLimit, order.ExtraData);
+
+					var isCopilotOrder = order.ExtraData >= 1000000;
+					var amountToBuild = Math.Min(fromLimit, order.ExtraData % 1000000);
 					for (var n = 0; n < amountToBuild; n++)
 					{
 						var hasPlayedSound = false;
@@ -456,6 +461,10 @@ namespace OpenRA.Mods.Common.Traits
 							{
 								hasPlayedSound = Game.Sound.PlayNotification(rules, self.Owner, "Speech", Info.ReadyAudio, self.Owner.Faction.InternalName);
 								TextNotificationsManager.AddTransientLine(self.Owner, Info.ReadyTextNotification);
+								if (isCopilotOrder)
+								{
+									CopilotsUtils.TryBuild(self.World, unit.Name, self, this);
+								}
 							}
 							else if (!isBuilding)
 							{

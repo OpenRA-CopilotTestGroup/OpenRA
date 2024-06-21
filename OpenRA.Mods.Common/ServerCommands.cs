@@ -1,11 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using OpenRA.Graphics;
 using OpenRA.Mods.Common.Activities;
+using OpenRA.Mods.Common.Traits;
+using OpenRA.Mods.Common.Widgets;
 using OpenRA.Traits;
+using OpenRA.Widgets;
 
 namespace OpenRA.Mods.Common.Commands
 {
@@ -177,13 +181,73 @@ namespace OpenRA.Mods.Common.Commands
 			}
 		}
 
+
+
+		public static string StartProdunctionCommand(JObject json, World world)
+		{
+			var units = json.TryGetFieldValue("units")?.ToObject<List<string>>();
+			var player = world.LocalPlayer;
+			var ret_str = "";
+
+			if (units == null || units.Count == 0)
+			{
+				throw new ArgumentException("No units specified for Produnction command");
+			}
+
+			foreach (var unitName in units)
+			{
+				if (!world.Map.Rules.Actors.TryGetValue(unitName, out var unit))
+				{
+					ret_str += $"Error!! There is no unit named {unitName}!! \n";
+					continue;
+				}
+
+				var bi = unit.TraitInfo<BuildableInfo>();
+				var queue = bi.Queue
+			.SelectMany(oneQueue => AIUtils.FindQueues(player, oneQueue))
+			.FirstOrDefault();
+
+				if (queue != null)
+				{
+					world.IssueOrder(Order.StartProduction(queue.Actor, unitName, 1, true, true));
+					ret_str += $"{unitName} built.\n";
+				}
+				else
+				{
+					ret_str += $"No suitable queue found for unit {unitName}.\n";
+				}
+
+			}
+
+			return ret_str;
+		}
+
+		public static string CameraMoveCommand(JObject json, World world)
+		{
+			var direction = json.TryGetFieldValue("direction")?.ToObject<int>();
+			var distance = json.TryGetFieldValue("distance")?.ToObject<int>();
+
+			if (direction == null || distance == null)
+			{
+				return "No direction Or No Distance!!!!!!";
+			}
+
+			var directionVector = GetDirectionVector(direction.Value) * distance.Value;
+			var worldRenderer = Game.worldRenderer;
+			worldRenderer.Viewport.Scroll(new float2(directionVector.X, directionVector.Y), true);
+
+			return $"Camera moved {direction.Value} by {distance.Value} pxs.";
+		}
+
 		public void WorldLoaded(World w, WorldRenderer wr)
 		{
 			world = w;
-			if (w.Type == WorldType.Regular)
+			if (w.Type == WorldType.Regular && w.CopilotServer != null)
 			{
 				w.CopilotServer.OnMoveActorCommand += MoveActorCommand;
 				w.CopilotServer.QueryActor += ActorQueryCommand;
+				w.CopilotServer.OnStartProdunctionCommand += StartProdunctionCommand;
+				w.CopilotServer.OnCameraMoveCommand += CameraMoveCommand;
 			}
 		}
 	}

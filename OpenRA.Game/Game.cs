@@ -69,7 +69,7 @@ namespace OpenRA
 		public static CursorManager Cursor;
 		public static bool HideCursor;
 
-		static WorldRenderer worldRenderer;
+		public static WorldRenderer worldRenderer;
 		static string modLaunchWrapper;
 
 		internal static OrderManager OrderManager;
