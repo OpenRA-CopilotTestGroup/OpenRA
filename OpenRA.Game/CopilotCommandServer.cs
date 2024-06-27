@@ -136,13 +136,13 @@ namespace OpenRA
 							case "moveactor":
 								result = OnMoveActorCommand?.Invoke(json, world);
 
-								SendResponse(response, result ?? "Actor moved");
+								//SendResponse(response, result ?? "Actor moved");
 								break;
 							case "queryactor":
 								reslut_j = QueryActor?.Invoke(json, world);
 								var jsonResult = reslut_j.ToString();
 								SendJsonResponse(response, jsonResult);
-								break;
+								return;
 							case "startproduction":
 								result = OnStartProdunctionCommand?.Invoke(json, world);
 								break;
