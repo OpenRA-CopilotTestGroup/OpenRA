@@ -12,6 +12,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using OpenRA.Graphics;
 using OpenRA.Mods.Common.Traits;
 using OpenRA.Traits;
 
@@ -201,6 +202,17 @@ namespace OpenRA.Mods.Common
 					SuppressVisualFeedback = true
 				});
 			}
+		}
+
+		public static bool IsVisibleInViewport(WorldRenderer worldRenderer, WPos position)
+		{
+			var viewport = worldRenderer.Viewport;
+			var topLeft = worldRenderer.ProjectedPosition(viewport.TopLeft);
+			var bottomRight = worldRenderer.ProjectedPosition(viewport.BottomRight);
+
+			// 检查世界坐标是否在视窗范围内
+			return position.X >= topLeft.X && position.X <= bottomRight.X &&
+				   position.Y >= topLeft.Y && position.Y <= bottomRight.Y;
 		}
 	}
 }

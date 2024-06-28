@@ -149,6 +149,9 @@ namespace OpenRA
 							case "cameramove":
 								result = OnCameraMoveCommand?.Invoke(json, world);
 								break;
+							case "selectunit":
+								result = OnSelectUnitCommand?.Invoke(json, world);
+								break;
 
 							default:
 								SendResponse(response, "Unknown command", HttpStatusCode.BadRequest);

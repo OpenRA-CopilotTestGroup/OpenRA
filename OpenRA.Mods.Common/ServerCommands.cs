@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
+using DiscordRPC.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using OpenRA.Graphics;
@@ -18,7 +19,73 @@ namespace OpenRA.Mods.Common.Commands
 	public class ServerCommandsInfo : TraitInfo<ServerCommands> { }
 	public class ServerCommands : IWorldLoaded
 	{
-		World world;
+		public static List<Actor> GetTargets(JToken targets, World world, Player player)
+		{
+			var result = new List<Actor>();
+
+			// 解析参数
+			var range = targets["range"]?.ToString() ?? "all";
+			var groupIds = targets["groupId"]?.ToObject<List<int>>() ?? new List<int>();
+			var types = targets["type"]?.ToObject<List<string>>() ?? new List<string>();
+
+			var actors = world.Actors.Where(a => a.Owner == player);
+
+			// 根据范围筛选
+			switch (range)
+			{
+				case "screen":
+					var viewport = Game.worldRenderer.Viewport;
+					actors = actors.Where(a => a.OccupiesSpace != null && CopilotsUtils.IsVisibleInViewport(Game.worldRenderer, world.Map.CenterOfCell(a.Location)));
+					break;
+				case "selected":
+					actors = actors.Where(a => world.Selection.Contains(a));
+					break;
+				case "all":
+				default:
+					// 不做任何筛选
+					break;
+			}
+
+			// 根据groupId筛选
+			if (groupIds.Count > 0)
+			{
+				var groupActors = new List<Actor>();
+				foreach (var groupId in groupIds)
+				{
+					groupActors.AddRange(world.ControlGroups.GetActorsInControlGroup(groupId - 1));
+				}
+
+				actors = actors.Intersect(groupActors);
+			}
+
+			// 根据type筛选
+			if (types.Count > 0)
+			{
+				actors = actors.Where(a => types.Contains(a.Info.Name));
+			}
+
+			// 返回符合条件的ActorID
+			result.AddRange(actors);
+
+			return result;
+		}
+
+
+		public static string SelectUnitCommand(JObject json, World world)
+		{
+			var player = world.LocalPlayer;
+			var targets = json.TryGetFieldValue("targets");
+			if (targets == null)
+			{
+				throw new NotImplementedException("Missing parameters for SelectActor command");
+			}
+
+			var actors = GetTargets(targets, world, player);
+			var newSelection = SelectionUtils.SelectActorsByOwnerAndSelectionClass(actors, new List<Player> { player }, null).ToList();
+			world.Selection.Combine(world, newSelection, false, false);
+			return "Actor Selected";
+		}
+
 		public static string MoveActorCommand(JObject json, World world)
 		{
 
@@ -241,13 +308,13 @@ namespace OpenRA.Mods.Common.Commands
 
 		public void WorldLoaded(World w, WorldRenderer wr)
 		{
-			world = w;
 			if (w.Type == WorldType.Regular && w.CopilotServer != null)
 			{
 				w.CopilotServer.OnMoveActorCommand += MoveActorCommand;
 				w.CopilotServer.QueryActor += ActorQueryCommand;
 				w.CopilotServer.OnStartProdunctionCommand += StartProdunctionCommand;
 				w.CopilotServer.OnCameraMoveCommand += CameraMoveCommand;
+				w.CopilotServer.OnSelectUnitCommand += SelectUnitCommand;
 			}
 		}
 	}
