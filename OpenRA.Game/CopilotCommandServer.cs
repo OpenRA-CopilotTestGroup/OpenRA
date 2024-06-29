@@ -25,11 +25,7 @@ namespace OpenRA
 
 		// 镜头控制指令
 		public event CommondHandler OnCameraMoveCommand;
-		public event CommondHandler OnCameraFollowUnitCommand;
-		public event CommondHandler OnCameraFollowGroupCommand;
-
-		// 建造建筑指令
-		public event CommondHandler OnBuildBuildingAtCommand;
+		public event CommondHandler OnCameraFollowCommand;
 
 		// 生产单位指令
 		public event CommondHandler OnProduceUnitCommand;
@@ -39,21 +35,6 @@ namespace OpenRA
 
 		// 选择单位指令
 		public event CommondHandler OnSelectUnitCommand;
-		public event CommondHandler OnSelectUnitsBoxCommand;
-		public event CommondHandler OnSelectAllOnScreenCommand;
-		public event CommondHandler OnSelectAllUnitsCommand;
-		public event CommondHandler OnSelectGroupCommand;
-
-		// 单位行为指令
-		public event CommondHandler OnMoveInDirectionCommand;
-		public event CommondHandler OnMoveToPositionCommand;
-		public event CommondHandler OnMoveNearUnitCommand;
-		public event CommondHandler OnMoveNearGroupCommand;
-		public event CommondHandler OnStopMoveCommand;
-		public event CommondHandler OnAttackMoveCommand;
-		public event CommondHandler OnAttackUnitCommand;
-		public event CommondHandler OnAttackBaseCommand;
-		public event CommondHandler OnFreeAttackCommand;
 
 		// 单位编队指令
 		public event CommondHandler OnFormGroupCommand;
@@ -151,6 +132,9 @@ namespace OpenRA
 								break;
 							case "selectunit":
 								result = OnSelectUnitCommand?.Invoke(json, world);
+								break;
+							case "group":
+								result = OnFormGroupCommand?.Invoke(json, world);
 								break;
 
 							default:

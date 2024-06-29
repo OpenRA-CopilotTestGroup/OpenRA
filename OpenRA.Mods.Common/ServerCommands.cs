@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Numerics;
-using DiscordRPC.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using OpenRA.Graphics;
@@ -10,14 +8,13 @@ using OpenRA.Mods.Common.Activities;
 using OpenRA.Mods.Common.Traits;
 using OpenRA.Mods.Common.Widgets;
 using OpenRA.Traits;
-using OpenRA.Widgets;
 
 namespace OpenRA.Mods.Common.Commands
 {
 	[TraitLocation(SystemActors.World)]
 	[Desc("Attach this to the world actor.")]
 	public class ServerCommandsInfo : TraitInfo<ServerCommands> { }
-	public class ServerCommands : IWorldLoaded
+	public class ServerCommands : IWorldLoaded, ITick
 	{
 		public static List<Actor> GetTargets(JToken targets, World world, Player player)
 		{
@@ -81,11 +78,32 @@ namespace OpenRA.Mods.Common.Commands
 			}
 
 			var actors = GetTargets(targets, world, player);
+			if (actors.Count <= 0)
+				return "No Actor Selected";
 			var newSelection = SelectionUtils.SelectActorsByOwnerAndSelectionClass(actors, new List<Player> { player }, null).ToList();
 			world.Selection.Combine(world, newSelection, false, false);
 			return "Actor Selected";
 		}
 
+		public static string FormGroupCommand(JObject json, World world)
+		{
+			var player = world.LocalPlayer;
+			var targets = json.TryGetFieldValue("targets");
+			var groupId = json.TryGetFieldValue("groupId")?.ToObject<int>();
+			if (targets == null || groupId == null)
+			{
+				throw new NotImplementedException("Missing parameters for FormGroupCommand");
+			}
+
+			var actors = GetTargets(targets, world, player);
+			if (actors.Count <= 0)
+				return "No Actor Selected";
+			var newSelection = SelectionUtils.SelectActorsByOwnerAndSelectionClass(actors, new List<Player> { player }, null).ToList();
+			world.Selection.Combine(world, newSelection, false, false);
+			world.ControlGroups.CreateControlGroup(groupId.Value - 1);
+
+			return "Group Formed";
+		}
 		public static string MoveActorCommand(JObject json, World world)
 		{
 
@@ -315,7 +333,13 @@ namespace OpenRA.Mods.Common.Commands
 				w.CopilotServer.OnStartProdunctionCommand += StartProdunctionCommand;
 				w.CopilotServer.OnCameraMoveCommand += CameraMoveCommand;
 				w.CopilotServer.OnSelectUnitCommand += SelectUnitCommand;
+				w.CopilotServer.OnFormGroupCommand += FormGroupCommand;
 			}
+		}
+
+		public void Tick(Actor self)
+		{
+
 		}
 	}
 }
