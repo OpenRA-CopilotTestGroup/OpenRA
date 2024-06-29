@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using OpenRA.Graphics;
@@ -8,6 +9,7 @@ using OpenRA.Mods.Common.Activities;
 using OpenRA.Mods.Common.Traits;
 using OpenRA.Mods.Common.Widgets;
 using OpenRA.Traits;
+using static OpenRA.GameInformation;
 
 namespace OpenRA.Mods.Common.Commands
 {
@@ -67,7 +69,6 @@ namespace OpenRA.Mods.Common.Commands
 			return result;
 		}
 
-
 		public static string SelectUnitCommand(JObject json, World world)
 		{
 			var player = world.LocalPlayer;
@@ -104,11 +105,19 @@ namespace OpenRA.Mods.Common.Commands
 
 			return "Group Formed";
 		}
+
 		public static string MoveActorCommand(JObject json, World world)
 		{
+			var player = world.LocalPlayer;
+			var targets = json.TryGetFieldValue("targets");
+			if (targets == null)
+			{
+				throw new NotImplementedException("Missing parameters for FormGroupCommand");
+			}
 
-			var actorId = json.TryGetFieldValue("actorId")?.ToObject<uint>();
-			var groupId = json.TryGetFieldValue("groupId")?.ToObject<int>();
+			var actors = GetTargets(targets, world, player);
+			if (actors.Count <= 0)
+				return "No Actor Selected";
 			CPos? location;
 			location = null;
 			var locationJson = json.TryGetFieldValue("location");
@@ -119,45 +128,26 @@ namespace OpenRA.Mods.Common.Commands
 				if (x != null && y != null)
 					location = new CPos((int)x, (int)y);
 			}
+
 			var direction = json.TryGetFieldValue("direction")?.ToObject<int>();
 			var distance = json.TryGetFieldValue("distance")?.ToObject<int>();
-			var attackmove = json.TryGetFieldValue("attackmove")?.ToObject<bool>();
+			var isAttackMove = json.TryGetFieldValue("isAttackMove")?.ToObject<bool>();
+			var isAssaultMove = json.TryGetFieldValue("isAssaultMove")?.ToObject<bool>();
 
-			if (actorId != null)
+			if (location != null)
 			{
-				if (location != null)
-				{
-					return MoveActorToLocation((uint)actorId, (CPos)location, attackmove ?? false, world);
-				}
-				else if (direction != null && distance != null)
-				{
-					return MoveActorInDirection((uint)actorId, (int)direction, (int)distance, attackmove ?? false, world);
-				}
-				else
-				{
-					throw new NotImplementedException("Missing parameters for moveactor command");
-				}
+				return MoveActorToLocation(actors, (CPos)location, isAttackMove ?? false, isAssaultMove ?? false, world);
 			}
-			else if (groupId != null)
+			else if (direction != null && distance != null)
 			{
-				if (location != null)
-				{
-					return MoveGroupToLocation((int)groupId - 1, (CPos)location, attackmove ?? false, world);
-				}
-				else if (direction != null && distance != null)
-				{
-					return MoveGroupInDirection((int)groupId - 1, (int)direction, (int)distance, attackmove ?? false, world);
-				}
-				else
-				{
-					throw new NotImplementedException("Missing parameters for movegroup command");
-				}
+				return MoveActorInDirection(actors, (int)direction, (int)distance, isAttackMove ?? false, isAssaultMove ?? false, world);
 			}
 			else
 			{
-				throw new NotImplementedException("Missing parameters for move command");
+				throw new NotImplementedException("Missing parameters for moveactor command");
 			}
 		}
+
 		public static JObject ActorQueryCommand(JObject json, World world)
 		{
 			var actorsInfo = world.Actors
@@ -183,71 +173,61 @@ namespace OpenRA.Mods.Common.Commands
 			return result;
 		}
 
-		public static string MoveActorInDirection(uint actorId, int direction, int distance, bool isattackmove, World world)
+		public static string MoveActorInDirection(IEnumerable<Actor> actors, int direction, int distance, bool isAttackMove, bool isAssaultMove, World world)
 		{
-			var actor = world.Actors.FirstOrDefault(a => a.ActorID == actorId);
-			if (actor == null)
+			var num = 0;
+			foreach (var actor in actors)
 			{
-				TextNotificationsManager.Debug("Actor not found: " + actorId);
-				throw new NotImplementedException("Actor not found: " + actorId);
+				var move = actor.TraitOrDefault<IMove>();
+				if (move == null)
+					continue;
+				num++;
+				var directionVector = GetDirectionVector(direction);
+				var targetLocation = actor.Location + directionVector * distance;
+
+				if (!world.Map.Contains(targetLocation))
+				{
+					TextNotificationsManager.Debug("Target location is out of bounads");
+					throw new NotImplementedException("Target location is out of bounads");
+				}
+
+				actor.CancelActivity();
+				if (isAttackMove || isAssaultMove)
+				{
+					actor.QueueActivity(new AttackMoveActivity(actor, () => move.MoveTo(targetLocation, 8, null), isAssaultMove));
+				}
+				else
+				{
+					actor.QueueActivity(new Move(actor, targetLocation));
+				}
 			}
 
-			var directionVector = GetDirectionVector(direction);
-			var targetLocation = actor.Location + directionVector * distance;
-
-			if (!world.Map.Contains(targetLocation))
-			{
-				TextNotificationsManager.Debug("Target location is out of bounads");
-				throw new NotImplementedException("Target location is out of bounads");
-			}
-
-			actor.QueueActivity(new Move(actor, targetLocation));
-			return "Actor Moved";
+			return $"{num} Actor Moved";
 		}
 
-		public static string MoveActorToLocation(uint actorId, CPos location, bool isattackmove, World world)
+		public static string MoveActorToLocation(IEnumerable<Actor> actors, CPos targetLocation, bool isAttackMove, bool isAssaultMove, World world)
 		{
-			var actor = world.Actors.FirstOrDefault(a => a.ActorID == actorId);
-			if (actor == null)
+			var num = 0;
+			foreach (var actor in actors)
 			{
-				TextNotificationsManager.Debug("Actor not found: " + actorId);
-				throw new NotImplementedException("Actor not found: " + actorId);
+				var move = actor.TraitOrDefault<IMove>();
+				if (move == null)
+					continue;
+				num++;
+				actor.CancelActivity();
+				if (isAttackMove || isAssaultMove)
+				{
+					actor.QueueActivity(new AttackMoveActivity(actor, () => move.MoveTo(targetLocation, 8, null), isAssaultMove));
+				}
+				else
+				{
+					actor.QueueActivity(new Move(actor, targetLocation));
+				}
 			}
 
-			if (!world.Map.Contains(location))
-			{
-				TextNotificationsManager.Debug("Target location is out of bounads");
-				throw new NotImplementedException("Target location is out of bounads");
-			}
-
-			actor.QueueActivity(new Move(actor, location));
-			return "Actor Moved";
+			return $"{num} Actor Moved";
 		}
 
-		public static string MoveGroupToLocation(int groupId, CPos location, bool isattackmove, World world)
-		{
-			var results = new List<string>();
-			var group = world.ControlGroups.GetActorsInControlGroup(groupId);
-			foreach (var actor in group)
-			{
-				results.Add(MoveActorToLocation(actor.ActorID, location, isattackmove, world));
-			}
-
-			return string.Join("\n", results);
-		}
-
-		public static string MoveGroupInDirection(int groupId, int direction, int distance, bool isattackmove, World world)
-		{
-
-			var results = new List<string>();
-			var group = world.ControlGroups.GetActorsInControlGroup(groupId);
-
-			foreach (var actor in group)
-			{
-				results.Add(MoveActorInDirection(actor.ActorID, direction, distance, isattackmove, world));
-			}
-			return string.Join("\n", results);
-		}
 		static CVec GetDirectionVector(int direction)
 		{
 			switch (direction)
@@ -265,8 +245,6 @@ namespace OpenRA.Mods.Common.Commands
 					throw new NotImplementedException("Invalid direction: " + direction);
 			}
 		}
-
-
 
 		public static string StartProdunctionCommand(JObject json, World world)
 		{
@@ -301,7 +279,6 @@ namespace OpenRA.Mods.Common.Commands
 				{
 					ret_str += $"No suitable queue found for unit {unitName}.\n";
 				}
-
 			}
 
 			return ret_str;
@@ -339,7 +316,6 @@ namespace OpenRA.Mods.Common.Commands
 
 		public void Tick(Actor self)
 		{
-
 		}
 	}
 }
