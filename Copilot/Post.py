@@ -5,14 +5,29 @@ url = 'http://localhost:8080'
 headers = {'Content-Type': 'application/json'}
 
 data = {
-    'command': 'moveactor',
-    'groupId': '1', 
-    'location': {
+    'command': 'selectunit',
+    'targets':{
+    'range': 'screen', #约束选择的目标基础 还可以为selected/all 没有此项默认为all 
+    'groupId' : [2],  #约束目标的groupId，是个list，为空或者没有此项默认为不约束groupId
+    'type': ['e1', 'e2'] #约束
+    },
+    'units': [
+        'apwr',
+        'proc','proc','proc',
+        'silo',
+        'ltnk',
+        'tank'
+        
+    ],
+    #'actorId': 246,
+    'groupId': 2, 
+     'location': {
         "X": '74',
         "Y": '81'
-    },
-    'direction': 7,          
-    'distance': 2            
+    },   
+    'distance': 20 ,
+    'direction': 3 ,
+    'attackmove': True ,
 }
 json_data = json.dumps(data)
 
