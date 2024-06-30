@@ -132,16 +132,16 @@ namespace OpenRA.Mods.Common.Commands
 
 			var direction = json.TryGetFieldValue("direction")?.ToObject<int>();
 			var distance = json.TryGetFieldValue("distance")?.ToObject<int>();
-			var isAttackMove = json.TryGetFieldValue("isAttackMove")?.ToObject<bool>();
-			var isAssaultMove = json.TryGetFieldValue("isAssaultMove")?.ToObject<bool>();
+			var isAttackMove = json.TryGetFieldValue("isAttackMove")?.ToObject<int>();
+			var isAssaultMove = json.TryGetFieldValue("isAssaultMove")?.ToObject<int>();
 
 			if (location != null)
 			{
-				return MoveActorToLocation(actors, (CPos)location, isAttackMove ?? false, isAssaultMove ?? false, world);
+				return MoveActorToLocation(actors, (CPos)location, isAttackMove > 0, isAssaultMove > 0, world);
 			}
 			else if (direction != null && distance != null)
 			{
-				return MoveActorInDirection(actors, (int)direction, (int)distance, isAttackMove ?? false, isAssaultMove ?? false, world);
+				return MoveActorInDirection(actors, (int)direction, (int)distance, isAttackMove > 0, isAssaultMove > 0, world);
 			}
 			else
 			{
