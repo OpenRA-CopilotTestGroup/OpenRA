@@ -248,17 +248,24 @@ namespace OpenRA.Mods.Common.Commands
 
 		public static string StartProdunctionCommand(JObject json, World world)
 		{
-			var units = json.TryGetFieldValue("units")?.ToObject<List<string>>();
+			var orders = json.TryGetFieldValue("units")?.ToObject<List<JToken>>();
 			var player = world.LocalPlayer;
 			var ret_str = "";
 
-			if (units == null || units.Count == 0)
+			if (orders == null || orders.Count == 0)
 			{
 				throw new ArgumentException("No units specified for Produnction command");
 			}
 
-			foreach (var unitName in units)
+			foreach (var order in orders)
 			{
+				var unitName = order.TryGetFieldValue("unit_type")?.ToObject<string>();
+				var quantity = order.TryGetFieldValue("quantity")?.ToObject<int>();
+				if (unitName == null || quantity == null)
+				{
+					throw new NotImplementedException("Missing parameters for StartProdunctionCommand");
+				}
+
 				if (!world.Map.Rules.Actors.TryGetValue(unitName, out var unit))
 				{
 					ret_str += $"Error!! There is no unit named {unitName}!! \n";
@@ -272,7 +279,7 @@ namespace OpenRA.Mods.Common.Commands
 
 				if (queue != null)
 				{
-					world.IssueOrder(Order.StartProduction(queue.Actor, unitName, 1, true, true));
+					world.IssueOrder(Order.StartProduction(queue.Actor, unitName, quantity.Value, true, true));
 					ret_str += $"{unitName} built.\n";
 				}
 				else

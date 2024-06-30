@@ -109,31 +109,29 @@ namespace OpenRA
 							SendResponse(response, "Invalid JSON format", HttpStatusCode.BadRequest);
 							return;
 						}
-						var command = json["command"]?.ToString();
+						var path = request.Url.AbsolutePath;
 						string result = null;
 						JObject reslut_j;
-						switch (command)
+						switch (path)
 						{
-							case "moveactor":
+							case "/api/units/move":
 								result = OnMoveActorCommand?.Invoke(json, world);
-
-								//SendResponse(response, result ?? "Actor moved");
 								break;
-							case "queryactor":
+							case "/api/query/actor":
 								reslut_j = QueryActor?.Invoke(json, world);
 								var jsonResult = reslut_j.ToString();
 								SendJsonResponse(response, jsonResult);
 								return;
-							case "startproduction":
+							case "/api/produce":
 								result = OnStartProdunctionCommand?.Invoke(json, world);
 								break;
-							case "cameramove":
+							case " /api/camera/follow":
 								result = OnCameraMoveCommand?.Invoke(json, world);
 								break;
-							case "selectunit":
+							case "/api/units/select":
 								result = OnSelectUnitCommand?.Invoke(json, world);
 								break;
-							case "group":
+							case "/api/units/group":
 								result = OnFormGroupCommand?.Invoke(json, world);
 								break;
 
