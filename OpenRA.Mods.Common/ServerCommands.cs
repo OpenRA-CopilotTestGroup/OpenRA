@@ -73,6 +73,7 @@ namespace OpenRA.Mods.Common.Commands
 		{
 			var player = world.LocalPlayer;
 			var targets = json.TryGetFieldValue("targets");
+			var isCombine = json.TryGetFieldValue("isCombine")?.ToObject<int>();
 			if (targets == null)
 			{
 				throw new NotImplementedException("Missing parameters for SelectActor command");
@@ -82,7 +83,7 @@ namespace OpenRA.Mods.Common.Commands
 			if (actors.Count <= 0)
 				return "No Actor Selected";
 			var newSelection = SelectionUtils.SelectActorsByOwnerAndSelectionClass(actors, new List<Player> { player }, null).ToList();
-			world.Selection.Combine(world, newSelection, false, false);
+			world.Selection.Combine(world, newSelection, isCombine > 0, false);
 			return "Actor Selected";
 		}
 
