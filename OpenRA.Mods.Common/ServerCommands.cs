@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using OpenRA.Graphics;
@@ -9,8 +8,6 @@ using OpenRA.Mods.Common.Activities;
 using OpenRA.Mods.Common.Traits;
 using OpenRA.Mods.Common.Widgets;
 using OpenRA.Traits;
-using static OpenRA.GameInformation;
-
 namespace OpenRA.Mods.Common.Commands
 {
 	[TraitLocation(SystemActors.World)]
@@ -61,6 +58,23 @@ namespace OpenRA.Mods.Common.Commands
 			if (types.Count > 0)
 			{
 				actors = actors.Where(a => types.Contains(a.Info.Name));
+			}
+
+			var restrains = targets["restrain"]?.ToList();
+			if (restrains != null)
+			{
+				foreach (var restrain in restrains)
+				{
+					var direction = restrain["relativeDirection"]?.ToString();
+					var maxNum = restrain["maxNum"]?.ToObject<int>();
+
+					if (direction != null && maxNum.HasValue)
+					{
+						var directionVector = CopilotsUtils.GetDirectionVector(direction);
+						actors = actors.OrderBy(a => -a.Location.X * directionVector.X - a.Location.Y * directionVector.Y);
+						actors = actors.Take(maxNum.Value);
+					}
+				}
 			}
 
 			// 返回符合条件的ActorID
@@ -130,7 +144,7 @@ namespace OpenRA.Mods.Common.Commands
 					location = new CPos((int)x, (int)y);
 			}
 
-			var direction = json.TryGetFieldValue("direction")?.ToObject<int>();
+			var direction = json.TryGetFieldValue("direction")?.ToObject<string>();
 			var distance = json.TryGetFieldValue("distance")?.ToObject<int>();
 			var isAttackMove = json.TryGetFieldValue("isAttackMove")?.ToObject<int>();
 			var isAssaultMove = json.TryGetFieldValue("isAssaultMove")?.ToObject<int>();
@@ -141,7 +155,7 @@ namespace OpenRA.Mods.Common.Commands
 			}
 			else if (direction != null && distance != null)
 			{
-				return MoveActorInDirection(actors, (int)direction, (int)distance, isAttackMove > 0, isAssaultMove > 0, world);
+				return MoveActorInDirection(actors, direction, distance.Value, isAttackMove > 0, isAssaultMove > 0, world);
 			}
 			else
 			{
@@ -174,7 +188,7 @@ namespace OpenRA.Mods.Common.Commands
 			return result;
 		}
 
-		public static string MoveActorInDirection(IEnumerable<Actor> actors, int direction, int distance, bool isAttackMove, bool isAssaultMove, World world)
+		public static string MoveActorInDirection(IEnumerable<Actor> actors, string direction, int distance, bool isAttackMove, bool isAssaultMove, World world)
 		{
 			var num = 0;
 			foreach (var actor in actors)
@@ -183,7 +197,7 @@ namespace OpenRA.Mods.Common.Commands
 				if (move == null)
 					continue;
 				num++;
-				var directionVector = GetDirectionVector(direction);
+				var directionVector = CopilotsUtils.GetDirectionVector(direction);
 				var targetLocation = actor.Location + directionVector * distance;
 
 				if (!world.Map.Contains(targetLocation))
@@ -227,24 +241,6 @@ namespace OpenRA.Mods.Common.Commands
 			}
 
 			return $"{num} Actor Moved";
-		}
-
-		static CVec GetDirectionVector(int direction)
-		{
-			switch (direction)
-			{
-				case 0: return new CVec(0, -1);  // North
-				case 1: return new CVec(1, -1);  // Northeast
-				case 2: return new CVec(1, 0);   // East
-				case 3: return new CVec(1, 1);   // Southeast
-				case 4: return new CVec(0, 1);   // South
-				case 5: return new CVec(-1, 1);  // Southwest
-				case 6: return new CVec(-1, 0);  // West
-				case 7: return new CVec(-1, -1); // Northwest
-				default:
-					TextNotificationsManager.Debug("Invalid direction: " + direction);
-					throw new NotImplementedException("Invalid direction: " + direction);
-			}
 		}
 
 		public static string StartProdunctionCommand(JObject json, World world)
@@ -294,7 +290,7 @@ namespace OpenRA.Mods.Common.Commands
 
 		public static string CameraMoveCommand(JObject json, World world)
 		{
-			var direction = json.TryGetFieldValue("direction")?.ToObject<int>();
+			var direction = json.TryGetFieldValue("direction")?.ToObject<string>();
 			var distance = json.TryGetFieldValue("distance")?.ToObject<int>();
 
 			if (direction == null || distance == null)
@@ -302,11 +298,11 @@ namespace OpenRA.Mods.Common.Commands
 				return "No direction Or No Distance!!!!!!";
 			}
 
-			var directionVector = GetDirectionVector(direction.Value) * distance.Value;
+			var directionVector = CopilotsUtils.GetDirectionVector(direction) * distance.Value;
 			var worldRenderer = Game.worldRenderer;
 			worldRenderer.Viewport.Scroll(new float2(directionVector.X, directionVector.Y), true);
 
-			return $"Camera moved {direction.Value} by {distance.Value} pxs.";
+			return $"Camera moved {direction} by {distance.Value} pxs.";
 		}
 
 		public void WorldLoaded(World w, WorldRenderer wr)

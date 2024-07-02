@@ -214,5 +214,50 @@ namespace OpenRA.Mods.Common
 			return position.X >= topLeft.X && position.X <= bottomRight.X &&
 				   position.Y >= topLeft.Y && position.Y <= bottomRight.Y;
 		}
+
+		public static CVec GetDirectionVector(string direction)
+		{
+			switch (direction)
+			{
+				case "北":
+				case "上": return new CVec(0, -1);  // North
+				case "右上":
+				case "东北": return new CVec(1, -1);  // Northeast
+				case "东":
+				case "右": return new CVec(1, 0);   // East
+				case "右下":
+				case "东南": return new CVec(1, 1);   // Southeast
+				case "南":
+				case "下": return new CVec(0, 1);   // South
+				case "左下":
+				case "西南": return new CVec(-1, 1);  // Southwest
+				case "西":
+				case "左": return new CVec(-1, 0);  // West
+				case "左上":
+				case "西北": return new CVec(-1, -1); // Northwest
+				case "任意": return GetRandomDirection(); // Any random direction
+				default:
+					throw new ArgumentException($"Invalid direction: {direction}");
+			}
+		}
+
+		static CVec GetRandomDirection()
+		{
+			var random = new Random();
+			var randomDirection = random.Next(8); // Randomly choose from 0 to 7
+			switch (randomDirection)
+			{
+				case 0: return new CVec(0, -1);  // North
+				case 1: return new CVec(1, -1);  // Northeast
+				case 2: return new CVec(1, 0);   // East
+				case 3: return new CVec(1, 1);   // Southeast
+				case 4: return new CVec(0, 1);   // South
+				case 5: return new CVec(-1, 1);  // Southwest
+				case 6: return new CVec(-1, 0);  // West
+				case 7: return new CVec(-1, -1); // Northwest
+				default:
+					throw new InvalidOperationException("Random direction generation failed");
+			}
+		}
 	}
 }
