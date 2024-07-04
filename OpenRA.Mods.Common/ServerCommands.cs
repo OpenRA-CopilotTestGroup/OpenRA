@@ -24,14 +24,14 @@ namespace OpenRA.Mods.Common.Commands
 			var groupIds = targets["groupId"]?.ToObject<List<int>>() ?? new List<int>();
 			var types = targets["type"]?.ToObject<List<string>>() ?? new List<string>();
 			types = types.ConvertAll(x => CopilotsConfig.GetConfigNameByChinese(x));
-			var actors = world.Actors.Where(a => a.Owner == player);
+			var actors = world.Actors.Where(a => a.Owner == player && a.OccupiesSpace != null);
 
 			// 根据范围筛选
 			switch (range)
 			{
 				case "screen":
 					var viewport = Game.worldRenderer.Viewport;
-					actors = actors.Where(a => a.OccupiesSpace != null && CopilotsUtils.IsVisibleInViewport(Game.worldRenderer, world.Map.CenterOfCell(a.Location)));
+					actors = actors.Where(a => CopilotsUtils.IsVisibleInViewport(Game.worldRenderer, world.Map.CenterOfCell(a.Location)));
 					break;
 				case "selected":
 					actors = actors.Where(a => world.Selection.Contains(a));
@@ -81,6 +81,41 @@ namespace OpenRA.Mods.Common.Commands
 			result.AddRange(actors);
 
 			return result;
+		}
+
+		public static CPos GetLocation(JToken location, World world, Player player)
+		{
+			var targets = location.TryGetFieldValue("targets");
+			if (targets == null)
+			{
+				throw new NotImplementedException("Missing parameters targets for location");
+			}
+
+			var sum = new CPos(0, 0);
+			var targetActors = GetTargets(targets, world, player);
+
+			if (targetActors.Count == 0)
+			{
+				throw new NotImplementedException("no actor targets for location");
+			}
+
+			foreach (var target in targetActors)
+			{
+				sum = new CPos(sum.X + target.Location.X, sum.Y + target.Location.Y);
+			}
+
+			var count = targetActors.Count;
+			var averageLocation = new CPos(sum.X / count, sum.Y / count);
+
+			var direction = location.TryGetFieldValue("direction")?.ToObject<string>();
+			var distance = location.TryGetFieldValue("distance")?.ToObject<int>();
+
+			if (direction != null && distance != null)
+			{
+				averageLocation += CopilotsUtils.GetDirectionVector(direction) * distance.Value;
+			}
+
+			return averageLocation;
 		}
 
 		public static string SelectUnitCommand(JObject json, World world)
@@ -138,10 +173,7 @@ namespace OpenRA.Mods.Common.Commands
 			var locationJson = json.TryGetFieldValue("location");
 			if (locationJson != null)
 			{
-				var x = locationJson.TryGetFieldValue("X")?.ToObject<int>();
-				var y = locationJson.TryGetFieldValue("Y")?.ToObject<int>();
-				if (x != null && y != null)
-					location = new CPos((int)x, (int)y);
+				location = GetLocation(locationJson, world, player);
 			}
 
 			var direction = json.TryGetFieldValue("direction")?.ToObject<string>();
@@ -291,19 +323,27 @@ namespace OpenRA.Mods.Common.Commands
 
 		public static string CameraMoveCommand(JObject json, World world)
 		{
+			var worldRenderer = Game.worldRenderer;
+			var locationToken = json.TryGetFieldValue("location");
+			if (locationToken != null)
+			{
+				var location = GetLocation(locationToken, world, world.LocalPlayer);
+				worldRenderer.Viewport.Center(world.Map.CenterOfCell(location));
+				return $"Camera moved to {location}";
+			}
+
 			var direction = json.TryGetFieldValue("direction")?.ToObject<string>();
 			var distance = json.TryGetFieldValue("distance")?.ToObject<int>();
 
 			if (direction == null || distance == null)
 			{
-				return "No direction Or No Distance!!!!!!";
+				return "No direction Or No Distance Or No Location !!!!!!";
 			}
 
-			var directionVector = CopilotsUtils.GetDirectionVector(direction) * distance.Value;
-			var worldRenderer = Game.worldRenderer;
+			var directionVector = CopilotsUtils.GetDirectionVector(direction) * distance.Value * world.Map.Grid.TileSize.Width;
 			worldRenderer.Viewport.Scroll(new float2(directionVector.X, directionVector.Y), true);
 
-			return $"Camera moved {direction} by {distance.Value} pxs.";
+			return $"Camera moved {direction} by {distance.Value}.";
 		}
 
 		public void WorldLoaded(World w, WorldRenderer wr)
