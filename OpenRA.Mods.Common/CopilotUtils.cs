@@ -210,7 +210,7 @@ namespace OpenRA.Mods.Common
 			var topLeft = worldRenderer.ProjectedPosition(viewport.TopLeft);
 			var bottomRight = worldRenderer.ProjectedPosition(viewport.BottomRight);
 
-			// ¼ì²éÊÀ½ç×ø±êÊÇ·ñÔÚÊÓ´°·¶Î§ÄÚ
+			// æ£€æŸ¥ä¸–ç•Œåæ ‡æ˜¯å¦åœ¨è§†çª—èŒƒå›´å†…
 			return position.X >= topLeft.X && position.X <= bottomRight.X &&
 				   position.Y >= topLeft.Y && position.Y <= bottomRight.Y;
 		}
@@ -219,23 +219,23 @@ namespace OpenRA.Mods.Common
 		{
 			switch (direction)
 			{
-				case "±±":
-				case "ÉÏ": return new CVec(0, -1);  // North
-				case "ÓÒÉÏ":
-				case "¶«±±": return new CVec(1, -1);  // Northeast
-				case "¶«":
-				case "ÓÒ": return new CVec(1, 0);   // East
-				case "ÓÒÏÂ":
-				case "¶«ÄÏ": return new CVec(1, 1);   // Southeast
-				case "ÄÏ":
-				case "ÏÂ": return new CVec(0, 1);   // South
-				case "×óÏÂ":
-				case "Î÷ÄÏ": return new CVec(-1, 1);  // Southwest
-				case "Î÷":
-				case "×ó": return new CVec(-1, 0);  // West
-				case "×óÉÏ":
-				case "Î÷±±": return new CVec(-1, -1); // Northwest
-				case "ÈÎÒâ": return GetRandomDirection(); // Any random direction
+				case "åŒ—":
+				case "ä¸Š": return new CVec(0, -1);  // North
+				case "å³ä¸Š":
+				case "ä¸œåŒ—": return new CVec(1, -1);  // Northeast
+				case "ä¸œ":
+				case "å³": return new CVec(1, 0);   // East
+				case "å³ä¸‹":
+				case "ä¸œå—": return new CVec(1, 1);   // Southeast
+				case "å—":
+				case "ä¸‹": return new CVec(0, 1);   // South
+				case "å·¦ä¸‹":
+				case "è¥¿å—": return new CVec(-1, 1);  // Southwest
+				case "è¥¿":
+				case "å·¦": return new CVec(-1, 0);  // West
+				case "å·¦ä¸Š":
+				case "è¥¿åŒ—": return new CVec(-1, -1); // Northwest
+				case "ä»»æ„": return GetRandomDirection(); // Any random direction
 				default:
 					throw new ArgumentException($"Invalid direction: {direction}");
 			}

@@ -19,14 +19,14 @@ namespace OpenRA.Mods.Common.Commands
 		{
 			var result = new List<Actor>();
 
-			// ½âÎö²ÎÊı
+			// è§£æå‚æ•°
 			var range = targets["range"]?.ToString() ?? "all";
 			var groupIds = targets["groupId"]?.ToObject<List<int>>() ?? new List<int>();
 			var types = targets["type"]?.ToObject<List<string>>() ?? new List<string>();
-
+			types = types.ConvertAll(x => CopilotsConfig.GetConfigNameByChinese(x));
 			var actors = world.Actors.Where(a => a.Owner == player);
 
-			// ¸ù¾İ·¶Î§É¸Ñ¡
+			// æ ¹æ®èŒƒå›´ç­›é€‰
 			switch (range)
 			{
 				case "screen":
@@ -38,11 +38,11 @@ namespace OpenRA.Mods.Common.Commands
 					break;
 				case "all":
 				default:
-					// ²»×öÈÎºÎÉ¸Ñ¡
+					// ä¸åšä»»ä½•ç­›é€‰
 					break;
 			}
 
-			// ¸ù¾İgroupIdÉ¸Ñ¡
+			// æ ¹æ®groupIdç­›é€‰
 			if (groupIds.Count > 0)
 			{
 				var groupActors = new List<Actor>();
@@ -54,7 +54,7 @@ namespace OpenRA.Mods.Common.Commands
 				actors = actors.Intersect(groupActors);
 			}
 
-			// ¸ù¾İtypeÉ¸Ñ¡
+			// æ ¹æ®typeç­›é€‰
 			if (types.Count > 0)
 			{
 				actors = actors.Where(a => types.Contains(a.Info.Name));
@@ -77,7 +77,7 @@ namespace OpenRA.Mods.Common.Commands
 				}
 			}
 
-			// ·µ»Ø·ûºÏÌõ¼şµÄActorID
+			// è¿”å›ç¬¦åˆæ¡ä»¶çš„ActorID
 			result.AddRange(actors);
 
 			return result;
@@ -257,6 +257,7 @@ namespace OpenRA.Mods.Common.Commands
 			foreach (var order in orders)
 			{
 				var unitName = order.TryGetFieldValue("unit_type")?.ToObject<string>();
+				unitName = CopilotsConfig.GetConfigNameByChinese(unitName);
 				var quantity = order.TryGetFieldValue("quantity")?.ToObject<int>();
 				if (unitName == null || quantity == null)
 				{
@@ -315,6 +316,7 @@ namespace OpenRA.Mods.Common.Commands
 				w.CopilotServer.OnCameraMoveCommand += CameraMoveCommand;
 				w.CopilotServer.OnSelectUnitCommand += SelectUnitCommand;
 				w.CopilotServer.OnFormGroupCommand += FormGroupCommand;
+				CopilotsConfig.LoadConfig();
 			}
 		}
 
