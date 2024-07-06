@@ -4,11 +4,17 @@ import requests
 import json
 
 initjson = """{
-    "command": "selectunit",
     "targets":{
         "range": "screen", 
         "groupId" : [],  
-        "type": ["e1"] 
+        "type": ["步兵"],
+        "restrain" : 
+        [
+            {
+                "relativeDirection" : "左下" ,
+                "maxNum" : 2
+            }
+        ]
     }
 }
 """
@@ -29,7 +35,7 @@ class PacketSenderApp:
         self.url_label = tk.Label(root, text="URL:")
         self.url_label.grid(row=0, column=0, sticky=tk.E)
         self.url_entry = tk.Entry(root)
-        self.url_entry.insert(tk.END, "http://localhost:8080")
+        self.url_entry.insert(tk.END, "http://localhost:8080/api/units/select")
         self.url_entry.grid(row=0, column=1, columnspan=3, padx = (0,95), sticky=tk.EW)
 
         # Request JSON
@@ -67,6 +73,7 @@ class PacketSenderApp:
             else:
                 self.response_text.insert(tk.END, "Response Text:\n")
                 self.response_text.insert(tk.END, response.text)
+            self.response_text.insert(tk.END, "\n----------------------------\n")
 
             self.response_text.see(tk.END)  # Scroll to the bottom of the response text area
 

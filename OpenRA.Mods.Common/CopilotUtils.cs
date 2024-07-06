@@ -217,6 +217,8 @@ namespace OpenRA.Mods.Common
 
 		public static CVec GetDirectionVector(string direction)
 		{
+			if (direction.EndsWith('方') || direction.EndsWith('侧') || direction.EndsWith('边'))
+				direction = direction[..^1];
 			switch (direction)
 			{
 				case "北":
@@ -235,7 +237,12 @@ namespace OpenRA.Mods.Common
 				case "左": return new CVec(-1, 0);  // West
 				case "左上":
 				case "西北": return new CVec(-1, -1); // Northwest
-				case "任意": return GetRandomDirection(); // Any random direction
+				case "任意":
+				case "左右":
+				case "上下":
+				case "附近":
+				case "旁":
+					return GetRandomDirection(); // Any random direction
 				default:
 					throw new ArgumentException($"Invalid direction: {direction}");
 			}
