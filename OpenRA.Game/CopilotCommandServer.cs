@@ -125,7 +125,7 @@ namespace OpenRA
 							case "/api/produce":
 								result = OnStartProdunctionCommand?.Invoke(json, world);
 								break;
-							case " /api/camera/follow":
+							case " /api/camera/move":
 								result = OnCameraMoveCommand?.Invoke(json, world);
 								break;
 							case "/api/units/select":
