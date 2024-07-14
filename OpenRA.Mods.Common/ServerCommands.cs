@@ -83,12 +83,15 @@ namespace OpenRA.Mods.Common.Commands
 			return result;
 		}
 
-		public static CPos GetLocation(JToken location, World world, Player player)
+		public static CPos? GetLocation(JToken location, World world, Player player)
 		{
+			if (location == null)
+				return null;
 			var targets = location.TryGetFieldValue("targets");
 			if (targets == null)
 			{
-				throw new NotImplementedException("Missing parameters targets for location");
+				return null;
+				//throw new NotImplementedException("Missing parameters targets for location");
 			}
 
 			var sum = new CPos(0, 0);
@@ -96,7 +99,8 @@ namespace OpenRA.Mods.Common.Commands
 
 			if (targetActors.Count == 0)
 			{
-				throw new NotImplementedException("no actor targets for location");
+				return null;
+				//throw new NotImplementedException("no actor targets for location");
 			}
 
 			foreach (var target in targetActors)
@@ -324,23 +328,26 @@ namespace OpenRA.Mods.Common.Commands
 		public static string CameraMoveCommand(JObject json, World world)
 		{
 			var worldRenderer = Game.worldRenderer;
-			var locationToken = json.TryGetFieldValue("location");
-			if (locationToken != null)
-			{
-				var location = GetLocation(locationToken, world, world.LocalPlayer);
-				worldRenderer.Viewport.Center(world.Map.CenterOfCell(location));
-				return $"Camera moved to {location}";
-			}
-
 			var direction = json.TryGetFieldValue("direction")?.ToObject<string>();
 			var distance = json.TryGetFieldValue("distance")?.ToObject<int>();
-
-			if (direction == null || distance == null)
+			var locationToken = json.TryGetFieldValue("location");
+			var location = GetLocation(locationToken, world, world.LocalPlayer);
+			if ((direction == null || distance == null) && location == null)
 			{
 				return "No direction Or No Distance Or No Location !!!!!!";
 			}
 
-			var directionVector = CopilotsUtils.GetDirectionVector(direction) * distance.Value * world.Map.Grid.TileSize.Width;
+			var directionVector = new CVec(0, 0);
+			if (direction != null && distance != null)
+				directionVector = CopilotsUtils.GetDirectionVector(direction) * distance.Value;
+			if (location != null)
+			{
+				worldRenderer.Viewport.Center(world.Map.CenterOfCell(location.Value + directionVector));
+				return $"Camera moved to {location.Value + directionVector}";
+			}
+
+			directionVector *= world.Map.Grid.TileSize.Width;
+			//CopilotsUtils.GetDirectionVector(direction) * distance.Value * world.Map.Grid.TileSize.Width;
 			worldRenderer.Viewport.Scroll(new float2(directionVector.X, directionVector.Y), true);
 
 			return $"Camera moved {direction} by {distance.Value}.";
