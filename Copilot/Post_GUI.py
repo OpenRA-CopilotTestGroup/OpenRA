@@ -54,6 +54,9 @@ class PacketSenderApp:
         # Send button
         self.send_button = tk.Button(root, text="Send Request", command=self.send_request)
         self.send_button.grid(row=3, column=1, columnspan=3, pady = 15, padx = (40,135),sticky=tk.EW)
+        
+        self.clear_button = tk.Button(root, text="Clear", command=lambda: self.response_text.delete(1.0, tk.END))
+        self.clear_button.grid(row=3, column=4, columnspan=1, pady = 15, padx = (0,60),sticky=tk.EW)
 
     def send_request(self):
         url = self.url_entry.get()
@@ -67,9 +70,12 @@ class PacketSenderApp:
             response = requests.post(url, headers=headers, data=json_data)
 
             if 'application/json' in response.headers.get('Content-Type', ''):
-                response_data = response.json()
+                response_data = response.text  # Get the response as raw text
                 self.response_text.insert(tk.END, "Response JSON:\n")
-                self.response_text.insert(tk.END, json.dumps(response_data, indent=4))
+                self.response_text.insert(tk.END, response_data)
+                #response_data = response.json()
+                #self.response_text.insert(tk.END, "Response JSON:\n")
+                #self.response_text.insert(tk.END, json.dumps(response_data, indent=4))
             else:
                 self.response_text.insert(tk.END, "Response Text:\n")
                 self.response_text.insert(tk.END, response.text)

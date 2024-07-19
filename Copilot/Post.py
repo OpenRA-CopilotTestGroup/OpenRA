@@ -5,11 +5,11 @@ url = 'http://localhost:8080'
 headers = {'Content-Type': 'application/json'}
 
 data = {
-    'command': 'selectunit',
+    'command': 'moveactor',
     'targets':{
-    'range': 'screen', #约束选择的目标基础 还可以为selected/all 没有此项默认为all 
-    'groupId' : [2],  #约束目标的groupId，是个list，为空或者没有此项默认为不约束groupId
-    'type': ['e1', 'e2'] #约束
+        'range': 'screen', #约束选择的目标基础 还可以为selected/all 没有此项默认为all 
+        'groupId' : [],  #约束目标的groupId，是个list，为空或者没有此项默认为不约束groupId
+        'type': ['e1', 'e2'] #约束
     },
     'units': [
         'apwr',
@@ -19,8 +19,6 @@ data = {
         'tank'
         
     ],
-    #'actorId': 246,
-    'groupId': 2, 
      'location': {
         "X": '74',
         "Y": '81'

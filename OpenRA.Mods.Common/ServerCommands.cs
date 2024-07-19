@@ -1,13 +1,18 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using ICSharpCode.SharpZipLib.Core;
+using System.Numerics;
+using System.Reflection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using OpenRA.Graphics;
 using OpenRA.Mods.Common.Activities;
+using OpenRA.Mods.Common.Orders;
 using OpenRA.Mods.Common.Traits;
 using OpenRA.Mods.Common.Widgets;
 using OpenRA.Traits;
+using static OpenRA.GameInformation;
 namespace OpenRA.Mods.Common.Commands
 {
 	[TraitLocation(SystemActors.World)]
@@ -23,8 +28,15 @@ namespace OpenRA.Mods.Common.Commands
 			var range = targets["range"]?.ToString() ?? "all";
 			var groupIds = targets["groupId"]?.ToObject<List<int>>() ?? new List<int>();
 			var types = targets["type"]?.ToObject<List<string>>() ?? new List<string>();
+			var faction = targets["faction"]?.ToString() ?? "己方";
 			types = types.ConvertAll(x => CopilotsConfig.GetConfigNameByChinese(x));
-			var actors = world.Actors.Where(a => a.Owner == player && a.OccupiesSpace != null);
+			IEnumerable<Actor> actors;
+			if (faction == "己方" || faction == "自己" || faction == "我" || faction == "我的")
+				actors = world.Actors.Where(a => a.Owner == player && a.OccupiesSpace != null);
+			else if (faction == "敌方" || faction == "敌人" || faction == "对面" || faction == "他的" || faction == "他")
+				actors = world.Actors.Where(a => a.Owner != player && a.OccupiesSpace != null);
+			else
+				throw new ArgumentException($"Invalid faction: {faction}");
 
 			// 根据范围筛选
 			switch (range)
@@ -74,6 +86,10 @@ namespace OpenRA.Mods.Common.Commands
 						actors = actors.OrderBy(a => -a.Location.X * directionVector.X - a.Location.Y * directionVector.Y);
 						actors = actors.Take(maxNum.Value);
 					}
+					else if (maxNum.HasValue)
+					{
+						actors = actors.Take(maxNum.Value);
+					}
 				}
 			}
 
@@ -81,6 +97,26 @@ namespace OpenRA.Mods.Common.Commands
 			result.AddRange(actors);
 
 			return result;
+		}
+
+		public static List<Actor> GetTargetsFromJson(JObject json, World world, bool bAllowEmpty = false)
+		{
+			var player = world.LocalPlayer;
+			var targets = json.TryGetFieldValue("targets");
+			if (targets == null)
+			{
+				if (bAllowEmpty)
+					return new List<Actor>();
+				throw new NotImplementedException("Missing parameters \"Targets\" for command");
+			}
+
+			var actors = GetTargets(targets, world, player);
+			if (actors.Count == 0 && !bAllowEmpty)
+			{
+				throw new NotImplementedException("NO Valid Actor.");
+			}
+
+			return actors;
 		}
 
 		public static CPos? GetLocation(JToken location, World world, Player player)
@@ -125,16 +161,8 @@ namespace OpenRA.Mods.Common.Commands
 		public static string SelectUnitCommand(JObject json, World world)
 		{
 			var player = world.LocalPlayer;
-			var targets = json.TryGetFieldValue("targets");
 			var isCombine = json.TryGetFieldValue("isCombine")?.ToObject<int>();
-			if (targets == null)
-			{
-				throw new NotImplementedException("Missing parameters for SelectActor command");
-			}
-
-			var actors = GetTargets(targets, world, player);
-			if (actors.Count <= 0)
-				return "No Actor Selected";
+			var actors = GetTargetsFromJson(json, world);
 			var newSelection = SelectionUtils.SelectActorsByOwnerAndSelectionClass(actors, new List<Player> { player }, null).ToList();
 			world.Selection.Combine(world, newSelection, isCombine > 0, false);
 			return "Actor Selected";
@@ -143,16 +171,12 @@ namespace OpenRA.Mods.Common.Commands
 		public static string FormGroupCommand(JObject json, World world)
 		{
 			var player = world.LocalPlayer;
-			var targets = json.TryGetFieldValue("targets");
 			var groupId = json.TryGetFieldValue("groupId")?.ToObject<int>();
-			if (targets == null || groupId == null)
+			if (groupId == null)
 			{
-				throw new NotImplementedException("Missing parameters for FormGroupCommand");
+				throw new NotImplementedException("Missing parameters groupId for FormGroupCommand");
 			}
-
-			var actors = GetTargets(targets, world, player);
-			if (actors.Count <= 0)
-				return "No Actor Selected";
+			var actors = GetTargetsFromJson(json, world);
 			var newSelection = SelectionUtils.SelectActorsByOwnerAndSelectionClass(actors, new List<Player> { player }, null).ToList();
 			world.Selection.Combine(world, newSelection, false, false);
 			world.ControlGroups.CreateControlGroup(groupId.Value - 1);
@@ -163,15 +187,7 @@ namespace OpenRA.Mods.Common.Commands
 		public static string MoveActorCommand(JObject json, World world)
 		{
 			var player = world.LocalPlayer;
-			var targets = json.TryGetFieldValue("targets");
-			if (targets == null)
-			{
-				throw new NotImplementedException("Missing parameters for FormGroupCommand");
-			}
-
-			var actors = GetTargets(targets, world, player);
-			if (actors.Count <= 0)
-				return "No Actor Selected";
+			var actors = GetTargetsFromJson(json, world);
 			CPos? location;
 			location = null;
 			var locationJson = json.TryGetFieldValue("location");
@@ -201,19 +217,29 @@ namespace OpenRA.Mods.Common.Commands
 
 		public static JObject ActorQueryCommand(JObject json, World world)
 		{
-			var actorsInfo = world.Actors
-				.Where(actor => actor.Owner == world.LocalPlayer && actor.OccupiesSpace != null)
-				.Select(actor => new JObject
+			var player = world.LocalPlayer;
+			var targets = json.TryGetFieldValue("targets");
+			List<Actor> targetActors;
+			if (targets == null)
+			{
+				targetActors = world.Actors.Where(a => a.OccupiesSpace != null).ToList();
+			}
+
+			targetActors = GetTargets(targets, world, player);
+			var sum = new CPos(0, 0);
+
+			var actorsInfo = targetActors
+				.ConvertAll(actor => new JObject
 				{
 					["Id"] = actor.ActorID,
 					["Type"] = actor.Info.Name,
+					["Faction"] = actor.Owner == player ? "己方" : "敌方",
 					["Position"] = new JObject
 					{
 						["X"] = actor.Location.X,
 						["Y"] = actor.Location.Y
 					}
-				})
-				.ToList();
+				});
 
 			var result = new JObject
 			{
@@ -353,12 +379,215 @@ namespace OpenRA.Mods.Common.Commands
 			return $"Camera moved {direction} by {distance.Value}.";
 		}
 
+		public static JObject TileInfoQueryCommand(JObject json, World world)
+		{
+			var compressLevel = json.TryGetFieldValue("compressNum")?.ToObject<int>() ?? 5;
+			var actors = GetTargetsFromJson(json, world);
+			var actor = actors.Last();
+
+			var tileInfo = GetTileInfo(world, actor);
+			var compressedTileInfo = CompressTileInfo(tileInfo, compressLevel);
+
+			var jArrayTileInfo = new JArray();
+			foreach (var row in compressedTileInfo)
+			{
+				var jArrayRow = new JArray(row);
+				jArrayTileInfo.Add(jArrayRow);
+			}
+
+			var result = new JObject
+			{
+				["tileHeight"] = compressedTileInfo.Count,
+				["tileWidth"] = compressedTileInfo.Last().Count,
+				["tiles"] = jArrayTileInfo
+			};
+
+			return result;
+		}
+
+		static List<List<byte>> GetTileInfo(World world, Actor actor)
+		{
+			var map = world.Map;
+			var tileInfo = new List<List<byte>>();
+			for (var x = 0; x < map.Bounds.Width; x++)
+			{
+				var tempList = new List<byte>();
+				for (var y = 0; y < map.Bounds.Height; y++)
+				{
+					var pos = new CPos(x, y);
+					//var target = Target.FromCell(world, pos);
+					var mobile = actor.TraitOrDefault<Mobile>();
+					if (mobile == null)
+						return null;
+
+					var pathFinder = actor.World.WorldActor.Trait<PathFinder>();
+					var locomotor = mobile.Locomotor;
+					var canMove = pathFinder.PathExistsForLocomotor(locomotor, actor.Location, pos);
+					//	var orders = actor.TraitsImplementing<IIssueOrder>()
+					//.SelectMany(trait => trait.Orders.Select(x => new { Trait = trait, Order = x }))
+					//.Where(order => order.Order. == "Move" || order.OrderName == "AttackMove")
+					//.Select(x => x)
+					//.OrderByDescending(x => x.Order.OrderPriority)
+					//.ToList();
+					//	var CanMove = false;
+					//	foreach (var o in orders)
+					//	{
+					//		var localModifiers = TargetModifiers.None;
+					//		string cursor = null;
+					//		if (o.Order.CanTarget(actor, target, ref localModifiers, ref cursor))
+					//			CanMove = true;
+					//	}
+
+					tempList.Add((byte)(canMove ? 0 : 1));
+					//var terrainTile = map.Tiles[new MPos(x, y)];
+
+				}
+				tileInfo.Add(tempList);
+			}
+			return tileInfo;
+		}
+
+		static List<List<byte>> CompressTileInfo(List<List<byte>> tileInfo, int compressLevel)
+		{
+			var width = tileInfo.Count;
+			var height = tileInfo[0].Count;
+			var compressedWidth = (width + compressLevel - 1) / compressLevel;
+			var compressedHeight = (height + compressLevel - 1) / compressLevel;
+
+			var compressedTileInfo = new List<List<byte>>();
+
+			for (var x = 0; x < compressedWidth; x++)
+			{
+				var compressedRow = new List<byte>();
+				for (var y = 0; y < compressedHeight; y++)
+				{
+					var count = 0;
+					var total = 0;
+
+					for (var i = 0; i < compressLevel; i++)
+					{
+						for (var j = 0; j < compressLevel; j++)
+						{
+							var xi = x * compressLevel + i;
+							var yj = y * compressLevel + j;
+							if (xi < width && yj < height)
+							{
+								total++;
+								if (tileInfo[xi][yj] == 1)
+								{
+									count++;
+								}
+							}
+						}
+					}
+
+					// 如果1的数量超过50%，则压缩后的格子为1，否则为0
+					compressedRow.Add((byte)(count > total / 2 ? 1 : 0));
+				}
+				compressedTileInfo.Add(compressedRow);
+			}
+
+			return compressedTileInfo;
+		}
+
+		public static string MoveActorOnTilePathCommand(JObject json, World world)
+		{
+			var actors = GetTargetsFromJson(json, world);
+			var compressLevel = json.TryGetFieldValue("compressNum")?.ToObject<int>() ?? 5;
+			var tilePathArr = json.TryGetFieldValue("pathTiles")?.ToList();
+			if (tilePathArr == null)
+			{
+				throw new NotImplementedException("Missing parameters PathTiles for Command");
+			}
+
+			var tileInfo = GetTileInfo(world, actors.Last());
+			var compressedTileInfo = CompressTileInfo(tileInfo, compressLevel);
+
+			var path = new List<CPos>();
+			foreach (var tile in tilePathArr)
+			{
+				var tileCoords = tile.ToObject<int[]>();
+				if (tileCoords == null || tileCoords.Length != 2)
+				{
+					throw new ArgumentException("Invalid tile coordinates.");
+				}
+
+				var x = tileCoords[0];
+				var y = tileCoords[1];
+
+				if (x < 0 || x >= compressedTileInfo.Count || y < 0 || y >= compressedTileInfo[x].Count)
+				{
+					throw new ArgumentException($"Tile coordinates ({x}, {y}) are out of bounds.");
+				}
+
+				if (compressedTileInfo[x][y] == 1)
+				{
+					throw new ArgumentException($"Tile ({x}, {y}) is an obstacle.");
+				}
+
+				var closestEmptyPoint = FindClosestEmptyPoint(tileInfo, x * compressLevel, y * compressLevel);
+				if (closestEmptyPoint.HasValue)
+				{
+					path.Add(closestEmptyPoint.Value);
+				}
+				else
+				{
+					throw new Exception($"No empty tile found near ({x}, {y}).");
+				}
+			}
+
+			// Issue multi-point move order to all actors
+			foreach (var actor in actors)
+			{
+				actor.CancelActivity();
+
+				// Queue the move orders
+				foreach (var waypoint in path)
+				{
+					actor.QueueActivity(new Move(actor, waypoint));
+				}
+			}
+
+			return "Actor Moved";
+		}
+
+		static CPos? FindClosestEmptyPoint(List<List<byte>> map, int x, int y)
+		{
+			var centerX = x + 2;
+			var centerY = y + 2;
+			var minDistance = int.MaxValue;
+			CPos? closestPoint = null;
+
+			for (var i = 0; i < 5; i++)
+			{
+				for (var j = 0; j < 5; j++)
+				{
+					var checkX = x + i;
+					var checkY = y + j;
+
+					if (checkX >= 0 && checkX < map.Count && checkY >= 0 && checkY < map[0].Count && map[checkX][checkY] == 0)
+					{
+						var distance = Math.Abs(checkX - centerX) + Math.Abs(checkY - centerY);
+						if (distance < minDistance)
+						{
+							minDistance = distance;
+							closestPoint = new CPos(checkX, checkY);
+						}
+					}
+				}
+			}
+
+			return closestPoint;
+		}
+
 		public void WorldLoaded(World w, WorldRenderer wr)
 		{
 			if (w.Type == WorldType.Regular && w.CopilotServer != null)
 			{
 				w.CopilotServer.OnMoveActorCommand += MoveActorCommand;
+				w.CopilotServer.OnMoveActorOnTilePathCommand += MoveActorOnTilePathCommand;
 				w.CopilotServer.QueryActor += ActorQueryCommand;
+				w.CopilotServer.QueryTile += TileInfoQueryCommand;
 				w.CopilotServer.OnStartProdunctionCommand += StartProdunctionCommand;
 				w.CopilotServer.OnCameraMoveCommand += CameraMoveCommand;
 				w.CopilotServer.OnSelectUnitCommand += SelectUnitCommand;

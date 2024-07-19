@@ -22,6 +22,7 @@ namespace OpenRA
 
 		// 移动单位指令
 		public event CommondHandler OnMoveActorCommand;
+		public event CommondHandler OnMoveActorOnTilePathCommand;
 
 		// 镜头控制指令
 		public event CommondHandler OnCameraMoveCommand;
@@ -41,6 +42,7 @@ namespace OpenRA
 
 		public delegate JObject QueryHandler(JObject json, World world);
 		public event QueryHandler QueryActor;
+		public event QueryHandler QueryTile;
 		public CopilotCommandServer(string url, World world)
 		{
 			this.url = url;
@@ -117,10 +119,16 @@ namespace OpenRA
 							case "/api/units/move":
 								result = OnMoveActorCommand?.Invoke(json, world);
 								break;
+							case "/api/units/tilemove":
+								result = OnMoveActorOnTilePathCommand?.Invoke(json, world);
+								break;
 							case "/api/query/actor":
 								reslut_j = QueryActor?.Invoke(json, world);
-								var jsonResult = reslut_j.ToString();
-								SendJsonResponse(response, jsonResult);
+								SendJsonResponse(response, reslut_j.ToString());
+								return;
+							case "/api/query/tile":
+								reslut_j = QueryTile?.Invoke(json, world);
+								SendJsonResponse(response, reslut_j.ToString());
 								return;
 							case "/api/produce":
 								result = OnStartProdunctionCommand?.Invoke(json, world);
@@ -170,9 +178,70 @@ namespace OpenRA
 			output.Write(buffer, 0, buffer.Length);
 			output.Close();
 		}
+		public static string CustomJsonFormat(string json)
+		{
+			var stringBuilder = new StringBuilder();
+			int indent = 0;
+			int arrayLevel = 0;
+
+			foreach (char ch in json)
+			{
+				if (ch == '[')
+				{
+					if (arrayLevel == 0)
+					{
+						stringBuilder.AppendLine(new string(' ', indent) + ch);
+						indent += 2;
+					}
+					else
+					{
+						stringBuilder.Append(ch);
+					}
+					arrayLevel++;
+				}
+				else if (ch == ']')
+				{
+					arrayLevel--;
+					if (arrayLevel == 0)
+					{
+						indent -= 2;
+						stringBuilder.AppendLine().Append(new string(' ', indent) + ch);
+					}
+					else
+					{
+						stringBuilder.Append(ch);
+					}
+				}
+				else if (ch == ',')
+				{
+					stringBuilder.Append(ch);
+					if (arrayLevel == 1)
+					{
+						stringBuilder.AppendLine();
+						stringBuilder.Append(new string(' ', indent));
+					}
+					else
+					{
+						stringBuilder.Append(' ');
+					}
+				}
+				else
+				{
+					if (ch == '\n' || ch == '\r' || ch == ' ')
+						continue;
+
+					stringBuilder.Append(ch);
+				}
+			}
+
+			return stringBuilder.ToString();
+		}
+
+
 		static void SendJsonResponse(HttpListenerResponse response, string json, HttpStatusCode statusCode = HttpStatusCode.OK)
 		{
-			var buffer = Encoding.UTF8.GetBytes(json);
+			var formattedJson = CustomJsonFormat(json);
+			var buffer = Encoding.UTF8.GetBytes(formattedJson);
 			response.ContentLength64 = buffer.Length;
 			response.StatusCode = (int)statusCode;
 			response.ContentType = "application/json";
