@@ -24,6 +24,21 @@ namespace OpenRA.Mods.Common.Commands
 		{
 			var result = new List<Actor>();
 
+			var actorIds = targets["actorId"]?.ToObject<List<int>>() ?? new List<int>();
+			if (actorIds.Count > 0)
+			{
+				foreach (var actorId in actorIds)
+				{
+					var actor = world.Actors.FirstOrDefault(a => a.ActorID == actorId);
+					if (actor != null)
+					{
+						result.Add(actor);
+					}
+				}
+
+				return result;
+			}
+
 			// 解析参数
 			var range = targets["range"]?.ToString() ?? "all";
 			var groupIds = targets["groupId"]?.ToObject<List<int>>() ?? new List<int>();
