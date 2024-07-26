@@ -519,6 +519,9 @@ namespace OpenRA.Mods.Common.Commands
 			var compressedTileInfo = CompressTileInfo(tileInfo, compressLevel);
 
 			var path = new List<CPos>();
+
+			// 移除tilePathArr第一个格子
+			tilePathArr.RemoveAt(0);
 			foreach (var tile in tilePathArr)
 			{
 				var tileCoords = tile.ToObject<int[]>();
