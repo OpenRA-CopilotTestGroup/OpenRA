@@ -292,13 +292,16 @@ namespace OpenRA.Mods.Common.Widgets
 			return HandleEvent(icon, mi.Button, mi.Modifiers);
 		}
 
-		protected bool PickUpCompletedBuildingIcon(ProductionIcon icon, ProductionItem item)
+		protected bool PickUpCompletedBuildingIcon(ProductionItem item)
 		{
-			var actor = World.Map.Rules.Actors[icon.Name];
+			if (item == null)
+				return false;
 
-			if (item != null && item.Done && actor.HasTraitInfo<BuildingInfo>())
+			var actor = World.Map.Rules.Actors[item.Item];
+
+			if (item.Done && actor.HasTraitInfo<BuildingInfo>())
 			{
-				World.OrderGenerator = new PlaceBuildingOrderGenerator(CurrentQueue, icon.Name, worldRenderer);
+				World.OrderGenerator = new PlaceBuildingOrderGenerator(CurrentQueue, item.Item, worldRenderer);
 				return true;
 			}
 
@@ -307,17 +310,12 @@ namespace OpenRA.Mods.Common.Widgets
 
 		public void PickUpCompletedBuilding()
 		{
-			foreach (var icon in icons.Values)
-			{
-				var item = icon.Queued.FirstOrDefault();
-				if (PickUpCompletedBuildingIcon(icon, item))
-					break;
-			}
+			PickUpCompletedBuildingIcon(CurrentQueue.CurrentItem());
 		}
 
 		bool HandleLeftClick(ProductionItem item, ProductionIcon icon, int handleCount, Modifiers modifiers)
 		{
-			if (PickUpCompletedBuildingIcon(icon, item))
+			if (PickUpCompletedBuildingIcon(item))
 			{
 				Game.Sound.PlayNotification(World.Map.Rules, World.LocalPlayer, "Sounds", ClickSound, null);
 				return true;
@@ -338,8 +336,12 @@ namespace OpenRA.Mods.Common.Widgets
 
 			if (buildable != null)
 			{
-				// Queue a new item
+				if (CurrentQueue.Info.PayUpFront &&
+					currentQueue.GetProductionCost(buildable) > CurrentQueue.Actor.Owner.PlayerActor.Trait<PlayerResources>().GetCashAndResources())
+					return false;
 				Game.Sound.PlayNotification(World.Map.Rules, World.LocalPlayer, "Sounds", ClickSound, null);
+
+				// Queue a new item
 				var canQueue = CurrentQueue.CanQueue(buildable, out var notification, out var textNotification);
 
 				if (!CurrentQueue.AllQueued().Any())
@@ -366,7 +368,7 @@ namespace OpenRA.Mods.Common.Widgets
 
 			Game.Sound.PlayNotification(World.Map.Rules, World.LocalPlayer, "Sounds", ClickSound, null);
 
-			if (CurrentQueue.Info.DisallowPaused || item.Paused || item.Done || item.TotalCost == item.RemainingCost)
+			if (CurrentQueue.Info.DisallowPaused || item.Paused || item.Done || item.TotalCost == item.RemainingCost || !item.Started)
 			{
 				// Instantly cancel items that haven't started, have finished, or if the queue doesn't support pausing
 				Game.Sound.PlayNotification(World.Map.Rules, World.LocalPlayer, "Speech", CurrentQueue.Info.CancelledAudio, World.LocalPlayer.Faction.InternalName);

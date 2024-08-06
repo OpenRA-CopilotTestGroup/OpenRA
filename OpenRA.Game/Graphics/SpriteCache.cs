@@ -14,17 +14,20 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using OpenRA.FileSystem;
-using OpenRA.Primitives;
 
 namespace OpenRA.Graphics
 {
+	public delegate ISpriteFrame AdjustFrame(ISpriteFrame input, int index, int total);
+
 	public sealed class SpriteCache : IDisposable
 	{
 		public readonly Dictionary<SheetType, SheetBuilder> SheetBuilders;
 		readonly ISpriteLoader[] loaders;
 		readonly IReadOnlyFileSystem fileSystem;
 
-		readonly Dictionary<int, (int[] Frames, MiniYamlNode.SourceLocation Location, Func<ISpriteFrame, ISpriteFrame> AdjustFrame, bool Premultiplied)> spriteReservations = new();
+		readonly Dictionary<
+			int,
+			(int[] Frames, MiniYamlNode.SourceLocation Location, AdjustFrame AdjustFrame, bool Premultiplied)> spriteReservations = new();
 		readonly Dictionary<string, List<int>> reservationsByFilename = new();
 
 		readonly Dictionary<int, Sprite[]> resolvedSprites = new();
@@ -33,7 +36,8 @@ namespace OpenRA.Graphics
 
 		int nextReservationToken = 1;
 
-		public SpriteCache(IReadOnlyFileSystem fileSystem, ISpriteLoader[] loaders, int bgraSheetSize, int indexedSheetSize, int bgraSheetMargin = 1, int indexedSheetMargin = 1)
+		public SpriteCache(
+			IReadOnlyFileSystem fileSystem, ISpriteLoader[] loaders, int bgraSheetSize, int indexedSheetSize, int bgraSheetMargin = 1, int indexedSheetMargin = 1)
 		{
 			SheetBuilders = new Dictionary<SheetType, SheetBuilder>
 			{
@@ -45,7 +49,8 @@ namespace OpenRA.Graphics
 			this.loaders = loaders;
 		}
 
-		public int ReserveSprites(string filename, IEnumerable<int> frames, MiniYamlNode.SourceLocation location, Func<ISpriteFrame, ISpriteFrame> adjustFrame = null, bool premultiplied = false)
+		public int ReserveSprites(string filename, IEnumerable<int> frames, MiniYamlNode.SourceLocation location,
+			AdjustFrame adjustFrame = null, bool premultiplied = false)
 		{
 			var token = nextReservationToken++;
 			spriteReservations[token] = (frames?.ToArray(), location, adjustFrame, premultiplied);
@@ -53,20 +58,24 @@ namespace OpenRA.Graphics
 			return token;
 		}
 
-		static ISpriteFrame[] GetFrames(IReadOnlyFileSystem fileSystem, string filename, ISpriteLoader[] loaders, out TypeDictionary metadata)
+		static ISpriteFrame[] GetFrames(IReadOnlyFileSystem fileSystem, string filename, ISpriteLoader[] loaders)
 		{
-			metadata = null;
 			if (!fileSystem.TryOpen(filename, out var stream))
 				return null;
 
 			using (stream)
 			{
 				foreach (var loader in loaders)
-					if (loader.TryParseSprite(stream, filename, out var frames, out metadata))
+					if (loader.TryParseSprite(stream, filename, out var frames, out _))
 						return frames;
 
 				return null;
 			}
+		}
+
+		public ISpriteFrame[] LoadFramesUncached(string filename)
+		{
+			return GetFrames(fileSystem, filename, loaders);
 		}
 
 		public void LoadReservations(ModData modData)
@@ -78,13 +87,13 @@ namespace OpenRA.Graphics
 				string Filename,
 				int FrameIndex,
 				bool Premultiplied,
-				Func<ISpriteFrame, ISpriteFrame> AdjustFrame,
+				AdjustFrame AdjustFrame,
 				ISpriteFrame Frame,
 				Sprite[] SpritesForToken)>();
 			foreach (var (filename, tokens) in reservationsByFilename)
 			{
 				modData.LoadScreen?.Display();
-				var loadedFrames = GetFrames(fileSystem, filename, loaders, out _);
+				var loadedFrames = GetFrames(fileSystem, filename, loaders);
 				foreach (var token in tokens)
 				{
 					if (spriteReservations.TryGetValue(token, out var rs))
@@ -93,13 +102,19 @@ namespace OpenRA.Graphics
 						{
 							var resolved = new Sprite[loadedFrames.Length];
 							resolvedSprites[token] = resolved;
-							var frames = rs.Frames ?? Enumerable.Range(0, loadedFrames.Length);
+							if (rs.Frames != null && rs.Frames.Any(i => i >= loadedFrames.Length))
+								throw new InvalidOperationException($"{rs.Location}: {filename} does not contain frames: " +
+									string.Join(',', rs.Frames.Where(f => f >= loadedFrames.Length)));
 
+							var frames = rs.Frames ?? Enumerable.Range(0, loadedFrames.Length);
+							var total = rs.Frames?.Length ?? loadedFrames.Length;
+
+							var j = 0;
 							foreach (var i in frames)
 							{
 								var frame = loadedFrames[i];
 								if (rs.AdjustFrame != null)
-									frame = rs.AdjustFrame(frame);
+									frame = rs.AdjustFrame(frame, j++, total);
 								pendingResolve.Add((filename, i, rs.Premultiplied, rs.AdjustFrame, frame, resolved));
 							}
 						}
@@ -125,7 +140,7 @@ namespace OpenRA.Graphics
 				string Filename,
 				int FrameIndex,
 				bool Premultiplied,
-				Func<ISpriteFrame, ISpriteFrame> AdjustFrame),
+				AdjustFrame AdjustFrame),
 				Sprite>(pendingResolve.Count);
 			foreach (var (filename, frameIndex, premultiplied, adjustFrame, frame, spritesForToken) in orderedPendingResolve)
 			{

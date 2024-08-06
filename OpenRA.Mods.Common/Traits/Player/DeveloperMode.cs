@@ -66,7 +66,8 @@ namespace OpenRA.Mods.Common.Traits
 
 		IEnumerable<LobbyOption> ILobbyOptions.LobbyOptions(MapPreview map)
 		{
-			yield return new LobbyBooleanOption(map, "cheats", CheckboxLabel, CheckboxDescription, CheckboxVisible, CheckboxDisplayOrder, CheckboxEnabled, CheckboxLocked);
+			yield return new LobbyBooleanOption(map, "cheats",
+				CheckboxLabel, CheckboxDescription, CheckboxVisible, CheckboxDisplayOrder, CheckboxEnabled, CheckboxLocked);
 		}
 
 		public override object Create(ActorInitializer init) { return new DeveloperMode(this); }
@@ -274,7 +275,7 @@ namespace OpenRA.Mods.Common.Traits
 					return;
 			}
 
-			var arguments = Translation.Arguments("cheat", order.OrderString, "player", self.Owner.PlayerName, "suffix", debugSuffix);
+			var arguments = Translation.Arguments("cheat", order.OrderString, "player", self.Owner.ResolvedPlayerName, "suffix", debugSuffix);
 			TextNotificationsManager.Debug(TranslationProvider.GetString(CheatUsed, arguments));
 		}
 

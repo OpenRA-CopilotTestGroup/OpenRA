@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using OpenRA.Activities;
 using OpenRA.Graphics;
+using OpenRA.Mods.Common.Activities;
 using OpenRA.Mods.Common.Graphics;
 using OpenRA.Mods.Common.Terrain;
 using OpenRA.Mods.Common.Widgets;
@@ -262,7 +263,7 @@ namespace OpenRA.Mods.Common.Traits
 		void OnDockCompleted(Actor self, Actor clientActor, DockClientManager client);
 
 		/// <summary>If <paramref name="client"/> is not in range of <see cref="IDockHost"/> queues a child move activity and returns true. If in range returns false.</summary>
-		bool QueueMoveActivity(Activity moveToDockActivity, Actor self, Actor clientActor, DockClientManager client);
+		bool QueueMoveActivity(Activity moveToDockActivity, Actor self, Actor clientActor, DockClientManager client, MoveCooldownHelper moveCooldownHelper);
 
 		/// <summary>Should be called when in range of <see cref="IDockHost"/>.</summary>
 		void QueueDockActivity(Activity moveToDockActivity, Actor self, Actor clientActor, DockClientManager client);
@@ -376,7 +377,8 @@ namespace OpenRA.Mods.Common.Traits
 		Color[] PresetColors { get; }
 		Color RandomPresetColor(MersenneTwister random, IReadOnlyCollection<Color> terrainColors, IReadOnlyCollection<Color> playerColors);
 		Color RandomValidColor(MersenneTwister random, IReadOnlyCollection<Color> terrainColors, IReadOnlyCollection<Color> playerColors);
-		Color MakeValid(Color color, MersenneTwister random, IReadOnlyCollection<Color> terrainColors, IReadOnlyCollection<Color> playerColors, Action<string> onError = null);
+		Color MakeValid(
+			Color color, MersenneTwister random, IReadOnlyCollection<Color> terrainColors, IReadOnlyCollection<Color> playerColors, Action<string> onError = null);
 		void ShowColorDropDown(DropDownButtonWidget dropdownButton, Color initialColor, string initialFaction, WorldRenderer worldRenderer, Action<Color> onExit);
 	}
 
@@ -728,6 +730,14 @@ namespace OpenRA.Mods.Common.Traits
 		Turn = 4
 	}
 
+	public enum MoveResult
+	{
+		InProgress,
+		CompleteCanceled,
+		CompleteDestinationReached,
+		CompleteDestinationBlocked,
+	}
+
 	[RequireExplicitImplementation]
 	public interface INotifyMoving
 	{
@@ -867,7 +877,8 @@ namespace OpenRA.Mods.Common.Traits
 
 	public interface IPositionableInfo : IOccupySpaceInfo
 	{
-		bool CanEnterCell(World world, Actor self, CPos cell, SubCell subCell = SubCell.FullCell, Actor ignoreActor = null, BlockedByActor check = BlockedByActor.All);
+		bool CanEnterCell(World world, Actor self, CPos cell,
+			SubCell subCell = SubCell.FullCell, Actor ignoreActor = null, BlockedByActor check = BlockedByActor.All);
 	}
 
 	public interface IPositionable : IOccupySpace
@@ -876,7 +887,8 @@ namespace OpenRA.Mods.Common.Traits
 		bool IsLeavingCell(CPos location, SubCell subCell = SubCell.Any);
 		bool CanEnterCell(CPos location, Actor ignoreActor = null, BlockedByActor check = BlockedByActor.All);
 		SubCell GetValidSubCell(SubCell preferred = SubCell.Any);
-		SubCell GetAvailableSubCell(CPos location, SubCell preferredSubCell = SubCell.Any, Actor ignoreActor = null, BlockedByActor check = BlockedByActor.All);
+		SubCell GetAvailableSubCell(CPos location,
+			SubCell preferredSubCell = SubCell.Any, Actor ignoreActor = null, BlockedByActor check = BlockedByActor.All);
 		void SetPosition(Actor self, CPos cell, SubCell subCell = SubCell.Any);
 		void SetPosition(Actor self, WPos pos);
 		void SetCenterPosition(Actor self, WPos pos);
@@ -931,5 +943,19 @@ namespace OpenRA.Mods.Common.Traits
 		/// <remarks>Path searches are not guaranteed to by symmetric,
 		/// the source and target locations cannot be swapped.</remarks>
 		bool PathExistsForLocomotor(Locomotor locomotor, CPos source, CPos target);
+
+		/// <summary>
+		/// Determines if a path exists between source and target.
+		/// Terrain and immovable actors are taken into account,
+		/// i.e. as if <see cref="BlockedByActor.Immovable"/> was given.
+		/// Implementations are permitted to only account for a subset of actors, for performance.
+		/// This would apply for any actor using the given <see cref="Locomotor"/>.
+		/// </summary>
+		/// <remarks>Path searches are not guaranteed to by symmetric,
+		/// the source and target locations cannot be swapped.
+		/// If this method returns false, there is guaranteed to be no path.
+		/// If it returns true, there *might* be a path.
+		/// </remarks>
+		bool PathMightExistForLocomotorBlockedByImmovable(Locomotor locomotor, CPos source, CPos target);
 	}
 }

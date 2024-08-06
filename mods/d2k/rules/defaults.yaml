@@ -308,7 +308,7 @@
 		AllowedTerrain: Sand, Rock, Transition, Concrete, Spice, SpiceSand, SpiceBlobs, Dune
 		Locomotor: tank
 	Targetable:
-		TargetTypes: Ground, Vehicle
+		TargetTypes: Ground, Vehicle, Husk
 		RequiresForceFire: true
 	WithColoredOverlay@husk:
 		Color: 00000060
@@ -344,7 +344,7 @@
 	TransformOnCapture:
 		ForceHealthPercentage: 20
 	InfiltrateForTransform:
-		Types: husk
+		Types: Husk
 		ForceHealthPercentage: 20
 
 ^AircraftHusk:
@@ -720,8 +720,8 @@
 	MapEditorData:
 		Categories: Destroable Tiles
 	Tooltip:
-		GenericName: meta-DestroyableTile.generic-name
-		Name: meta-DestroyableTile.name
+		GenericName: meta-destroyabletile.generic-name
+		Name: meta-destroyabletile.name
 
 ^DestroyedTile:
 	Inherits: ^UndestroyableTile
@@ -731,8 +731,8 @@
 		Action: ChangeOwner
 		Owner: Neutral
 	Tooltip:
-		GenericName: meta-DestroyedTile.generic-name
-		Name: meta-DestroyedTile.name
+		GenericName: meta-destroyedtile.generic-name
+		Name: meta-destroyedtile.name
 	CaptureManager:
 	CapturableProgressBar:
 	CapturableProgressBlink:

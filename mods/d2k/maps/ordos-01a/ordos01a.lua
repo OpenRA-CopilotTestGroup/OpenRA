@@ -87,8 +87,8 @@ Tick = function()
 	end
 
 	if Ordos.Resources ~= CachedResources then
-		local parameters = { ["harvested"] = Ordos.Resources, ["goal"] = SpiceToHarvest }
-		local harvestedResources = UserInterface.Translate("harvested-resources", parameters)
+		local harvestedResources = UserInterface.Translate("harvested-resources",
+			{ ["harvested"] = Ordos.Resources, ["goal"] = SpiceToHarvest })
 		UserInterface.SetMissionText(harvestedResources)
 		CachedResources = Ordos.Resources
 	end
@@ -113,8 +113,6 @@ WorldLoaded = function()
 				Trigger.AfterDelay(DateTime.Seconds(3), function()
 					Harkonnen.MarkCompletedObjective(KillAtreides)
 				end)
-
-				return true
 			end
 		end)
 	end

@@ -130,6 +130,8 @@ Translations:
 	d2k|languages/chrome/en.ftl
 	d2k|languages/rules/en.ftl
 
+AllowUnusedTranslationsInExternalPackages: false
+
 Weapons:
 	d2k|weapons/debris.yaml
 	d2k|weapons/smallguns.yaml
@@ -274,7 +276,7 @@ ModContent:
 		ContentPackage@patch:
 			Title: 1.06 Patch Content
 			Identifier: patch
-			TestFiles: ^SupportDir|Content/d2k/v3/DATA.R16, ^SupportDir|Content/d2k/v3/BLOXXMAS.R8
+			TestFiles: ^SupportDir|Content/d2k/v3/DATA.R16
 			Sources: gruntmods
 			Required: true
 			Download: patch106

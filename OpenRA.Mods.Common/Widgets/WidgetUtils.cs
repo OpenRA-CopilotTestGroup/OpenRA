@@ -20,7 +20,17 @@ namespace OpenRA.Mods.Common.Widgets
 {
 	public static class WidgetUtils
 	{
-		public static string GetStatefulImageName(string baseName, bool disabled = false, bool pressed = false, bool hover = false, bool focused = false)
+		[TranslationReference]
+		const string Gone = "label-client-state-disconnected";
+
+		[TranslationReference]
+		const string Won = "label-win-state-won";
+
+		[TranslationReference]
+		const string Lost = "label-win-state-lost";
+
+		public static string GetStatefulImageName(
+			string baseName, bool disabled = false, bool pressed = false, bool hover = false, bool focused = false)
 		{
 			var suffix = disabled ? "-disabled" :
 				focused ? "-focused" :
@@ -31,7 +41,8 @@ namespace OpenRA.Mods.Common.Widgets
 			return baseName + suffix;
 		}
 
-		public static CachedTransform<(bool Disabled, bool Pressed, bool Hover, bool Focused, bool Highlighted), Sprite> GetCachedStatefulImage(string collection, string imageName)
+		public static CachedTransform<(bool Disabled, bool Pressed, bool Hover, bool Focused, bool Highlighted), Sprite>
+			GetCachedStatefulImage(string collection, string imageName)
 		{
 			return new CachedTransform<(bool, bool, bool, bool, bool), Sprite>(
 				((bool Disabled, bool Pressed, bool Hover, bool Focused, bool Highlighted) args) =>
@@ -43,7 +54,8 @@ namespace OpenRA.Mods.Common.Widgets
 		}
 
 		// TODO: refactor buttons and related UI to use this function
-		public static CachedTransform<(bool Disabled, bool Pressed, bool Hover, bool Focused, bool Highlighted), Sprite[]> GetCachedStatefulPanelImages(string collection)
+		public static CachedTransform<(bool Disabled, bool Pressed, bool Hover, bool Focused, bool Highlighted), Sprite[]>
+			GetCachedStatefulPanelImages(string collection)
 		{
 			return new CachedTransform<(bool, bool, bool, bool, bool), Sprite[]>(
 				((bool Disabled, bool Pressed, bool Hover, bool Focused, bool Highlighted) args) =>
@@ -321,19 +333,29 @@ namespace OpenRA.Mods.Common.Widgets
 		{
 			var client = p.World.LobbyInfo.ClientWithIndex(p.ClientIndex);
 			var nameFont = Game.Renderer.Fonts[label.Font];
-			var name = new CachedTransform<(string Name, WinState WinState, Session.ClientState ClientState), string>(c =>
+			var name = new CachedTransform<(WinState WinState, Session.ClientState ClientState), string>(c =>
 			{
-				var suffix = c.WinState == WinState.Undefined ? "" : " (" + c.WinState + ")";
-				if (c.ClientState == Session.ClientState.Disconnected)
-					suffix = " (Gone)";
+				var text = p.ResolvedPlayerName;
 
-				return TruncateText(c.Name, label.Bounds.Width - nameFont.Measure(suffix).X, nameFont) + suffix;
+				var suffix = "";
+				if (c.WinState == WinState.Won)
+					suffix = $" ({TranslationProvider.GetString(Won)})";
+				else if (c.WinState == WinState.Lost)
+					suffix = $" ({TranslationProvider.GetString(Lost)})";
+
+				if (client.State == Session.ClientState.Disconnected)
+					suffix = $" ({TranslationProvider.GetString(Gone)})";
+
+				text += suffix;
+
+				var size = nameFont.Measure(text) - nameFont.Measure(p.ResolvedPlayerName);
+				return TruncateText(text, label.Bounds.Width - size.X, nameFont);
 			});
 
 			label.GetText = () =>
 			{
 				var clientState = client != null ? client.State : Session.ClientState.Ready;
-				return name.Update((p.PlayerName, p.WinState, clientState));
+				return name.Update((p.WinState, clientState));
 			};
 		}
 
@@ -391,68 +413,6 @@ namespace OpenRA.Mods.Common.Widgets
 			}
 
 			notificationWidget.Bounds.Width = boxWidth - notificationWidget.Bounds.X;
-		}
-	}
-
-	public class CachedTransform<T, U>
-	{
-		readonly Func<T, U> transform;
-
-		bool initialized;
-		T lastInput;
-		U lastOutput;
-
-		public CachedTransform(Func<T, U> transform)
-		{
-			this.transform = transform;
-		}
-
-		public U Update(T input)
-		{
-			if (initialized && ((input == null && lastInput == null) || (input != null && input.Equals(lastInput))))
-				return lastOutput;
-
-			lastInput = input;
-			lastOutput = transform(input);
-			initialized = true;
-
-			return lastOutput;
-		}
-	}
-
-	public class PredictedCachedTransform<T, U>
-	{
-		readonly Func<T, U> transform;
-
-		bool initialized;
-		T lastInput;
-		U lastOutput;
-
-		bool predicted;
-		U prediction;
-
-		public PredictedCachedTransform(Func<T, U> transform)
-		{
-			this.transform = transform;
-		}
-
-		public void Predict(U value)
-		{
-			predicted = true;
-			prediction = value;
-		}
-
-		public U Update(T input)
-		{
-			if ((predicted || initialized) && ((input == null && lastInput == null) || (input != null && input.Equals(lastInput))))
-				return predicted ? prediction : lastOutput;
-
-			predicted = false;
-			initialized = true;
-			lastInput = input;
-			lastOutput = transform(input);
-
-			return lastOutput;
 		}
 	}
 }

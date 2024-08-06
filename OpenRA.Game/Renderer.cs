@@ -79,6 +79,7 @@ namespace OpenRA
 
 		Rectangle lastWorldViewport = Rectangle.Empty;
 		ITexture currentPaletteTexture;
+		int currentPaletteHeight = 0;
 		IBatchRenderer currentBatchRenderer;
 		RenderType renderType = RenderType.None;
 
@@ -288,7 +289,10 @@ namespace OpenRA
 				screenBuffer.Bind();
 
 				var scale = Window.EffectiveWindowScale;
-				var bufferScale = new float3((int)(screenSprite.Bounds.Width / scale) / worldSprite.Size.X, (int)(-screenSprite.Bounds.Height / scale) / worldSprite.Size.Y, 1f);
+				var bufferScale = new float3(
+					(int)(screenSprite.Bounds.Width / scale) / worldSprite.Size.X,
+					(int)(-screenSprite.Bounds.Height / scale) / worldSprite.Size.Y,
+					1f);
 
 				SpriteRenderer.SetAntialiasingPixelsPerTexel(Window.SurfaceSize.Height * 1f / worldSprite.Bounds.Height);
 				RgbaSpriteRenderer.DrawSprite(worldSprite, float3.Zero, bufferScale);
@@ -309,11 +313,13 @@ namespace OpenRA
 		{
 			// Note: palette.Texture and palette.ColorShifts are updated at the same time
 			// so we only need to check one of the two to know whether we must update the textures
-			if (palette.Texture == currentPaletteTexture)
+			// also compare heights in case new palettes have been added
+			if (palette.Texture == currentPaletteTexture && palette.Height == currentPaletteHeight)
 				return;
 
 			Flush();
 			currentPaletteTexture = palette.Texture;
+			currentPaletteHeight = palette.Height;
 
 			SpriteRenderer.SetPalette(palette);
 			WorldSpriteRenderer.SetPalette(palette);
@@ -334,7 +340,8 @@ namespace OpenRA
 			// Render the compositor buffers to the screen
 			// HACK / PERF: Fudge the coordinates to cover the actual window while keeping the buffer viewport parameters
 			// This saves us two redundant (and expensive) SetViewportParams each frame
-			RgbaSpriteRenderer.DrawSprite(screenSprite, new float3(0, lastBufferSize.Height, 0), new float3(lastBufferSize.Width / screenSprite.Size.X, -lastBufferSize.Height / screenSprite.Size.Y, 1f));
+			RgbaSpriteRenderer.DrawSprite(screenSprite, new float3(0, lastBufferSize.Height, 0),
+				new float3(lastBufferSize.Width / screenSprite.Size.X, -lastBufferSize.Height / screenSprite.Size.Y, 1f));
 			Flush();
 
 			Window.PumpInput(inputHandler);

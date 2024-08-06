@@ -11,7 +11,6 @@
 
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using OpenRA.Graphics;
 using OpenRA.Mods.Common.EditorBrushes;
 using OpenRA.Mods.Common.Traits;
@@ -123,7 +122,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 				tiles.Add(cell, new ClipboardTile(mapTiles[cell], mapResources[cell], resourceLayer?.GetResource(cell), mapHeight[cell]));
 
 				if (copyFilters.HasFlag(MapCopyFilters.Actors))
-					foreach (var preview in selection.SelectMany(editorActorLayer.PreviewsAt).Distinct())
+					foreach (var preview in editorActorLayer.PreviewsInCellRegion(selection.CellCoords))
 						previews.TryAdd(preview.ID, preview);
 			}
 
@@ -157,7 +156,9 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			var diagonalLength = Math.Round(Math.Sqrt(Math.Pow(selectionSize.X, 2) + Math.Pow(selectionSize.Y, 2)), 3);
 			var resourceValueInRegion = editorResourceLayer.CalculateRegionValue(selectedRegion);
 
-			var areaSelectionLabel = $"{TranslationProvider.GetString(AreaSelection)} ({DimensionsAsString(selectionSize)}) {PositionAsString(selectedRegion.TopLeft)} : {PositionAsString(selectedRegion.BottomRight)}";
+			var areaSelectionLabel =
+				$"{TranslationProvider.GetString(AreaSelection)} ({DimensionsAsString(selectionSize)}) " +
+				$"{PositionAsString(selectedRegion.TopLeft)} : {PositionAsString(selectedRegion.BottomRight)}";
 
 			AreaEditTitle.GetText = () => areaSelectionLabel;
 			DiagonalLabel.GetText = () => $"{diagonalLength}";

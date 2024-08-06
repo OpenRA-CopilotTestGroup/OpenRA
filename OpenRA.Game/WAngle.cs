@@ -19,7 +19,8 @@ namespace OpenRA
 	/// <summary>
 	/// 1D angle - 1024 units = 360 degrees.
 	/// </summary>
-	public readonly struct WAngle : IScriptBindable, ILuaAdditionBinding, ILuaSubtractionBinding, ILuaEqualityBinding, IEquatable<WAngle>
+	public readonly struct WAngle : IEquatable<WAngle>, IScriptBindable,
+		ILuaAdditionBinding, ILuaSubtractionBinding, ILuaEqualityBinding, ILuaTableBinding, ILuaToStringBinding
 	{
 		public readonly int Angle;
 		public int AngleSquared => Angle * Angle;
@@ -222,23 +223,31 @@ namespace OpenRA
 		public LuaValue Add(LuaRuntime runtime, LuaValue left, LuaValue right)
 		{
 			if (!left.TryGetClrValue(out WAngle a))
-				throw new LuaException($"Attempted to call WAngle.Add(WAngle, WAngle) with invalid arguments ({left.WrappedClrType().Name}, {right.WrappedClrType().Name})");
+				throw new LuaException(
+					"Attempted to call WAngle.Add(WAngle, WAngle) with invalid arguments " +
+					$"({left.WrappedClrType().Name}, {right.WrappedClrType().Name})");
 
 			if (right.TryGetClrValue(out WAngle b))
 				return new LuaCustomClrObject(a + b);
 
-			throw new LuaException($"Attempted to call WAngle.Add(WAngle, WAngle) with invalid arguments ({left.WrappedClrType().Name}, {right.WrappedClrType().Name})");
+			throw new LuaException(
+				"Attempted to call WAngle.Add(WAngle, WAngle) with invalid arguments " +
+				$"({left.WrappedClrType().Name}, {right.WrappedClrType().Name})");
 		}
 
 		public LuaValue Subtract(LuaRuntime runtime, LuaValue left, LuaValue right)
 		{
 			if (!left.TryGetClrValue(out WAngle a))
-				throw new LuaException($"Attempted to call WAngle.Subtract(WAngle, WAngle) with invalid arguments ({left.WrappedClrType().Name}, {right.WrappedClrType().Name})");
+				throw new LuaException(
+					"Attempted to call WAngle.Subtract(WAngle, WAngle) with invalid arguments " +
+					$"({left.WrappedClrType().Name}, {right.WrappedClrType().Name})");
 
 			if (right.TryGetClrValue(out WAngle b))
 				return new LuaCustomClrObject(a - b);
 
-			throw new LuaException($"Attempted to call WAngle.Subtract(WAngle, WAngle) with invalid arguments ({left.WrappedClrType().Name}, {right.WrappedClrType().Name})");
+			throw new LuaException(
+				"Attempted to call WAngle.Subtract(WAngle, WAngle) with invalid arguments " +
+				$"({left.WrappedClrType().Name}, {right.WrappedClrType().Name})");
 		}
 
 		public LuaValue Equals(LuaRuntime runtime, LuaValue left, LuaValue right)
@@ -248,6 +257,22 @@ namespace OpenRA
 
 			return a == b;
 		}
+
+		public LuaValue this[LuaRuntime runtime, LuaValue key]
+		{
+			get
+			{
+				switch (key.ToString())
+				{
+					case "Angle": return Angle;
+					default: throw new LuaException($"WAngle does not define a member '{key}'");
+				}
+			}
+
+			set => throw new LuaException("WAngle is read-only. Use Angle.New to create a new value");
+		}
+
+		public LuaValue ToString(LuaRuntime runtime) => ToString();
 
 		#endregion
 	}

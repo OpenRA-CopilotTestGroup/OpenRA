@@ -11,6 +11,7 @@
 
 using System;
 using System.Linq;
+using OpenRA.Primitives;
 using OpenRA.Widgets;
 
 namespace OpenRA.Mods.Common.Widgets.Logic
@@ -29,7 +30,8 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 		readonly CachedTransform<int, string> teamMessage;
 
 		[ObjectCreator.UseCtor]
-		public SpawnSelectorTooltipLogic(Widget widget, ModData modData, TooltipContainerWidget tooltipContainer, MapPreviewWidget preview, bool showUnoccupiedSpawnpoints)
+		public SpawnSelectorTooltipLogic(Widget widget, ModData modData,
+			TooltipContainerWidget tooltipContainer, MapPreviewWidget preview, bool showUnoccupiedSpawnpoints)
 		{
 			var showTooltip = true;
 			widget.IsVisible = () => preview.TooltipSpawnIndex != -1 && showTooltip;

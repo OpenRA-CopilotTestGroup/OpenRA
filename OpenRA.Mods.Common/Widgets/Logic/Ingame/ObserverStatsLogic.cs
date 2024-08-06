@@ -24,7 +24,14 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 {
 	public enum ObserverStatsPanel { None, Basic, Economy, Production, SupportPowers, Combat, Army, Graph, ArmyGraph }
 
-	[ChromeLogicArgsHotkeys("StatisticsBasicKey", "StatisticsEconomyKey", "StatisticsProductionKey", "StatisticsSupportPowersKey", "StatisticsCombatKey", "StatisticsArmyKey", "StatisticsGraphKey",
+	[ChromeLogicArgsHotkeys(
+		"StatisticsBasicKey",
+		"StatisticsEconomyKey",
+		"StatisticsProductionKey",
+		"StatisticsSupportPowersKey",
+		"StatisticsCombatKey",
+		"StatisticsArmyKey",
+		"StatisticsGraphKey",
 		"StatisticsArmyGraphKey")]
 	public class ObserverStatsLogic : ChromeLogic
 	{
@@ -79,8 +86,8 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 		readonly LineGraphWidget incomeGraph;
 		readonly LineGraphWidget armyValueGraph;
 		readonly ScrollItemWidget teamTemplate;
-		readonly IEnumerable<Player> players;
-		readonly IOrderedEnumerable<IGrouping<int, Player>> teams;
+		readonly Player[] players;
+		readonly IGrouping<int, Player>[] teams;
 		readonly bool hasTeams;
 		readonly World world;
 		readonly WorldRenderer worldRenderer;
@@ -100,9 +107,12 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			for (var i = 0; i < keyNames.Length; i++)
 				statsHotkeys[i] = logicArgs.TryGetValue("Statistics" + keyNames[i] + "Key", out yaml) ? modData.Hotkeys[yaml.Value] : new HotkeyReference();
 
-			players = world.Players.Where(p => !p.NonCombatant && p.Playable);
-			teams = players.GroupBy(p => (world.LobbyInfo.ClientWithIndex(p.ClientIndex) ?? new Session.Client()).Team).OrderBy(g => g.Key);
-			hasTeams = !(teams.Count() == 1 && teams.First().Key == 0);
+			players = world.Players.Where(p => !p.NonCombatant && p.Playable).ToArray();
+			teams = players
+				.GroupBy(p => (world.LobbyInfo.ClientWithIndex(p.ClientIndex) ?? new Session.Client()).Team)
+				.OrderBy(g => g.Key)
+				.ToArray();
+			hasTeams = !(teams.Length == 1 && teams[0].Key == 0);
 
 			basicStatsHeaders = widget.Get<ContainerWidget>("BASIC_STATS_HEADERS");
 			economyStatsHeaders = widget.Get<ContainerWidget>("ECONOMY_STATS_HEADERS");
@@ -249,7 +259,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 
 			incomeGraph.GetSeries = () =>
 				players.Select(p => new LineGraphSeries(
-					p.PlayerName,
+					p.ResolvedPlayerName,
 					p.Color,
 					(p.PlayerActor.TraitOrDefault<PlayerStatistics>() ?? new PlayerStatistics(p.PlayerActor)).IncomeSamples.Select(s => (float)s)));
 		}
@@ -261,7 +271,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 
 			armyValueGraph.GetSeries = () =>
 				players.Select(p => new LineGraphSeries(
-					p.PlayerName,
+					p.ResolvedPlayerName,
 					p.Color,
 					(p.PlayerActor.TraitOrDefault<PlayerStatistics>() ?? new PlayerStatistics(p.PlayerActor)).ArmySamples.Select(s => (float)s)));
 		}
@@ -447,15 +457,18 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			template.Get<LabelWidget>("ASSETS").GetText = () => assetsText.Update(stats.AssetsValue);
 
 			var harvesters = template.Get<LabelWidget>("HARVESTERS");
-			harvesters.GetText = () => world.ActorsWithTrait<Harvester>().Count(a => a.Actor.Owner == player && !a.Actor.IsDead && !a.Trait.IsTraitDisabled).ToString(NumberFormatInfo.CurrentInfo);
+			harvesters.GetText = () => world.ActorsWithTrait<Harvester>()
+				.Count(a => a.Actor.Owner == player && !a.Actor.IsDead && !a.Trait.IsTraitDisabled).ToString(NumberFormatInfo.CurrentInfo);
 
 			var carryalls = template.GetOrNull<LabelWidget>("CARRYALLS");
 			if (carryalls != null)
-				carryalls.GetText = () => world.ActorsWithTrait<AutoCarryall>().Count(a => a.Actor.Owner == player && !a.Actor.IsDead).ToString(NumberFormatInfo.CurrentInfo);
+				carryalls.GetText = () => world.ActorsWithTrait<AutoCarryall>()
+					.Count(a => a.Actor.Owner == player && !a.Actor.IsDead).ToString(NumberFormatInfo.CurrentInfo);
 
 			var derricks = template.GetOrNull<LabelWidget>("DERRICKS");
 			if (derricks != null)
-				derricks.GetText = () => world.ActorsHavingTrait<UpdatesDerrickCount>().Count(a => a.Owner == player && !a.IsDead).ToString(NumberFormatInfo.CurrentInfo);
+				derricks.GetText = () => world.ActorsHavingTrait<UpdatesDerrickCount>()
+					.Count(a => a.Owner == player && !a.IsDead).ToString(NumberFormatInfo.CurrentInfo);
 
 			return template;
 		}
@@ -595,7 +608,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 		}
 
 		// HACK The height of the templates and the scrollpanel needs to be kept in synch
-		bool ShowScrollBar => players.Count() + (hasTeams ? teams.Count() : 0) > 10;
+		bool ShowScrollBar => players.Length + (hasTeams ? teams.Length : 0) > 10;
 
 		sealed class StatsDropDownOption
 		{

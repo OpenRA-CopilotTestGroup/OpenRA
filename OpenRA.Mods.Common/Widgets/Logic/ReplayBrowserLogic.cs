@@ -18,6 +18,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using OpenRA.FileFormats;
 using OpenRA.Network;
+using OpenRA.Primitives;
 using OpenRA.Traits;
 using OpenRA.Widgets;
 
@@ -406,7 +407,9 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 				var ddb = panel.GetOrNull<DropDownButtonWidget>("FLT_PLAYER_DROPDOWNBUTTON");
 				if (ddb != null)
 				{
-					var options = replays.SelectMany(r => r.GameInfo.Players.Select(p => p.Name)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+					var options = replays.SelectMany(r => r.GameInfo.Players.Select(p => r.GameInfo.ResolvedPlayerName(p)))
+						.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
 					options.Sort(StringComparer.OrdinalIgnoreCase);
 					options.Insert(0, null); // no filter
 
@@ -443,7 +446,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 					options.Insert(0, null); // no filter
 
 					var anyText = ddb.GetText();
-					ddb.GetText = () => string.IsNullOrEmpty(filter.Faction) ? anyText : filter.Faction;
+					ddb.GetText = () => string.IsNullOrEmpty(filter.Faction) ? anyText : TranslationProvider.GetString(filter.Faction);
 					ddb.OnMouseDown = _ =>
 					{
 						ScrollItemWidget SetupItem(string option, ScrollItemWidget tpl)
@@ -452,7 +455,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 								tpl,
 								() => string.Equals(filter.Faction, option, StringComparison.CurrentCultureIgnoreCase),
 								() => { filter.Faction = option; ApplyFilter(); });
-							item.Get<LabelWidget>("LABEL").GetText = () => option ?? anyText;
+							item.Get<LabelWidget>("LABEL").GetText = () => option != null ? TranslationProvider.GetString(option) : anyText;
 							return item;
 						}
 
@@ -665,7 +668,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 			if (!string.IsNullOrEmpty(filter.PlayerName))
 			{
 				var player = replay.GameInfo.Players.FirstOrDefault(
-					p => string.Equals(filter.PlayerName, p.Name, StringComparison.CurrentCultureIgnoreCase));
+					p => string.Equals(filter.PlayerName, replay.GameInfo.ResolvedPlayerName(p), StringComparison.CurrentCultureIgnoreCase));
 				if (player == null)
 					return false;
 
@@ -750,7 +753,7 @@ namespace OpenRA.Mods.Common.Widgets.Logic
 
 						var label = item.Get<LabelWidget>("LABEL");
 						var font = Game.Renderer.Fonts[label.Font];
-						var name = WidgetUtils.TruncateText(o.Name, label.Bounds.Width, font);
+						var name = WidgetUtils.TruncateText(replay.GameInfo.ResolvedPlayerName(o), label.Bounds.Width, font);
 						label.GetText = () => name;
 						label.GetColor = () => color;
 

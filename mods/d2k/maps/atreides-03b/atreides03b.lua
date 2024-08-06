@@ -110,8 +110,8 @@ Tick = function()
 	end
 
 	if Atreides.Resources ~= CachedResources then
-		local parameters = { ["harvested"] = Atreides.Resources, ["goal"] = SpiceToHarvest }
-		local harvestedResources = UserInterface.Translate("harvested-resources", parameters)
+		local harvestedResources = UserInterface.Translate("harvested-resources",
+			{ ["harvested"] = Atreides.Resources, ["goal"] = SpiceToHarvest })
 		UserInterface.SetMissionText(harvestedResources)
 		CachedResources = Atreides.Resources
 	end
@@ -138,8 +138,6 @@ WorldLoaded = function()
 				Trigger.AfterDelay(DateTime.Seconds(3), function()
 					Ordos.MarkCompletedObjective(KillAtreides)
 				end)
-
-				return true
 			end
 		end)
 	end
