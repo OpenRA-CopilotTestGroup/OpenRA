@@ -1,52 +1,41 @@
 using System;
 using System.Net;
+using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Schema;
 
 namespace OpenRA
 {
 	public class CopilotCommandServer
 	{
-		readonly HttpListener listener = new();
-		readonly string url;
+		readonly Socket serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+		readonly int port;
 		readonly World world;
 		bool isRunning;
 
-		public delegate string CommondHandler(JObject json, World world);
+		public delegate string CommandHandler(JObject json, World world);
 
-
-		//开始生产
-		public event CommondHandler OnStartProdunctionCommand;
-
-		// 移动单位指令
-		public event CommondHandler OnMoveActorCommand;
-		public event CommondHandler OnMoveActorOnTilePathCommand;
-
-		// 镜头控制指令
-		public event CommondHandler OnCameraMoveCommand;
-		public event CommondHandler OnCameraFollowCommand;
-
-		// 生产单位指令
-		public event CommondHandler OnProduceUnitCommand;
-
-		// 设置集结点指令
-		public event CommondHandler OnSetRallyPointCommand;
-
-		// 选择单位指令
-		public event CommondHandler OnSelectUnitCommand;
-
-		// 单位编队指令
-		public event CommondHandler OnFormGroupCommand;
+		// 鍚勭鎸囦护浜嬩欢
+		public event CommandHandler OnStartProductionCommand;
+		public event CommandHandler OnMoveActorCommand;
+		public event CommandHandler OnMoveActorOnTilePathCommand;
+		public event CommandHandler OnCameraMoveCommand;
+		public event CommandHandler OnCameraFollowCommand;
+		public event CommandHandler OnProduceUnitCommand;
+		public event CommandHandler OnSetRallyPointCommand;
+		public event CommandHandler OnSelectUnitCommand;
+		public event CommandHandler OnFormGroupCommand;
 
 		public delegate JObject QueryHandler(JObject json, World world);
 		public event QueryHandler QueryActor;
 		public event QueryHandler QueryTile;
-		public CopilotCommandServer(string url, World world)
+
+		public CopilotCommandServer(int port, World world)
 		{
-			this.url = url;
-			listener.Prefixes.Add(this.url);
+			this.port = port;
 			this.world = world;
 		}
 
@@ -57,9 +46,10 @@ namespace OpenRA
 
 		public void Start()
 		{
-			listener.Start();
+			serverSocket.Bind(new IPEndPoint(IPAddress.Any, port));
+			serverSocket.Listen(10);
 			isRunning = true;
-			Console.WriteLine($"Listening for connections on {url}");
+			Console.WriteLine($"Listening for connections on port {port}");
 
 			Task.Run(async () =>
 			{
@@ -67,10 +57,10 @@ namespace OpenRA
 				{
 					try
 					{
-						var context = await listener.GetContextAsync();
-						HandleRequest(context);
+						var clientSocket = await serverSocket.AcceptAsync();
+						HandleClient(clientSocket);
 					}
-					catch (HttpListenerException) when (!isRunning)
+					catch (SocketException) when (!isRunning)
 					{
 						break;
 					}
@@ -83,108 +73,113 @@ namespace OpenRA
 			if (isRunning)
 			{
 				isRunning = false;
-				listener.Stop();
-				listener.Close();
+				serverSocket.Close();
 				Console.WriteLine("CopilotServer has been stopped.");
 			}
 		}
 
-		void HandleRequest(HttpListenerContext context)
+		async void HandleClient(Socket clientSocket)
 		{
-			var request = context.Request;
-			var response = context.Response;
 			try
 			{
-				if (request.HttpMethod == "POST")
+				var buffer = new byte[1024];
+				var received = await clientSocket.ReceiveAsync(buffer, SocketFlags.None);
+				var jsonString = Encoding.UTF8.GetString(buffer, 0, received);
+
+				JObject json;
+				try
 				{
-					using (var reader = new System.IO.StreamReader(request.InputStream, request.ContentEncoding))
-					{
-						var body = reader.ReadToEnd();
+					json = JObject.Parse(jsonString);
+				}
+				catch (JsonReaderException)
+				{
+					SendResponse(clientSocket, "Invalid JSON format");
+					return;
+				}
 
-						JObject json;
-						try
-						{
-							json = JObject.Parse(body);
-						}
-						catch (JsonReaderException)
-						{
-							SendResponse(response, "Invalid JSON format", HttpStatusCode.BadRequest);
-							return;
-						}
-						var path = request.Url.AbsolutePath;
-						string result = null;
-						JObject reslut_j;
-						switch (path)
-						{
-							case "/api/units/move":
-								result = OnMoveActorCommand?.Invoke(json, world);
-								break;
-							case "/api/units/tilemove":
-								result = OnMoveActorOnTilePathCommand?.Invoke(json, world);
-								break;
-							case "/api/query/actor":
-								reslut_j = QueryActor?.Invoke(json, world);
-								SendJsonResponse(response, reslut_j.ToString());
-								return;
-							case "/api/query/tile":
-								reslut_j = QueryTile?.Invoke(json, world);
-								SendJsonResponse(response, reslut_j.ToString());
-								return;
-							case "/api/produce":
-								result = OnStartProdunctionCommand?.Invoke(json, world);
-								break;
-							case "/api/camera/move":
-								result = OnCameraMoveCommand?.Invoke(json, world);
-								break;
-							case "/api/units/select":
-								result = OnSelectUnitCommand?.Invoke(json, world);
-								break;
-							case "/api/units/group":
-								result = OnFormGroupCommand?.Invoke(json, world);
-								break;
+				var command = json["command"]?.ToString();
+				string result = null;
+				JObject resultJson = null;
 
-							default:
-								SendResponse(response, "Unknown command", HttpStatusCode.BadRequest);
-								return;
-						}
+				switch (command)
+				{
+					case "move_actor":
+						result = OnMoveActorCommand?.Invoke(json, world);
+						break;
+					case "move_actor_on_tile_path":
+						result = OnMoveActorOnTilePathCommand?.Invoke(json, world);
+						break;
+					case "query_actor":
+						resultJson = QueryActor?.Invoke(json, world);
+						break;
+					case "query_tile":
+						resultJson = QueryTile?.Invoke(json, world);
+						break;
+					case "start_production":
+						result = OnStartProductionCommand?.Invoke(json, world);
+						break;
+					case "camera_move":
+						result = OnCameraMoveCommand?.Invoke(json, world);
+						break;
+					case "select_unit":
+						result = OnSelectUnitCommand?.Invoke(json, world);
+						break;
+					case "form_group":
+						result = OnFormGroupCommand?.Invoke(json, world);
+						break;
+					default:
+						SendResponse(clientSocket, "Unknown command");
+						return;
+				}
 
-						if (result == null)
-						{
-							SendResponse(response, "Command not implemented", HttpStatusCode.BadRequest);
-						}
-						else
-						{
-							SendResponse(response, result);
-						}
-					}
+				if (resultJson != null)
+				{
+					SendJsonResponse(clientSocket, resultJson.ToString());
+				}
+				else if (result != null)
+				{
+					SendResponse(clientSocket, result);
 				}
 				else
 				{
-					SendResponse(response, "Invalid request", HttpStatusCode.BadRequest);
+					SendResponse(clientSocket, "Command not implemented");
 				}
 			}
 			catch (Exception ex)
 			{
-				SendResponse(response, $"Internal Server Error: {ex.Message}", HttpStatusCode.InternalServerError);
+				SendResponse(clientSocket, $"Internal Server Error: {ex.Message}");
+			}
+			finally
+			{
+				clientSocket.Close();
 			}
 		}
 
-		static void SendResponse(HttpListenerResponse response, string message, HttpStatusCode statusCode = HttpStatusCode.OK)
+		static void SendResponse(Socket clientSocket, string message)
 		{
-			var buffer = Encoding.UTF8.GetBytes(message);
-			response.ContentLength64 = buffer.Length;
-			response.StatusCode = (int)statusCode;
-			var output = response.OutputStream;
-			output.Write(buffer, 0, buffer.Length);
-			output.Close();
+			//var buffer = Encoding.UTF8.GetBytes(message);
+			//clientSocket.Send(buffer);
+			var responseJson = new JObject
+			{
+				["response"] = message
+			};
+			var buffer = Encoding.UTF8.GetBytes(responseJson.ToString());
+			clientSocket.Send(buffer);
 		}
+
+		static void SendJsonResponse(Socket clientSocket, string json)
+		{
+			var buffer = Encoding.UTF8.GetBytes(json);
+			clientSocket.Send(buffer);
+		}
+
 		public static string CustomJsonFormat(string json)
 		{
 			var stringBuilder = new StringBuilder();
-			int indent = 0;
-			int arrayLevel = 0;
+			var indent = 0;
+			var arrayLevel = 0;
 
-			foreach (char ch in json)
+			foreach (var ch in json)
 			{
 				if (ch == '[')
 				{
@@ -197,6 +192,7 @@ namespace OpenRA
 					{
 						stringBuilder.Append(ch);
 					}
+
 					arrayLevel++;
 				}
 				else if (ch == ']')
@@ -235,19 +231,6 @@ namespace OpenRA
 			}
 
 			return stringBuilder.ToString();
-		}
-
-
-		static void SendJsonResponse(HttpListenerResponse response, string json, HttpStatusCode statusCode = HttpStatusCode.OK)
-		{
-			var formattedJson = CustomJsonFormat(json);
-			var buffer = Encoding.UTF8.GetBytes(formattedJson);
-			response.ContentLength64 = buffer.Length;
-			response.StatusCode = (int)statusCode;
-			response.ContentType = "application/json";
-			var output = response.OutputStream;
-			output.Write(buffer, 0, buffer.Length);
-			output.Close();
 		}
 	}
 }

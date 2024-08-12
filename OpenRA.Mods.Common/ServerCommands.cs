@@ -239,8 +239,11 @@ namespace OpenRA.Mods.Common.Commands
 			{
 				targetActors = world.Actors.Where(a => a.OccupiesSpace != null).ToList();
 			}
+			else
+			{
+				targetActors = GetTargets(targets, world, player);
+			}
 
-			targetActors = GetTargets(targets, world, player);
 			var sum = new CPos(0, 0);
 
 			var actorsInfo = targetActors
@@ -320,7 +323,7 @@ namespace OpenRA.Mods.Common.Commands
 			return $"{num} Actor Moved";
 		}
 
-		public static string StartProdunctionCommand(JObject json, World world)
+		public static string StartProductionCommand(JObject json, World world)
 		{
 			var orders = json.TryGetFieldValue("units")?.ToObject<List<JToken>>();
 			var player = world.LocalPlayer;
@@ -606,7 +609,7 @@ namespace OpenRA.Mods.Common.Commands
 				w.CopilotServer.OnMoveActorOnTilePathCommand += MoveActorOnTilePathCommand;
 				w.CopilotServer.QueryActor += ActorQueryCommand;
 				w.CopilotServer.QueryTile += TileInfoQueryCommand;
-				w.CopilotServer.OnStartProdunctionCommand += StartProdunctionCommand;
+				w.CopilotServer.OnStartProductionCommand += StartProductionCommand;
 				w.CopilotServer.OnCameraMoveCommand += CameraMoveCommand;
 				w.CopilotServer.OnSelectUnitCommand += SelectUnitCommand;
 				w.CopilotServer.OnFormGroupCommand += FormGroupCommand;

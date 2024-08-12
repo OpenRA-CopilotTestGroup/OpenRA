@@ -54,3 +54,5 @@ update.log
 
 # IntelliJ files
 .idea
+*.pyc
+Copilot/CodeTrans/.vscode/settings.json

@@ -250,7 +250,7 @@ namespace OpenRA
 
 			if (Type == WorldType.Regular)
 			{
-				CopilotServer = new CopilotCommandServer("http://localhost:8080/", this);
+				CopilotServer = new CopilotCommandServer(7445, this);
 				CopilotServer.Start();
 			}
 		}
