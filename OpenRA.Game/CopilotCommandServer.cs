@@ -32,6 +32,7 @@ namespace OpenRA
 		public delegate JObject QueryHandler(JObject json, World world);
 		public event QueryHandler QueryActor;
 		public event QueryHandler QueryTile;
+		public event QueryHandler QueryPath;
 
 		public CopilotCommandServer(int port, World world)
 		{
@@ -82,10 +83,10 @@ namespace OpenRA
 		{
 			try
 			{
-				var buffer = new byte[1024];
+				var buffer = new byte[16384];
 				var received = await clientSocket.ReceiveAsync(buffer, SocketFlags.None);
 				var jsonString = Encoding.UTF8.GetString(buffer, 0, received);
-
+				Console.WriteLine("Recieved:" + jsonString);
 				JObject json;
 				try
 				{
@@ -115,6 +116,9 @@ namespace OpenRA
 					case "query_tile":
 						resultJson = QueryTile?.Invoke(json, world);
 						break;
+					case "query_path":
+						resultJson = QueryPath?.Invoke(json, world);
+						break;
 					case "start_production":
 						result = OnStartProductionCommand?.Invoke(json, world);
 						break;
@@ -134,7 +138,7 @@ namespace OpenRA
 
 				if (resultJson != null)
 				{
-					SendJsonResponse(clientSocket, resultJson.ToString());
+					SendJsonResponse(clientSocket, resultJson);
 				}
 				else if (result != null)
 				{
@@ -142,12 +146,12 @@ namespace OpenRA
 				}
 				else
 				{
-					SendResponse(clientSocket, "Command not implemented");
+					SendResponse(clientSocket, "Command not implemented", -5);
 				}
 			}
 			catch (Exception ex)
 			{
-				SendResponse(clientSocket, $"Internal Server Error: {ex.Message}");
+				SendResponse(clientSocket, $"Internal Server Error: {ex.Message}", -1);
 			}
 			finally
 			{
@@ -155,21 +159,23 @@ namespace OpenRA
 			}
 		}
 
-		static void SendResponse(Socket clientSocket, string message)
+		static void SendResponse(Socket clientSocket, string message, int status = 1)
 		{
 			//var buffer = Encoding.UTF8.GetBytes(message);
 			//clientSocket.Send(buffer);
 			var responseJson = new JObject
 			{
-				["response"] = message
+				["response"] = message,
+				["status"] = status
 			};
 			var buffer = Encoding.UTF8.GetBytes(responseJson.ToString());
 			clientSocket.Send(buffer);
 		}
 
-		static void SendJsonResponse(Socket clientSocket, string json)
+		static void SendJsonResponse(Socket clientSocket, JObject json, int status = 1)
 		{
-			var buffer = Encoding.UTF8.GetBytes(json);
+			json["status"] = status;
+			var buffer = Encoding.UTF8.GetBytes(json.ToString());
 			clientSocket.Send(buffer);
 		}
 

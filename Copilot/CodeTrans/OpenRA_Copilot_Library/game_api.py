@@ -15,9 +15,13 @@ class GameAPI:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.connect(self.server_address)
             sock.sendall(json_data.encode('utf-8'))
-            response = sock.recv(4096).decode('utf-8')
+            response = sock.recv(16384).decode('utf-8')
         try:
-            return json.loads(response)
+            res_json = json.loads(response)
+            if res_json["status"] < 0 :
+                print("\nError:Response ErrorCode :" + str(res_json["status"]))
+                print("Response:\n"+response)
+            return res_json
         except json.JSONDecodeError:
             print("Error:Response is Not Json.\nResponse:\n"+response)
             return None
@@ -93,24 +97,14 @@ class GameAPI:
             return actors
         actors_data = response.get("actors")
         for data in actors_data:
-            actor = Actor(data["Id"])
-            position = Location(data["Position"]["X"], data["Position"]["Y"])
-            actor.update_details(data["Type"], data["Faction"], position)
+            actor = Actor(data["id"])
+            position = Location(data["position"]["x"], data["position"]["y"])
+            actor.update_details(data["type"], data["faction"], position)
             actors.append(actor)
             self._cache_actor(actor)
         
         return actors
 
-    def get_actor_details(self, actor_id):
-        if self._is_cache_valid(actor_id):
-            return self.actor_cache[actor_id]["actor"]
-
-        response = self._send_request('query_actor', {"actorId": [actor_id]})
-        actor_data = response["actors"][0]
-        actor = Actor(actor_data["Id"])
-        actor.update_details(actor_data["Type"], actor_data["Faction"], actor_data["Position"])
-        self._cache_actor(actor)
-        return actor
 
     def query_tile_info(self, compress_num=5, actors=None):
         data = {"compressNum": compress_num}
@@ -133,4 +127,16 @@ class GameAPI:
             "destination": destination.to_dict(),
             "method": method
         }
-        return self._send_request('find_path', data)
+        response = self._send_request('query_path', data)
+        path = [Location(step["x"], step["y"]) for step in response["path"]]
+        path.reverse()
+        return path
+
+    def update_actor(self, actor):
+        data = {"targets": {"actorId" :  [actor.actor_id]}}
+        response = self._send_request('query_actor', data)
+        if response is None:
+            return
+        position = Location(response["actors"][0]["position"]["x"], response["actors"][0]["position"]["y"])
+        actor.update_details(response["actors"][0]["type"], response["actors"][0]["faction"], position)
+        self._cache_actor(actor)

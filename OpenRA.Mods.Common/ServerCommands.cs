@@ -94,7 +94,8 @@ namespace OpenRA.Mods.Common.Commands
 				{
 					var direction = restrain["relativeDirection"]?.ToString();
 					var maxNum = restrain["maxNum"]?.ToObject<int>();
-
+					var dis = restrain["distance"]?.ToObject<int>();
+						
 					if (direction != null && maxNum.HasValue)
 					{
 						var directionVector = CopilotsUtils.GetDirectionVector(direction);
@@ -105,6 +106,11 @@ namespace OpenRA.Mods.Common.Commands
 					{
 						actors = actors.Take(maxNum.Value);
 					}
+					else if (dis.HasValue)
+					{
+						var loc = GetLocation(targets["location"]);
+						actors = actors.Where(a => Math.Abs(a.Location.X - loc.X) + Math.Abs(a.Location.Y - loc.Y) <= dis.Value);
+					}
 				}
 			}
 
@@ -112,6 +118,18 @@ namespace OpenRA.Mods.Common.Commands
 			result.AddRange(actors);
 
 			return result;
+		}
+
+		public static CPos GetLocation(JToken location)
+		{
+			var x = location["x"]?.ToObject<int>();
+			var y = location["y"]?.ToObject<int>();
+			if (x != null && y != null)
+			{
+				return new CPos(x.Value, y.Value);
+			}
+
+			throw new NotImplementedException("Missing parameters in \"Location\" for command");
 		}
 
 		public static List<Actor> GetTargetsFromJson(JObject json, World world, bool bAllowEmpty = false)
@@ -138,6 +156,13 @@ namespace OpenRA.Mods.Common.Commands
 		{
 			if (location == null)
 				return null;
+			var x = location["x"]?.ToObject<int>();
+			var y = location["y"]?.ToObject<int>();
+			if (x != null && y != null)
+			{
+				return new CPos(x.Value, y.Value);
+			}
+
 			var targets = location.TryGetFieldValue("targets");
 			if (targets == null)
 			{
@@ -237,7 +262,8 @@ namespace OpenRA.Mods.Common.Commands
 			List<Actor> targetActors;
 			if (targets == null)
 			{
-				targetActors = world.Actors.Where(a => a.OccupiesSpace != null).ToList();
+				return null;
+				//targetActors = world.Actors.Where(a => a.OccupiesSpace != null).ToList();
 			}
 			else
 			{
@@ -249,19 +275,19 @@ namespace OpenRA.Mods.Common.Commands
 			var actorsInfo = targetActors
 				.ConvertAll(actor => new JObject
 				{
-					["Id"] = actor.ActorID,
-					["Type"] = actor.Info.Name,
-					["Faction"] = actor.Owner == player ? "己方" : "敌方",
-					["Position"] = new JObject
+					["id"] = actor.ActorID,
+					["type"] = actor.Info.Name,
+					["faction"] = actor.Owner == player ? "己方" : "敌方",
+					["position"] = new JObject
 					{
-						["X"] = actor.Location.X,
-						["Y"] = actor.Location.Y
+						["x"] = actor.Location.X,
+						["y"] = actor.Location.Y
 					}
 				});
 
 			var result = new JObject
 			{
-				["status"] = "success",
+				//["status"] = "success",
 				["actors"] = new JArray(actorsInfo)
 			};
 
@@ -601,6 +627,43 @@ namespace OpenRA.Mods.Common.Commands
 			return closestPoint;
 		}
 
+		public static JObject PathQueryCommand(JObject json, World world)
+		{
+			var actors = GetTargetsFromJson(json, world);
+			var actor = actors.Last();
+			var destination = json.TryGetFieldValue("destination");
+			if (destination == null)
+			{
+				throw new NotImplementedException("Missing parameters destination for Command");
+			}
+
+			var desPos = GetLocation(destination);
+
+			var mobile = actor.TraitOrDefault<Mobile>();
+			if (mobile == null)
+				return null;
+			var pathFinder = actor.World.WorldActor.Trait<PathFinder>();
+			var locomotor = mobile.Locomotor;
+			var path = pathFinder.FindPathToTargetCell(actor, new[] { actor.Location }, desPos, BlockedByActor.None);
+
+			var pathArray = new JArray();
+			foreach (var cpos in path)
+			{
+				pathArray.Add(new JObject
+				{
+					["x"] = cpos.X,
+					["y"] = cpos.Y
+				});
+			}
+
+			var result = new JObject
+			{
+				["path"] = pathArray
+			};
+
+			return result;
+		}
+
 		public void WorldLoaded(World w, WorldRenderer wr)
 		{
 			if (w.Type == WorldType.Regular && w.CopilotServer != null)
@@ -609,6 +672,7 @@ namespace OpenRA.Mods.Common.Commands
 				w.CopilotServer.OnMoveActorOnTilePathCommand += MoveActorOnTilePathCommand;
 				w.CopilotServer.QueryActor += ActorQueryCommand;
 				w.CopilotServer.QueryTile += TileInfoQueryCommand;
+				w.CopilotServer.QueryPath += PathQueryCommand;
 				w.CopilotServer.OnStartProductionCommand += StartProductionCommand;
 				w.CopilotServer.OnCameraMoveCommand += CameraMoveCommand;
 				w.CopilotServer.OnSelectUnitCommand += SelectUnitCommand;
