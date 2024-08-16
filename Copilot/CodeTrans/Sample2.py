@@ -11,14 +11,13 @@ def lure_and_attack_sample():
     jeep = jeeps[0]
     initial_position = jeep.position
 
-    enemy_base = api.query_actor(OpenRA.TargetsQueryParam(type=["基地"], faction="敌方"))[0]
-    base_position = enemy_base.position
-
-    # 摩托车向敌方基地移动
-    api.move_units_by_location([jeep], base_position)
-
     while True:
         api.update_actor(jeep)
+        enemy_base = api.query_actor(OpenRA.TargetsQueryParam(type=["基地"], faction="敌方"))[0]
+        base_position = enemy_base.position
+
+    # 摩托车向敌方基地移动
+        api.move_units_by_location([jeep], base_position)
         # 检测有没有碰到人
         enemies_near_motorcycle = api.query_actor(OpenRA.TargetsQueryParam(faction="敌方", location=jeep.position, restrain=[{"distance": 5}]))
 
@@ -30,18 +29,8 @@ def lure_and_attack_sample():
                 api.move_units_by_location([jeep], initial_position)
 
                 # 然后火箭和坦克靠上去
-                api.move_units_by_location(rocket_soldiers, intermediate_position)
-                api.move_units_by_location(tanks, intermediate_position)
-
-                # 等待敌人靠近
-                # while True:
-                #     enemies_still_near = api.query_actor(OpenRA.TargetsQueryParam(faction="敌方", location=intermediate_position, restrain=[{"distance": 25}]))
-                #     if enemies_still_near:
-                #         break
-                #     time.sleep(1)
-
-                # api.move_units_by_location(rocket_soldiers, enemies_near_motorcycle[0].position)
-                # api.move_units_by_location(tanks, enemies_near_motorcycle[0].position)
+                api.move_units_by_location(rocket_soldiers, jeep.position, True)
+                api.move_units_by_location(tanks, jeep.position, True)
 
                 break
 

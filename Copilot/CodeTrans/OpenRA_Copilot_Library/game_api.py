@@ -3,8 +3,9 @@ import json
 import time
 from .models import Actor, Location, TargetsQueryParam
 
+
 class GameAPI:
-    def __init__(self, host, port = 7445, cache_duration=60):
+    def __init__(self, host, port=7445, cache_duration=60):
         self.server_address = (host, port)
         self.actor_cache = {}
         self.cache_duration = cache_duration
@@ -18,7 +19,7 @@ class GameAPI:
             response = sock.recv(16384).decode('utf-8')
         try:
             res_json = json.loads(response)
-            if res_json["status"] < 0 :
+            if res_json["status"] < 0:
                 print("\nError:Response ErrorCode :" + str(res_json["status"]))
                 print("Response:\n"+response)
             return res_json
@@ -50,10 +51,11 @@ class GameAPI:
         data = {"units": [{"unit_type": unit_type, "quantity": quantity}]}
         return self._send_request('start_production', data)
 
-    def move_units_by_location(self, actors, location):
+    def move_units_by_location(self, actors, location, attackmove = False):
         data = {
             "targets": {"actorId": [actor.actor_id for actor in actors]},
-            "location": location.to_dict()
+            "location": location.to_dict(),
+            "isAttackMove": 1 if attackmove else 0
         }
         return self._send_request('move_actor', data)
 
@@ -65,19 +67,6 @@ class GameAPI:
         }
         return self._send_request('move_actor', data)
 
-    def move_units_by_path(self, actors, path_tiles):
-        data = {
-            "targets": {"actorId": [actor.actor_id for actor in actors]},
-            "pathTiles": path_tiles
-        }
-        return self._send_request('move_actor_on_tile_path', data)
-
-    def follow_camera(self, actors):
-        data = {
-            "targets": {"actorId": [actor.actor_id for actor in actors]}
-        }
-        return self._send_request('camera_follow', data)
-
     def select_units(self, query_params):
         data = {"targets": query_params.to_dict()}
         return self._send_request('select_unit', data)
@@ -85,6 +74,13 @@ class GameAPI:
     def form_group(self, actors, group_id):
         data = {
             "targets": {"actorId": [actor.actor_id for actor in actors]},
+            "groupId": group_id
+        }
+        return self._send_request('form_group', data)
+
+    def form_group(self, query_params: TargetsQueryParam, group_id):
+        data = {
+            "targets": query_params.to_dict(),
             "groupId": group_id
         }
         return self._send_request('form_group', data)
@@ -102,9 +98,8 @@ class GameAPI:
             actor.update_details(data["type"], data["faction"], position)
             actors.append(actor)
             self._cache_actor(actor)
-        
-        return actors
 
+        return actors
 
     def query_tile_info(self, compress_num=5, actors=None):
         data = {"compressNum": compress_num}
@@ -133,10 +128,12 @@ class GameAPI:
         return path
 
     def update_actor(self, actor):
-        data = {"targets": {"actorId" :  [actor.actor_id]}}
+        data = {"targets": {"actorId":  [actor.actor_id]}}
         response = self._send_request('query_actor', data)
         if response is None:
             return
-        position = Location(response["actors"][0]["position"]["x"], response["actors"][0]["position"]["y"])
-        actor.update_details(response["actors"][0]["type"], response["actors"][0]["faction"], position)
+        position = Location(
+            response["actors"][0]["position"]["x"], response["actors"][0]["position"]["y"])
+        actor.update_details(
+            response["actors"][0]["type"], response["actors"][0]["faction"], position)
         self._cache_actor(actor)

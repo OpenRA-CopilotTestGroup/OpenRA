@@ -49,7 +49,7 @@ namespace OpenRA.Mods.Common.Commands
 			if (faction == "己方" || faction == "自己" || faction == "我" || faction == "我的")
 				actors = world.Actors.Where(a => a.Owner == player && a.OccupiesSpace != null);
 			else if (faction == "敌方" || faction == "敌人" || faction == "对面" || faction == "他的" || faction == "他")
-				actors = world.Actors.Where(a => a.Owner != player && a.OccupiesSpace != null);
+				actors = world.Actors.Where(a => a.Owner != player && a.Owner.IsBot && a.OccupiesSpace != null);
 			else
 				throw new ArgumentException($"Invalid faction: {faction}");
 
@@ -95,7 +95,7 @@ namespace OpenRA.Mods.Common.Commands
 					var direction = restrain["relativeDirection"]?.ToString();
 					var maxNum = restrain["maxNum"]?.ToObject<int>();
 					var dis = restrain["distance"]?.ToObject<int>();
-						
+
 					if (direction != null && maxNum.HasValue)
 					{
 						var directionVector = CopilotsUtils.GetDirectionVector(direction);
