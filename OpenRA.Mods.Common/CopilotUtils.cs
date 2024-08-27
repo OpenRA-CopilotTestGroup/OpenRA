@@ -266,5 +266,29 @@ namespace OpenRA.Mods.Common
 					throw new InvalidOperationException("Random direction generation failed");
 			}
 		}
+
+		public static void WaitInit()
+		{
+			waitIndexGen = 0;
+			waitStatusMap = new Dictionary<int, string>();
+			produceWaitMap = new Dictionary<int, Dictionary<string, int>>();
+		}
+
+		public static string QueryWaitStatus(int waitId)
+		{
+			if (waitStatusMap.ContainsKey(waitId))
+				return waitStatusMap[waitId];
+			return "Invalid waitId";
+		}
+
+		static int waitIndexGen = 0;
+
+		static Dictionary<int, string> waitStatusMap;
+		static Dictionary<int, Dictionary<string, int>> produceWaitMap;
+
+		public static int AddWaitEvent_Produce(Dictionary<string, int> produceMap)
+		{
+
+		}
 	}
 }

@@ -13,6 +13,7 @@ using OpenRA.Mods.Common.Traits;
 using OpenRA.Mods.Common.Widgets;
 using OpenRA.Traits;
 using static OpenRA.GameInformation;
+using System.Collections;
 namespace OpenRA.Mods.Common.Commands
 {
 	[TraitLocation(SystemActors.World)]
@@ -359,7 +360,7 @@ namespace OpenRA.Mods.Common.Commands
 			{
 				throw new ArgumentException("No units specified for Produnction command");
 			}
-
+			Dictionary<string, int> produceMap = new Dictionary<string, int>();
 			foreach (var order in orders)
 			{
 				var unitName = order.TryGetFieldValue("unit_type")?.ToObject<string>();
@@ -381,10 +382,13 @@ namespace OpenRA.Mods.Common.Commands
 			.SelectMany(oneQueue => AIUtils.FindQueues(player, oneQueue))
 			.FirstOrDefault();
 
+
 				if (queue != null)
 				{
 					world.IssueOrder(Order.StartProduction(queue.Actor, unitName, quantity.Value, true, true));
 					ret_str += $"{unitName} built.\n";
+					var newWait = Tuple.Create(unitName, quantity.Value);
+					produceMap.Add(unitName, quantity.Value);
 				}
 				else
 				{
