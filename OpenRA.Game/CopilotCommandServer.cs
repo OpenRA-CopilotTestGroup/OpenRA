@@ -19,12 +19,11 @@ namespace OpenRA
 		public delegate string CommandHandler(JObject json, World world);
 
 		// 各种指令事件
-		public event CommandHandler OnStartProductionCommand;
+		public event QueryHandler OnStartProductionCommand;
 		public event CommandHandler OnMoveActorCommand;
 		public event CommandHandler OnMoveActorOnTilePathCommand;
 		public event CommandHandler OnCameraMoveCommand;
 		public event CommandHandler OnCameraFollowCommand;
-		public event CommandHandler OnProduceUnitCommand;
 		public event CommandHandler OnSetRallyPointCommand;
 		public event CommandHandler OnSelectUnitCommand;
 		public event CommandHandler OnFormGroupCommand;
@@ -33,6 +32,7 @@ namespace OpenRA
 		public event QueryHandler QueryActor;
 		public event QueryHandler QueryTile;
 		public event QueryHandler QueryPath;
+		public event QueryHandler QueryWaitInfo;
 
 		public CopilotCommandServer(int port, World world)
 		{
@@ -119,8 +119,11 @@ namespace OpenRA
 					case "query_path":
 						resultJson = QueryPath?.Invoke(json, world);
 						break;
+					case "query_waitInfo":
+						resultJson = QueryWaitInfo?.Invoke(json, world);
+						break;
 					case "start_production":
-						result = OnStartProductionCommand?.Invoke(json, world);
+						resultJson = OnStartProductionCommand?.Invoke(json, world);
 						break;
 					case "camera_move":
 						result = OnCameraMoveCommand?.Invoke(json, world);

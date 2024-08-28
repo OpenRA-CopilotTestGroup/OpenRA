@@ -13,11 +13,13 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using OpenRA.Graphics;
+using OpenRA.Mods.Common.Commands;
 using OpenRA.Mods.Common.Traits;
 using OpenRA.Traits;
 
 namespace OpenRA.Mods.Common
 {
+
 
 	public static class CopilotsUtils
 	{
@@ -265,6 +267,91 @@ namespace OpenRA.Mods.Common
 				default:
 					throw new InvalidOperationException("Random direction generation failed");
 			}
+		}
+
+		public static void WaitInit()
+		{
+			waitIndexGen = 0;
+			waitStatusMap = new Dictionary<int, string>();
+			produceWaitMap = new Dictionary<int, Dictionary<string, int>>();
+		}
+
+		public static string QueryWaitStatus(int waitId)
+		{
+			if (waitStatusMap.ContainsKey(waitId))
+				return waitStatusMap[waitId];
+			return "Invalid waitId";
+		}
+
+		static int waitIndexGen = 0;
+
+		static Dictionary<int, string> waitStatusMap;
+		static Dictionary<int, Dictionary<string, int>> produceWaitMap;
+
+		public static int AddWaitEvent_Produce(Dictionary<string, int> produceMap)
+		{
+			waitIndexGen++;
+			var waitIndex = waitIndexGen;
+			produceWaitMap.Add(waitIndex, produceMap);
+			waitStatusMap.Add(waitIndex, "waiting");
+			return waitIndex;
+		}
+
+		public static void FinishProduce(string unitName)
+		{
+			var completedIndexes = new List<int>();
+
+			foreach (var entry in produceWaitMap)
+			{
+				var waitIndex = entry.Key;
+				var produceMap = entry.Value;
+
+				if (produceMap.ContainsKey(unitName) && produceMap[unitName] > 0)
+				{
+					produceMap[unitName]--;
+
+					if (produceMap[unitName] == 0)
+					{
+						// Check if all values are now 0
+						var allProduced = true;
+						foreach (var value in produceMap.Values)
+						{
+							if (value > 0)
+							{
+								allProduced = false;
+								break;
+							}
+						}
+
+						if (allProduced)
+						{
+							completedIndexes.Add(waitIndex);
+						}
+					}
+
+					break;
+				}
+			}
+
+			foreach (var index in completedIndexes)
+			{
+				produceWaitMap.Remove(index);
+				waitStatusMap[index] = "success";
+			}
+		}
+
+	}
+
+	[TraitLocation(SystemActors.World)]
+	[Desc("Attach this to the world actor.")]
+	public class CopilotsTriggersInfo : TraitInfo<CopilotsTriggers> { }
+
+	public class CopilotsTriggers : INotifyProduction
+	{
+		public void UnitProduced(Actor self, Actor other, CPos exit)
+		{
+			if (other.Owner == other.World.LocalPlayer)
+				CopilotsUtils.FinishProduce(other.Info.Name);
 		}
 	}
 }

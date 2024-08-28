@@ -49,9 +49,29 @@ class GameAPI:
 
     def produce_units(self, unit_type, quantity):
         data = {"units": [{"unit_type": unit_type, "quantity": quantity}]}
-        return self._send_request('start_production', data)
+        response = self._send_request('start_production', data)
+        if response is not None:
+            return response["waitId"]
 
-    def move_units_by_location(self, actors, location, attackmove = False):
+    def is_ready(self, waitId: int):
+        data = {"waitId": waitId}
+        response = self._send_request('query_waitInfo', data)
+        return response["status"]
+
+    def wait(self, waitId: int, maxWaitTime: float = 15.0):
+        data = {"waitId": waitId}
+        response = self._send_request('query_waitInfo', data)
+        waitTime = .0
+        stepTime = 0.1
+        while response["waitStatus"] != "success":
+            time.sleep(stepTime)
+            waitTime += stepTime
+            response = self._send_request('query_waitInfo', data)
+            if waitTime > maxWaitTime:
+                return False
+        return True
+
+    def move_units_by_location(self, actors, location, attackmove=False):
         data = {
             "targets": {"actorId": [actor.actor_id for actor in actors]},
             "location": location.to_dict(),
@@ -100,21 +120,6 @@ class GameAPI:
             self._cache_actor(actor)
 
         return actors
-
-    def query_tile_info(self, compress_num=5, actors=None):
-        data = {"compressNum": compress_num}
-        if actors:
-            data["targets"] = {"actorId": [actor.actor_id for actor in actors]}
-        return self._send_request('query_tile', data)
-
-    def query_tile_move(self, actors, compress_num=5, path_tiles=None):
-        data = {
-            "compressNum": compress_num,
-            "targets": {"actorId": [actor.actor_id for actor in actors]}
-        }
-        if path_tiles:
-            data["pathTiles"] = path_tiles
-        return self._send_request('query_tile', data)
 
     def find_path(self, actors, destination, method):
         data = {

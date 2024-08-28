@@ -13,6 +13,7 @@ using OpenRA.Mods.Common.Traits;
 using OpenRA.Mods.Common.Widgets;
 using OpenRA.Traits;
 using static OpenRA.GameInformation;
+using System.Collections;
 namespace OpenRA.Mods.Common.Commands
 {
 	[TraitLocation(SystemActors.World)]
@@ -294,6 +295,22 @@ namespace OpenRA.Mods.Common.Commands
 			return result;
 		}
 
+		public static JObject WaitQueryCommand(JObject json, World world)
+		{
+
+			var waitId = json.TryGetFieldValue("waitId")?.ToObject<int>();
+			if (waitId == null)
+			{
+				return null;
+			}
+			var result = new JObject
+			{
+				["waitStatus"] = CopilotsUtils.QueryWaitStatus(waitId.Value)
+			};
+
+			return result;
+		}
+
 		public static string MoveActorInDirection(IEnumerable<Actor> actors, string direction, int distance, bool isAttackMove, bool isAssaultMove, World world)
 		{
 			var num = 0;
@@ -349,7 +366,7 @@ namespace OpenRA.Mods.Common.Commands
 			return $"{num} Actor Moved";
 		}
 
-		public static string StartProductionCommand(JObject json, World world)
+		public static JObject StartProductionCommand(JObject json, World world)
 		{
 			var orders = json.TryGetFieldValue("units")?.ToObject<List<JToken>>();
 			var player = world.LocalPlayer;
@@ -359,7 +376,7 @@ namespace OpenRA.Mods.Common.Commands
 			{
 				throw new ArgumentException("No units specified for Produnction command");
 			}
-
+			Dictionary<string, int> produceMap = new Dictionary<string, int>();
 			foreach (var order in orders)
 			{
 				var unitName = order.TryGetFieldValue("unit_type")?.ToObject<string>();
@@ -381,18 +398,29 @@ namespace OpenRA.Mods.Common.Commands
 			.SelectMany(oneQueue => AIUtils.FindQueues(player, oneQueue))
 			.FirstOrDefault();
 
+
 				if (queue != null)
 				{
 					world.IssueOrder(Order.StartProduction(queue.Actor, unitName, quantity.Value, true, true));
 					ret_str += $"{unitName} built.\n";
+					var newWait = Tuple.Create(unitName, quantity.Value);
+					produceMap.Add(unitName, quantity.Value);
+
 				}
+
 				else
 				{
 					ret_str += $"No suitable queue found for unit {unitName}.\n";
 				}
 			}
 
-			return ret_str;
+			var waitId = CopilotsUtils.AddWaitEvent_Produce(produceMap);
+			var result = new JObject
+			{
+				["response"] = ret_str,
+				["waitId"] = waitId,
+			};
+			return result;
 		}
 
 		public static string CameraMoveCommand(JObject json, World world)
@@ -671,6 +699,7 @@ namespace OpenRA.Mods.Common.Commands
 				w.CopilotServer.OnMoveActorCommand += MoveActorCommand;
 				w.CopilotServer.OnMoveActorOnTilePathCommand += MoveActorOnTilePathCommand;
 				w.CopilotServer.QueryActor += ActorQueryCommand;
+				w.CopilotServer.QueryWaitInfo += WaitQueryCommand;
 				w.CopilotServer.QueryTile += TileInfoQueryCommand;
 				w.CopilotServer.QueryPath += PathQueryCommand;
 				w.CopilotServer.OnStartProductionCommand += StartProductionCommand;
@@ -678,6 +707,7 @@ namespace OpenRA.Mods.Common.Commands
 				w.CopilotServer.OnSelectUnitCommand += SelectUnitCommand;
 				w.CopilotServer.OnFormGroupCommand += FormGroupCommand;
 				CopilotsConfig.LoadConfig();
+				CopilotsUtils.WaitInit();
 			}
 		}
 
