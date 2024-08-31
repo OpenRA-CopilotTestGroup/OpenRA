@@ -295,7 +295,7 @@ namespace OpenRA.Mods.Common
 				var crossProduct = vectorX * posVectorY - vectorY * posVectorX;
 				var distance = crossProduct / Math.Sqrt(vectorX * vectorX + vectorY * vectorY);
 
-				return (int)(value * distance * 10);
+				return Math.Max((int)(value * distance * 20 + 100), 0);
 			};
 		}
 

@@ -16,7 +16,6 @@ using System.Linq;
 
 namespace OpenRA.Mods.Common
 {
-
 	public static class CopilotsConfig
 	{
 		static Dictionary<string, List<string>> configNameToChinese;
