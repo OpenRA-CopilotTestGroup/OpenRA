@@ -86,7 +86,16 @@ class GameAPI:
             "distance": distance
         }
         return self._send_request('move_actor', data)
-
+    
+    def move_units_by_path(self, actors, path: list[Location]):
+        if not path:
+            return 
+        data = {
+            "targets": {"actorId": [actor.actor_id for actor in actors]},
+            "path" : [point.to_dict() for point in path]
+        }
+        return self._send_request('move_actor', data)
+    
     def select_units(self, query_params):
         data = {"targets": query_params.to_dict()}
         return self._send_request('select_unit', data)
@@ -128,9 +137,12 @@ class GameAPI:
             "method": method
         }
         response = self._send_request('query_path', data)
-        path = [Location(step["x"], step["y"]) for step in response["path"]]
-        path.reverse()
-        return path
+        try:
+            path = [Location(step["x"], step["y"]) for step in response["path"]]
+            return path
+        except:
+            print("Error in Find Path ,Response:")
+            print(response)
 
     def update_actor(self, actor):
         data = {"targets": {"actorId":  [actor.actor_id]}}

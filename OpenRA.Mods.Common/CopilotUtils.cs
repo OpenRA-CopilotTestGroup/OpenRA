@@ -269,6 +269,36 @@ namespace OpenRA.Mods.Common
 			}
 		}
 
+		public static Func<CPos, int> GetCustomMethod(CPos src, CPos dest, string method)
+		{
+			var value = 0;
+			if (method.Contains('左') || method.Contains("left") || method.Contains("Left"))
+			{
+				value = -1;
+			}
+			else if (method.Contains('右') || method.Contains("right") || method.Contains("Right"))
+			{
+				value = 1;
+			}
+
+			if (value == 0)
+				return null;
+
+			var vectorX = dest.X - src.X;
+			var vectorY = dest.Y - src.Y;
+
+			return pos =>
+			{
+				var posVectorX = pos.X - src.X;
+				var posVectorY = pos.Y - src.Y;
+
+				var crossProduct = vectorX * posVectorY - vectorY * posVectorX;
+				var distance = crossProduct / Math.Sqrt(vectorX * vectorX + vectorY * vectorY);
+
+				return (int)(value * distance * 10);
+			};
+		}
+
 		public static void WaitInit()
 		{
 			waitIndexGen = 0;

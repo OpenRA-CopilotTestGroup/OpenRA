@@ -153,7 +153,7 @@ namespace OpenRA.Mods.Common.Commands
 			return actors;
 		}
 
-		public static CPos? GetLocation(JToken location, World world, Player player)
+		public static CPos? GetTargetLocation(JToken location, World world, Player player)
 		{
 			if (location == null)
 				return null;
@@ -234,11 +234,12 @@ namespace OpenRA.Mods.Common.Commands
 			var locationJson = json.TryGetFieldValue("location");
 			if (locationJson != null)
 			{
-				location = GetLocation(locationJson, world, player);
+				location = GetTargetLocation(locationJson, world, player);
 			}
 
 			var direction = json.TryGetFieldValue("direction")?.ToObject<string>();
 			var distance = json.TryGetFieldValue("distance")?.ToObject<int>();
+			var path = json.TryGetFieldValue("path")?.ToList();
 			var isAttackMove = json.TryGetFieldValue("isAttackMove")?.ToObject<int>();
 			var isAssaultMove = json.TryGetFieldValue("isAssaultMove")?.ToObject<int>();
 
@@ -249,6 +250,10 @@ namespace OpenRA.Mods.Common.Commands
 			else if (direction != null && distance != null)
 			{
 				return MoveActorInDirection(actors, direction, distance.Value, isAttackMove > 0, isAssaultMove > 0, world);
+			}
+			else if (path != null)
+			{
+				return MoveActorInPath(actors, path, isAttackMove > 0, isAssaultMove > 0, world);
 			}
 			else
 			{
@@ -365,6 +370,31 @@ namespace OpenRA.Mods.Common.Commands
 
 			return $"{num} Actor Moved";
 		}
+		public static string MoveActorInPath(IEnumerable<Actor> actors, List<JToken> path, bool isAttackMove, bool isAssaultMove, World world)
+		{
+			var num = 0;
+			foreach (var actor in actors)
+			{
+				var move = actor.TraitOrDefault<IMove>();
+				if (move == null)
+					continue;
+				num++;
+				var cposPath = new List<CPos>();
+				foreach (var c in path)
+					cposPath.Add(GetLocation(c));
+				actor.CancelActivity();
+				if (isAttackMove || isAssaultMove)
+				{
+					actor.QueueActivity(new AttackMoveActivity(actor, () => new Move(actor, check => cposPath), isAssaultMove));
+				}
+				else
+				{
+					actor.QueueActivity(new Move(actor, check => cposPath));
+				}
+			}
+
+			return $"{num} Actor Moved";
+		}
 
 		public static JObject StartProductionCommand(JObject json, World world)
 		{
@@ -429,7 +459,7 @@ namespace OpenRA.Mods.Common.Commands
 			var direction = json.TryGetFieldValue("direction")?.ToObject<string>();
 			var distance = json.TryGetFieldValue("distance")?.ToObject<int>();
 			var locationToken = json.TryGetFieldValue("location");
-			var location = GetLocation(locationToken, world, world.LocalPlayer);
+			var location = GetTargetLocation(locationToken, world, world.LocalPlayer);
 			if ((direction == null || distance == null) && location == null)
 			{
 				return "No direction Or No Distance Or No Location !!!!!!";
@@ -672,7 +702,23 @@ namespace OpenRA.Mods.Common.Commands
 				return null;
 			var pathFinder = actor.World.WorldActor.Trait<PathFinder>();
 			var locomotor = mobile.Locomotor;
-			var path = pathFinder.FindPathToTargetCell(actor, new[] { actor.Location }, desPos, BlockedByActor.None);
+			Func<CPos, int> customCost = null;
+			var method = json.TryGetFieldValue("method")?.ToString();
+			if (method != null)
+			{
+				customCost = CopilotsUtils.GetCustomMethod(actor.Location, desPos, method);
+			}
+
+			var path = pathFinder.FindPathToTargetCell(actor, new[] { actor.Location }, desPos, BlockedByActor.Immovable, customCost);
+
+			if (path.Count <= 0)
+			{
+				var dests = new List<CPos>();
+				for (var i = -1; i <= 1; i++)
+					for (var j = -1; j <= 1; j++)
+						dests.Add(new CPos(i + desPos.X, j + desPos.Y));
+				path = pathFinder.FindPathToTargetCells(actor, actor.Location, dests, BlockedByActor.Immovable, customCost);
+			}
 
 			var pathArray = new JArray();
 			foreach (var cpos in path)
