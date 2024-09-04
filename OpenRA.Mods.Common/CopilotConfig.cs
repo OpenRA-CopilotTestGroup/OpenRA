@@ -19,7 +19,7 @@ namespace OpenRA.Mods.Common
 	public static class CopilotsConfig
 	{
 		static Dictionary<string, List<string>> configNameToChinese;
-		static Dictionary<string, string> chineseToConfigName;
+		static Dictionary<string, List<string>> chineseToConfigName;
 
 		public static void LoadConfig()
 		{
@@ -37,25 +37,44 @@ namespace OpenRA.Mods.Common
 			}
 
 			var yamlNodes = MiniYaml.FromFile(filePath);
-			var unitsNode = yamlNodes.FirstOrDefault(node => node.Key == "units").Value;
+			var unitsNode = yamlNodes.FirstOrDefault(node => node.Key == "units")?.Value;
 
 			configNameToChinese = new Dictionary<string, List<string>>();
-			chineseToConfigName = new Dictionary<string, string>();
+			chineseToConfigName = new Dictionary<string, List<string>>();
 
-			foreach (var node in unitsNode.Nodes)
+			if (unitsNode != null)
 			{
-				var configName = node.Key;
-				var chineseNames = node.Value.Nodes.Select(n => n.Key).ToList();
-
-				configNameToChinese[configName] = chineseNames;
-				foreach (var chineseName in chineseNames)
+				foreach (var node in unitsNode.Nodes)
 				{
-					chineseToConfigName[chineseName] = configName;
+					var configName = node.Key;
+					var chineseNames = node.Value.Nodes.Select(n => n.Key).ToList();
+
+					configNameToChinese[configName] = chineseNames;
+					chineseToConfigName.TryAdd(configName, new List<string>());
+					chineseToConfigName[configName].Add(configName);
+					foreach (var chineseName in chineseNames)
+					{
+						chineseToConfigName.TryAdd(chineseName, new List<string>());
+						chineseToConfigName[chineseName].Add(configName);
+					}
+				}
+			}
+
+			var nickName = yamlNodes.FirstOrDefault(node => node.Key == "nickname")?.Value;
+			if (nickName != null)
+			{
+				foreach (var node in nickName.Nodes)
+				{
+					var chineseName = node.Key;
+					var configNames = node.Value.Nodes.Select(n => n.Key).ToList();
+
+					chineseToConfigName.TryAdd(chineseName, new List<string>());
+					chineseToConfigName[chineseName].AddRange(configNames);
 				}
 			}
 		}
 
-		public static string GetConfigNameByChinese(string chineseName)
+		public static List<string> GetConfigNameByChinese(string chineseName)
 		{
 			var ret = chineseToConfigName.TryGetValue(chineseName, out var configName) ? configName : null;
 			if (ret == null)

@@ -43,9 +43,14 @@ namespace OpenRA.Mods.Common.Commands
 			// 解析参数
 			var range = targets["range"]?.ToString() ?? "all";
 			var groupIds = targets["groupId"]?.ToObject<List<int>>() ?? new List<int>();
-			var types = targets["type"]?.ToObject<List<string>>() ?? new List<string>();
+			var rawtypes = targets["type"]?.ToObject<List<string>>() ?? new List<string>();
 			var faction = targets["faction"]?.ToString() ?? "己方";
-			types = types.ConvertAll(x => CopilotsConfig.GetConfigNameByChinese(x));
+			var types = new List<string>();
+			foreach (var type in rawtypes)
+			{
+				types.AddRange(CopilotsConfig.GetConfigNameByChinese(type));
+			}
+
 			IEnumerable<Actor> actors;
 			if (faction == "己方" || faction == "自己" || faction == "我" || faction == "我的")
 				actors = world.Actors.Where(a => a.Owner == player && a.OccupiesSpace != null);
@@ -406,17 +411,24 @@ namespace OpenRA.Mods.Common.Commands
 			{
 				throw new ArgumentException("No units specified for Produnction command");
 			}
-			Dictionary<string, int> produceMap = new Dictionary<string, int>();
+
+			var produceMap = new Dictionary<string, int>();
 			foreach (var order in orders)
 			{
 				var unitName = order.TryGetFieldValue("unit_type")?.ToObject<string>();
-				unitName = CopilotsConfig.GetConfigNameByChinese(unitName);
+				var unitNames = CopilotsConfig.GetConfigNameByChinese(unitName);
 				var quantity = order.TryGetFieldValue("quantity")?.ToObject<int>();
-				if (unitName == null || quantity == null)
+				if (unitNames == null || quantity == null)
 				{
 					throw new NotImplementedException("Missing parameters for StartProdunctionCommand");
 				}
 
+				if (unitNames.Count > 1)
+				{
+					throw new NotImplementedException("建造内容 {unitName} 不明确");
+				}
+
+				unitName = unitNames[0];
 				if (!world.Map.Rules.Actors.TryGetValue(unitName, out var unit))
 				{
 					ret_str += $"Error!! There is no unit named {unitName}!! \n";

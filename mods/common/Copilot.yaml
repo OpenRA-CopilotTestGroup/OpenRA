@@ -1,5 +1,4 @@
 units:
-
     1tnk:
         轻坦克
         轻坦
@@ -116,3 +115,30 @@ units:
         震荡坦克
     fact:
         基地
+
+nickname:
+    士兵:
+        e1
+        e2
+        e3
+        e4
+        e5
+        e6
+    载具:
+        1tnk
+        2tnk
+        3tnk
+        4tnk
+        jeep
+        ftrk
+        apc
+        ttnk
+        qtnk
+        mcv
+    坦克:
+        1tnk
+        2tnk
+        3tnk
+        4tnk
+        ttnk
+        qtnk
