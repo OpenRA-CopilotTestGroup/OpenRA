@@ -406,6 +406,7 @@ namespace OpenRA.Mods.Common.Commands
 			var orders = json.TryGetFieldValue("units")?.ToObject<List<JToken>>();
 			var player = world.LocalPlayer;
 			var ret_str = "";
+			var waitId = -1;
 
 			if (orders == null || orders.Count == 0)
 			{
@@ -428,35 +429,47 @@ namespace OpenRA.Mods.Common.Commands
 				//	throw new NotImplementedException("建造内容 {unitName} 不明确");
 				//}
 
-				unitName = unitNames[0];
-				if (!world.Map.Rules.Actors.TryGetValue(unitName, out var unit))
+				var validUnits = unitNames
+				.Select(unitName =>
 				{
-					ret_str += $"Error!! There is no unit named {unitName}!! \n";
-					continue;
-				}
+					if (!world.Map.Rules.Actors.TryGetValue(unitName, out var unit))
+					{
+						ret_str += $"Error!! There is no unit named {unitName}!! \n";
+						return null;
+					}
 
-				var bi = unit.TraitInfo<BuildableInfo>();
-				var queue = bi.Queue
-			.SelectMany(oneQueue => AIUtils.FindQueues(player, oneQueue))
-			.FirstOrDefault();
+					var bi = unit.TraitInfo<BuildableInfo>();
+					var queue = bi.Queue
+						.SelectMany(oneQueue => AIUtils.FindQueues(player, oneQueue))
+						.Where(q => q.CanBuild(unit))
+						.ToList();
 
+					if (queue.Count > 0)
+					{
+						return new { unitName, queue = queue[0] };
+					}
 
-				if (queue != null)
+					return null;
+				})
+				.Where(result => result != null)
+				.ToList();
+
+				if (validUnits.Count == 1)
 				{
-					world.IssueOrder(Order.StartProduction(queue.Actor, unitName, quantity.Value, true, true));
+					var validUnit = validUnits[0];
+					world.IssueOrder(Order.StartProduction(validUnit.queue.Actor, validUnit.unitName, quantity.Value, true, true));
+
 					ret_str += $"{unitName} built.\n";
 					var newWait = Tuple.Create(unitName, quantity.Value);
 					produceMap.Add(unitName, quantity.Value);
-
+					waitId = CopilotsUtils.AddWaitEvent_Produce(produceMap);
 				}
-
 				else
 				{
 					ret_str += $"No suitable queue found for unit {unitName}.\n";
 				}
 			}
 
-			var waitId = CopilotsUtils.AddWaitEvent_Produce(produceMap);
 			var result = new JObject
 			{
 				["response"] = ret_str,
@@ -464,6 +477,7 @@ namespace OpenRA.Mods.Common.Commands
 			};
 			return result;
 		}
+
 		public static JObject QueryProduceInfoCommand(JObject json, World world)
 		{
 			var orders = json.TryGetFieldValue("units")?.ToObject<List<JToken>>();
@@ -491,20 +505,32 @@ namespace OpenRA.Mods.Common.Commands
 					throw new NotImplementedException("建造内容 {unitName} 不明确");
 				}
 
-				unitName = unitNames[0];
-				if (!world.Map.Rules.Actors.TryGetValue(unitName, out var unit))
+				var validUnits = unitNames
+				.Select(unitName =>
 				{
-					ret_str += $"Error!! There is no unit named {unitName}!! \n";
-					continue;
-				}
+					if (!world.Map.Rules.Actors.TryGetValue(unitName, out var unit))
+					{
+						ret_str += $"Error!! There is no unit named {unitName}!! \n";
+						return null;
+					}
 
-				var bi = unit.TraitInfo<BuildableInfo>();
-				var queue = bi.Queue
-			.SelectMany(oneQueue => AIUtils.FindQueues(player, oneQueue))
-			.FirstOrDefault();
+					var bi = unit.TraitInfo<BuildableInfo>();
+					var queue = bi.Queue
+					.SelectMany(oneQueue => AIUtils.FindQueues(player, oneQueue))
+					.Where(q => q.CanBuild(unit))
+					.ToList();
 
+					if (queue.Count > 0)
+					{
+						return unitName;
+					}
 
-				if (queue != null)
+					return null;
+				})
+				.Where(result => result != null)
+				.ToList();
+
+				if (validUnits.Count == 1)
 				{
 					canBuild = true;
 				}
@@ -514,7 +540,6 @@ namespace OpenRA.Mods.Common.Commands
 				}
 			}
 
-			var waitId = CopilotsUtils.AddWaitEvent_Produce(produceMap);
 			var result = new JObject
 			{
 				["response"] = ret_str,
