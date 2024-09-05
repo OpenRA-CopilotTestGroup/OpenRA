@@ -7,7 +7,7 @@ class Location:
         return {"x": self.x, "y": self.y}
 
 class TargetsQueryParam:
-    def __init__(self, type=None, faction=None, group_id=None, restrain=None, location=None, direction=None, distance=None):
+    def __init__(self, type: str = None, faction: str = None, group_id: list[int] = None, restrain = None, location: Location = None, direction: str = None, distance: int = None):
         self.type = type
         self.faction = faction
         self.group_id = group_id
@@ -24,7 +24,7 @@ class TargetsQueryParam:
             query["faction"] = self.faction
         if self.group_id:
             query["groupId"] = self.group_id
-        if self.restrain: 
+        if self.restrain:
             query["restrain"] = self.restrain
         if self.location:
             query["location"] = self.location.to_dict()

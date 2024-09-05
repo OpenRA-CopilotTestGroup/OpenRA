@@ -47,11 +47,22 @@ class GameAPI:
         data = {"direction": direction, "distance": distance}
         return self._send_request('camera_move', data)
 
+    def able_to_produce(self, unit_type: str):
+        data = {"units": [{"unit_type": unit_type}]}
+        response = self._send_request('query_prodeceInfo', data)
+        if response is not None:
+            return response["canProdece"]
+        return False
+
     def produce_units(self, unit_type, quantity):
         data = {"units": [{"unit_type": unit_type, "quantity": quantity}]}
         response = self._send_request('start_production', data)
-        if response is not None:
-            return response["waitId"]
+        try:
+            if response is not None:
+                return response["waitId"]
+        except:
+            print("Error in produce_units ,Response:")
+            print(response)
 
     def is_ready(self, waitId: int):
         data = {"waitId": waitId}
@@ -86,16 +97,16 @@ class GameAPI:
             "distance": distance
         }
         return self._send_request('move_actor', data)
-    
+
     def move_units_by_path(self, actors, path: list[Location]):
         if not path:
-            return 
+            return
         data = {
             "targets": {"actorId": [actor.actor_id for actor in actors]},
             "path" : [point.to_dict() for point in path]
         }
         return self._send_request('move_actor', data)
-    
+
     def select_units(self, query_params):
         data = {"targets": query_params.to_dict()}
         return self._send_request('select_unit', data)

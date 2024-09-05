@@ -30,6 +30,7 @@ namespace OpenRA
 
 		public delegate JObject QueryHandler(JObject json, World world);
 		public event QueryHandler QueryActor;
+		public event QueryHandler QueryProduceInfo;
 		public event QueryHandler QueryTile;
 		public event QueryHandler QueryPath;
 		public event QueryHandler QueryWaitInfo;
@@ -121,6 +122,9 @@ namespace OpenRA
 						break;
 					case "query_waitInfo":
 						resultJson = QueryWaitInfo?.Invoke(json, world);
+						break;
+					case "query_prodeceInfo":
+						resultJson = QueryProduceInfo?.Invoke(json, world);
 						break;
 					case "start_production":
 						resultJson = OnStartProductionCommand?.Invoke(json, world);

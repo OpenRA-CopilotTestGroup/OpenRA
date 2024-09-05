@@ -423,10 +423,10 @@ namespace OpenRA.Mods.Common.Commands
 					throw new NotImplementedException("Missing parameters for StartProdunctionCommand");
 				}
 
-				if (unitNames.Count > 1)
-				{
-					throw new NotImplementedException("建造内容 {unitName} 不明确");
-				}
+				//if (unitNames.Count > 1)
+				//{
+				//	throw new NotImplementedException("建造内容 {unitName} 不明确");
+				//}
 
 				unitName = unitNames[0];
 				if (!world.Map.Rules.Actors.TryGetValue(unitName, out var unit))
@@ -461,6 +461,64 @@ namespace OpenRA.Mods.Common.Commands
 			{
 				["response"] = ret_str,
 				["waitId"] = waitId,
+			};
+			return result;
+		}
+		public static JObject QueryProduceInfoCommand(JObject json, World world)
+		{
+			var orders = json.TryGetFieldValue("units")?.ToObject<List<JToken>>();
+			var player = world.LocalPlayer;
+			var ret_str = "";
+			var canBuild = false;
+
+			if (orders == null || orders.Count == 0)
+			{
+				throw new ArgumentException("No units specified for Produnction command");
+			}
+
+			var produceMap = new Dictionary<string, int>();
+			foreach (var order in orders)
+			{
+				var unitName = order.TryGetFieldValue("unit_type")?.ToObject<string>();
+				var unitNames = CopilotsConfig.GetConfigNameByChinese(unitName);
+				if (unitNames == null)
+				{
+					throw new NotImplementedException("Missing parameters for StartProdunctionCommand");
+				}
+
+				if (unitNames.Count > 1)
+				{
+					throw new NotImplementedException("建造内容 {unitName} 不明确");
+				}
+
+				unitName = unitNames[0];
+				if (!world.Map.Rules.Actors.TryGetValue(unitName, out var unit))
+				{
+					ret_str += $"Error!! There is no unit named {unitName}!! \n";
+					continue;
+				}
+
+				var bi = unit.TraitInfo<BuildableInfo>();
+				var queue = bi.Queue
+			.SelectMany(oneQueue => AIUtils.FindQueues(player, oneQueue))
+			.FirstOrDefault();
+
+
+				if (queue != null)
+				{
+					canBuild = true;
+				}
+				else
+				{
+					ret_str += $"No suitable queue found for unit {unitName}.\n";
+				}
+			}
+
+			var waitId = CopilotsUtils.AddWaitEvent_Produce(produceMap);
+			var result = new JObject
+			{
+				["response"] = ret_str,
+				["canProdece"] = canBuild,
 			};
 			return result;
 		}
@@ -760,6 +818,7 @@ namespace OpenRA.Mods.Common.Commands
 				w.CopilotServer.QueryWaitInfo += WaitQueryCommand;
 				w.CopilotServer.QueryTile += TileInfoQueryCommand;
 				w.CopilotServer.QueryPath += PathQueryCommand;
+				w.CopilotServer.QueryProduceInfo += QueryProduceInfoCommand;
 				w.CopilotServer.OnStartProductionCommand += StartProductionCommand;
 				w.CopilotServer.OnCameraMoveCommand += CameraMoveCommand;
 				w.CopilotServer.OnSelectUnitCommand += SelectUnitCommand;
