@@ -25,15 +25,20 @@ namespace OpenRA.Mods.Common
 		{
 
 			var parentDirectory = Path.GetDirectoryName(AppDomain.CurrentDomain.BaseDirectory);
-			parentDirectory = Path.GetDirectoryName(parentDirectory);
+
 
 			// 这里指定 Copilot.yaml 文件的相对路径
 			var filePath = Path.Combine(parentDirectory, "mods", "common", "Copilot.yaml");
 
 			if (!File.Exists(filePath))
 			{
-				Console.WriteLine($"文件路径无效: {filePath}");
-				return;
+				parentDirectory = Path.GetDirectoryName(parentDirectory);
+				filePath = Path.Combine(parentDirectory, "mods", "common", "Copilot.yaml");
+				if (!File.Exists(filePath))
+				{
+					Console.WriteLine($"文件路径无效: {filePath}");
+					return;
+				}
 			}
 
 			var yamlNodes = MiniYaml.FromFile(filePath);

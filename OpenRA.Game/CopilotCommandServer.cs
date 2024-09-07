@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Newtonsoft.Json.Schema;
+using OpenRA.Traits;
 
 namespace OpenRA
 {
@@ -84,6 +85,11 @@ namespace OpenRA
 		{
 			try
 			{
+				if(clientSocket == null)
+				{
+					throw new ArgumentException($"clientSocket Uninit");
+				}
+
 				var buffer = new byte[16384];
 				var received = await clientSocket.ReceiveAsync(buffer, SocketFlags.None);
 				var jsonString = Encoding.UTF8.GetString(buffer, 0, received);

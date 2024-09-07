@@ -461,7 +461,7 @@ namespace OpenRA.Mods.Common.Commands
 
 					ret_str += $"{unitName} built.\n";
 					var newWait = Tuple.Create(unitName, quantity.Value);
-					produceMap.Add(unitName, quantity.Value);
+					produceMap.Add(validUnit.unitName, quantity.Value);
 					waitId = CopilotsUtils.AddWaitEvent_Produce(produceMap);
 				}
 				else

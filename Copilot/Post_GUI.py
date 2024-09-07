@@ -64,9 +64,10 @@ class PacketSenderApp:
 
         try:
             # Check if JSON is valid
-            request_object = json.loads(json_data)
+            # request_object = json.loads(json_data)
 
             headers = {'Content-Type': 'application/json'}
+            print("sending...")
             response = requests.post(url, headers=headers, data=json_data)
 
             if 'application/json' in response.headers.get('Content-Type', ''):
