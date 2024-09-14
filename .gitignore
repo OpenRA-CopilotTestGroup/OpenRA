@@ -56,3 +56,5 @@ update.log
 .idea
 *.pyc
 Copilot/CodeTrans/.vscode/settings.json
+packaging/windows
+Copilot/openra_ai/whisper_mic.egg-info
