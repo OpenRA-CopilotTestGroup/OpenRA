@@ -51,7 +51,7 @@ class GameAPI:
         data = {"units": [{"unit_type": unit_type}]}
         response = self._send_request('query_prodeceInfo', data)
         if response is not None:
-            return response["canProdece"]
+            return response["canProduce"]
         return False
 
     def produce_units(self, unit_type, quantity):

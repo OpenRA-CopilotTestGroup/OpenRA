@@ -129,7 +129,7 @@ namespace OpenRA
 					case "query_waitInfo":
 						resultJson = QueryWaitInfo?.Invoke(json, world);
 						break;
-					case "query_prodeceInfo":
+					case "query_produceInfo":
 						resultJson = QueryProduceInfo?.Invoke(json, world);
 						break;
 					case "start_production":

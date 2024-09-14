@@ -543,7 +543,7 @@ namespace OpenRA.Mods.Common.Commands
 			var result = new JObject
 			{
 				["response"] = ret_str,
-				["canProdece"] = canBuild,
+				["canProduce"] = canBuild,
 			};
 			return result;
 		}
