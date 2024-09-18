@@ -1,13 +1,19 @@
 import os
 import subprocess
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import messagebox, Tk, ttk
 import psutil
+import shutil
 import requests
 import socket
 import configparser
+import sys
+import zipfile
+import threading
+import time
 
 CONFIG_FILE = "settings.ini"
+VERSION = "0.0.0"
 
 def load_settings():
     config = configparser.ConfigParser()
@@ -27,8 +33,8 @@ def save_settings():
         config.write(configfile)
 
 def on_close():
-    save_settings()  
-    root.destroy()   
+    save_settings()
+    root.destroy()
 
 def check_python_installed():
     try:
@@ -44,10 +50,10 @@ def setup_environment(alter = True):
         messagebox.showinfo("信息", "Python 环境已安装")
 
 def install_python():
-    python_installer = "static\\python-3.12.6-amd64.exe"  
+    python_installer = "static\\python-3.12.6-amd64.exe"
     if os.path.exists(python_installer):
         subprocess.run([python_installer], check=True)
-        
+
         subprocess.run(["python", "-m", "pip", "install", "-e", "."], check=True)
         messagebox.showinfo("信息", "Python 环境已安装并设置完成")
     else:
@@ -57,12 +63,12 @@ def get_system_proxy():
     try:
         registry_path = r"Software\Microsoft\Windows\CurrentVersion\Internet Settings"
         reg_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, registry_path)
-        
+
         proxy_enabled, regtype = winreg.QueryValueEx(reg_key, "ProxyEnable")
         proxy_server, regtype = winreg.QueryValueEx(reg_key, "ProxyServer")
-        
+
         if proxy_enabled:
-            
+
             if ':' in proxy_server:
                 return proxy_server.split(":")[-1]
             return None
@@ -76,9 +82,9 @@ def get_system_proxy():
 def get_system_proxy_unix():
     http_proxy = os.getenv("http_proxy")
     https_proxy = os.getenv("https_proxy")
-    
+
     if http_proxy or https_proxy:
-        
+
         if http_proxy and ':' in http_proxy:
             return http_proxy.split(":")[-1]
         elif https_proxy and ':' in https_proxy:
@@ -95,14 +101,13 @@ def can_access_google():
     return False
 
 def set_proxy_env(port):
-    if port == "-1":  
+    if port == "-1":
         os.environ.pop('http_proxy', None)
         os.environ.pop('https_proxy', None)
-        
+
     else:
         os.environ['http_proxy'] = f'http://127.0.0.1:{port}'
         os.environ['https_proxy'] = f'http://127.0.0.1:{port}'
-        
 
 def clear_proxy_env():
     os.environ.pop('http_proxy', None)
@@ -119,20 +124,19 @@ def auto_detect_proxy():
             messagebox.showwarning("警告", f"输入的代理端口 {user_input_port} 无效，正在尝试自动检测代理。")
     if can_access_google():
         set_proxy_env("-1")
-        proxy_port_entry.delete(0, tk.END)  
-        proxy_port_entry.insert(0, "-1")  
+        proxy_port_entry.delete(0, tk.END)
+        proxy_port_entry.insert(0, "-1")
         messagebox.showinfo("信息", "已检测到本地可以直接访问Google，代理已禁用。")
         return
-    
-    
-    default_ports = [7890, 1080, 8080]  
+
+    default_ports = [7890, 1080, 8080]
     for port in default_ports:
         if check_proxy(port):
             set_proxy_env(port)
             proxy_port_entry.delete(0, tk.END)
             proxy_port_entry.insert(0, port)
             return
-    
+
     messagebox.showwarning("警告", "未找到可用的代理端口")
 
 def check_proxy(port):
@@ -152,11 +156,10 @@ def start_python_script():
     openai_key = openai_key_entry.get()
     proxy_port = proxy_port_entry.get()
 
-    
     if not openai_key:
         messagebox.showerror("错误", "请设置OPENAI_API_KEY")
         return False
-    
+
     if not proxy_port:
         messagebox.showerror("错误", "请设置代理端口或禁用代理")
         return False
@@ -189,14 +192,157 @@ def check_singleton(process_name):
             pass
     return False
 
-def auto_update():
-    return
+def get_latest_release(startup=False):
+    try:
+        url = "https://api.github.com/repos/OpenRA-CopilotTestGroup/OpenRA/releases"
+        response = requests.get(url)
+        releases = response.json()
+
+
+        for release in releases:
+            return release['tag_name'], release['assets'][0]['browser_download_url']
+    except Exception as e:
+        if not startup:
+            messagebox.showerror("错误", f"检查更新时出现错误：{e}")
+
+def check_for_updates(startup=False):
+    global update_available, latest_version, download_url
+    try:
+        latest_version, download_url = get_latest_release()
+
+        if latest_version > VERSION:
+            update_available = True
+            if startup:
+
+                auto_update_button.config(text="有新版本！", bg="red", fg="white")
+            else:
+                prompt_update(latest_version, download_url)
+        else:
+            update_available = False
+            if not startup:
+                messagebox.showinfo("提示", "当前已是最新版本")
+
+    except Exception as e:
+        if not startup:
+            messagebox.showerror("错误", f"检查更新时出现错误：{e}")
+
+def prompt_update(latest_version, download_url):
+    result = messagebox.askyesno("更新可用", f"检测到新版本 {latest_version}，是否下载并安装？")
+    if result:
+        download_and_replace(download_url)
+
+def download_and_replace(download_url):
+    def download_task(progress, root, label, speed_label):
+        try:
+            proxy_port = proxy_port_entry.get()
+            proxies = {"http": f'http://127.0.0.1:{proxy_port}', "https": f'http://127.0.0.1:{proxy_port}'} if proxy_port else None
+
+            response = requests.get(download_url, stream=True, proxies=proxies)
+            total_size = int(response.headers.get('content-length', 0))
+            block_size = 65536
+            zip_file = "launcher_update.zip"
+
+            downloaded_size = 0
+            start_time = time.time()
+            if response.status_code == 200:
+                with open(zip_file, "wb") as f:
+                    for chunk in response.iter_content(block_size):
+                        if chunk:
+                            f.write(chunk)
+                            downloaded_size += len(chunk)
+                            root.update_idletasks()
+
+
+                            percent = (downloaded_size / total_size) * 100
+                            progress["value"] = percent
+                            label.config(text=f"正在下载更新... {percent:.2f}%")
+
+
+                            elapsed_time = time.time() - start_time
+                            speed = downloaded_size / elapsed_time
+
+                            if speed > 1024 * 1024:
+                                speed_label.config(text=f"下载速度：{speed / (1024 * 1024):.2f} MB/s")
+                            else:
+                                speed_label.config(text=f"下载速度：{speed / 1024:.2f} KB/s")
+
+                root.destroy()
+
+
+                with zipfile.ZipFile(zip_file, 'r') as zip_ref:
+                    zip_ref.extractall(".")
+
+
+                os.remove(zip_file)
+
+
+                replace_and_restart()
+            else:
+                root.destroy()
+                messagebox.showerror("错误", "下载更新失败")
+        except Exception as e:
+            root.destroy()
+            messagebox.showerror("错误", f"下载更新时出现错误：{e}")
+
+    def start_download():
+
+        download_window = Tk()
+        download_window.title("下载进度")
+        download_window.geometry("300x150")
+
+
+        progress = ttk.Progressbar(download_window, orient="horizontal", length=200, mode="determinate")
+        progress.pack(pady=10)
+        progress["maximum"] = 100
+
+
+        label = ttk.Label(download_window, text="正在下载更新... 0%")
+        label.pack()
+
+
+        speed_label = ttk.Label(download_window, text="下载速度：0 KB/s")
+        speed_label.pack()
+
+
+        download_window.grab_set()
+
+
+        download_thread = threading.Thread(target=download_task, args=(progress, download_window, label, speed_label))
+        download_thread.start()
+
+
+        download_window.mainloop()
+
+
+    start_download()
+
+def replace_and_restart():
+    bat_content = f"""
+    @echo off
+    timeout /t 1 /nobreak > NUL
+    move /y "launcher_new.exe" "launcher.exe"
+    start "" "launcher.exe"
+    """
+    with open("update.bat", "w") as f:
+        f.write(bat_content)
+    os.system("update.bat")
+    root.destroy()
+    sys.exit()
+
+def update_button():
+    if not update_available:
+        check_for_updates()
+    if update_available:
+        prompt_update(latest_version, download_url)
+
+update_available = False
+check_for_updates(startup=True)
 
 root = tk.Tk()
 root.title("Copilot-OpenRA启动器")
 
 root.geometry("350x300")
-root.configure(bg="#f0f0f0")  
+root.configure(bg="#f0f0f0")
 
 root.grid_columnconfigure(0, weight=1, uniform="col")
 root.grid_columnconfigure(1, weight=8, uniform="col")
@@ -239,7 +385,11 @@ auto_proxy_button.grid(row=4, column=2, padx=(15,15), pady=5, sticky="we")
 one_click_button = tk.Button(root, text="一键启动！", command=one_click_start, font=("Microsoft YaHei", 18))
 one_click_button.grid(row=5, column=1, columnspan=2, pady=10, ipadx=50, ipady=10)
 
-auto_update_button = tk.Button(root, text="U", command=auto_update, font=button_font, width=2,height=1)
+if update_available:
+    auto_update_button = tk.Button(root, text="U！", command=update_button, font=button_font, width=3, bg="red", fg="white")
+else:
+    auto_update_button = tk.Button(root, text="U", command=update_button, font=button_font, width=3)
+
 auto_update_button.grid(row=5, rowspan=2, column=2, columnspan=2, padx=(10,10), pady=(10,10), sticky="es")
 
 load_settings()
