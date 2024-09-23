@@ -58,3 +58,12 @@ update.log
 Copilot/CodeTrans/.vscode/settings.json
 packaging/windows
 Copilot/openra_ai/whisper_mic.egg-info
+Copilot/Stater/openra_ai/whisper_mic.egg-info
+*settings.ini
+Copilot/Stater/openra_ai/install_done.txt
+Copilot/Stater/backup
+Copilot/Stater/build
+Copilot/Stater/openra_ai
+Copilot/Stater/launcher_update.zip
+Copilot/Stater/Starter.exe
+Copilot/Stater/Starter.spec
