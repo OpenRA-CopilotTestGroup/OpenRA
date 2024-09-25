@@ -116,16 +116,16 @@ class WhisperMic:
             pass
         elif self.faster:
             from faster_whisper import WhisperModel
-            self.audio_model = WhisperModel(self.model, download_root=model_root, device=self.device, compute_type="int8")            
+            self.audio_model = WhisperModel(self.model, download_root=model_root, device=self.device, compute_type="int8")
         else:
             import whisper
             self.audio_model = whisper.load_model(self.model, device=self.device, download_root=model_root, in_memory=True)
-        
+
         self.temp_dir = tempfile.mkdtemp() if self.save_file else None
 
         self.audio_queue = queue.Queue()
         self.result_queue: "queue.Queue[str]" = queue.Queue()
-        
+
         self.break_threads = False
         self.mic_active = False
 
@@ -181,7 +181,7 @@ class WhisperMic:
             return np.frombuffer(raw_data, np.int16).flatten().astype(np.float32) / 32768.0,is_audio_loud_enough
         #else:
         #    return torch.from_numpy(np.frombuffer(raw_data, np.int16).flatten().astype(np.float32) / 32768.0),is_audio_loud_enough
-        
+
     def is_audio_loud_enough(self, frame):
         audio_frame = np.frombuffer(frame, dtype=np.int16)
         amplitude = np.mean(np.abs(audio_frame))
@@ -216,13 +216,13 @@ class WhisperMic:
     def __record_handler(self, duration, offset):
         with self.source as microphone:
             audio = self.recorder.record(source=microphone, duration=duration, offset=offset)
-        
+
         self.__record_load(0, audio)
         audio_data = self.__get_all_audio()
         self.__transcribe(data=audio_data)
 
 
-    # This method takes the recorded audio data, converts it into raw format and stores it in a queue. 
+    # This method takes the recorded audio data, converts it into raw format and stores it in a queue.
     def __record_load(self,_, audio: sr.AudioData) -> None:
         data = audio.get_raw_data()
         self.audio_queue.put_nowait(data)
@@ -250,8 +250,8 @@ class WhisperMic:
                 if self.prompt:
                     prompt = prompt + self.prompt
                 transcription = self.client.audio.transcriptions.create(
-                    model="whisper-1", 
-                    file=audio_data, 
+                    model="whisper-1",
+                    file=audio_data,
                     language=self.language,
                     prompt=prompt,
                     # response_format="text"
@@ -265,7 +265,7 @@ class WhisperMic:
                     prompt = prompt + self.prompt
                 segments, info = self.audio_model.transcribe(
                     audio_data,language=self.language,
-                    prefix=self.prefix,                                 
+                    prefix=self.prefix,
                     initial_prompt=prompt)
                 for segment in segments:
                     self.logger.debug("received segment: %s", segment)
@@ -282,7 +282,7 @@ class WhisperMic:
             predicted_text = predicted_text.strip()
             if predicted_text and self.enable_post_processing:
                 predicted_text = self.generate_corrected_transcript(predicted_text)
-            
+
             if predicted_text and self.prefix:
                 if not predicted_text.startswith(self.prefix):
                     if self.ignore_text_without_prefix:
@@ -329,8 +329,9 @@ class WhisperMic:
 
         while True:
             yield self.result_queue.get()
+            print(97)
 
-            
+
     def listen(self, timeout = None):
         self.logger.info("Listening...")
         self.__listen_handler(timeout)

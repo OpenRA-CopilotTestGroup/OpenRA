@@ -6,11 +6,12 @@ import speech_recognition as sr
 from typing import Optional
 import time
 
-from rafuncs import handle_command, handle_strategy_command
+from rafuncs import handle_strategy_command
 from whisper_mic import WhisperMic
 
 CACHED_PROMPTS = []
 CACHED_TIME = 0.0
+LAST_TIME = 0.0
 
 def text_callback(text: str):
     print(repr(text))
@@ -29,7 +30,7 @@ def text_callback(text: str):
         full_text = full_text.removesuffix("执行命令")
         print("the strategy command is: ", full_text)
         handle_strategy_command(prompt=full_text)
-        CACHED_PROMPTS.clear()       
+        CACHED_PROMPTS.clear()
     else:
         # handle_command(text)
         new_time = time.time()
@@ -68,7 +69,7 @@ def text_callback(text: str):
 @click.option("--logging_level", default="info", help="logging_level", type=click.Choice(["fatal", "error", "warning", "info", "debug"]))
 @click.option("--config", default=None, help="json filename that contains config", type=str)
 def main(
-    model: str, language: str, verbose: bool, energy: int, pause: float, dynamic_energy: bool, save_file: bool, device: str, 
+    model: str, language: str, verbose: bool, energy: int, pause: float, dynamic_energy: bool, save_file: bool, device: str,
     mic_index: Optional[int], list_devices: bool, faster: bool, hallucinate_threshold: int,
     prompt: Optional[str], prefix: Optional[str], initial_prompt: Optional[str], remote: bool,
     enable_post_processing: bool, post_prompt: Optional[str], ignore_text_without_prefix: bool, remove_prefix: bool,
@@ -100,7 +101,9 @@ def main(
     )
 
     try:
+        print(98)
         mic.listen_loop()
+        print(99)
     except KeyboardInterrupt:
         print("Operation interrupted successfully")
     finally:
