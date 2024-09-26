@@ -17,31 +17,30 @@ def text_callback(text: str):
     print(repr(text))
     global CACHED_PROMPTS
     global CACHED_TIME
-    if text.endswith("执行预设命令"):
-        CACHED_PROMPTS.append(text)
-        full_text = ",".join(CACHED_PROMPTS)
-        full_text = full_text.removesuffix("执行预设命令")
-        print("the strategy command is: ", full_text)
-        handle_strategy_command(index=0)
-        CACHED_PROMPTS.clear()
-    elif text.endswith("执行命令"):
-        CACHED_PROMPTS.append(text)
-        full_text = ",".join(CACHED_PROMPTS)
-        full_text = full_text.removesuffix("执行命令")
-        print("the strategy command is: ", full_text)
-        handle_strategy_command(prompt=full_text)
-        CACHED_PROMPTS.clear()
-    else:
-        # handle_command(text)
-        new_time = time.time()
-        if CACHED_PROMPTS and new_time - CACHED_TIME > 10.0:
-            full_text = ",".join(CACHED_PROMPTS)
-            print("the strategy command is: ", full_text)
-            handle_strategy_command(prompt=full_text)
-            CACHED_PROMPTS.clear()
-            CACHED_TIME = new_time
-        print("cache ", text)
-        CACHED_PROMPTS.append(text)
+    # if text.endswith("执行预设命令"):
+    #     CACHED_PROMPTS.append(text)
+    #     full_text = ",".join(CACHED_PROMPTS)
+    #     full_text = full_text.removesuffix("执行预设命令")
+    #     print("the strategy command is: ", full_text)
+    #     handle_strategy_command(index=0)
+    #     CACHED_PROMPTS.clear()
+    # elif text.endswith("执行命令"):
+    CACHED_PROMPTS.append(text)
+    full_text = ",".join(CACHED_PROMPTS)
+    full_text = full_text.removesuffix("执行命令")
+    print("the strategy command is: ", full_text)
+    handle_strategy_command(prompt=full_text)
+    CACHED_PROMPTS.clear()
+    # else:
+    #     new_time = time.time()
+    #     if CACHED_PROMPTS and new_time - CACHED_TIME > 10.0:
+    #         full_text = ",".join(CACHED_PROMPTS)
+    #         print("the strategy command is: ", full_text)
+    #         handle_strategy_command(prompt=full_text)
+    #         CACHED_PROMPTS.clear()
+    #         CACHED_TIME = new_time
+    #     print("cache ", text)
+    #     CACHED_PROMPTS.append(text)
 
 
 @click.command()
@@ -80,6 +79,7 @@ def main(
     if list_devices:
         print("Possible devices: ",sr.Microphone.list_microphone_names())
         return
+    handle_strategy_command(index=0)
     mic = WhisperMic(
         model=model, language=language, verbose=verbose, energy=energy,
         pause=pause, dynamic_energy=dynamic_energy, save_file=save_file,
@@ -101,9 +101,7 @@ def main(
     )
 
     try:
-        print(98)
         mic.listen_loop()
-        print(99)
     except KeyboardInterrupt:
         print("Operation interrupted successfully")
     finally:

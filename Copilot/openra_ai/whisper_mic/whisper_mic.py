@@ -329,7 +329,6 @@ class WhisperMic:
 
         while True:
             yield self.result_queue.get()
-            print(97)
 
 
     def listen(self, timeout = None):
