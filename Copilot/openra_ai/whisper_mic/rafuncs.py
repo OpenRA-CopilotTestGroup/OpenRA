@@ -43,7 +43,7 @@ def get_chat_completion(
 
 
 ALL_ACTORS = [
-    "我方", "敌方", "敌人", "对方", "对手", "中立"
+    "己方", "敌方", "敌人", "对方", "对手", "中立"
 ]
 
 ALL_DIRECTIONS = [
@@ -117,14 +117,14 @@ Here are examples for the 'camera_move_to' function:
 1. Prompt: 摄像头移动到兵营
    Expected Function Call: camera_move_to(location="兵营")
 
-2. Prompt: 镜头移动到我方基地
-   Expected Function Call: camera_move_to(location="基地", actor="我方")
+2. Prompt: 镜头移动到己方基地
+   Expected Function Call: camera_move_to(location="基地", actor="己方")
 
 3. Prompt: 镜头移动到下方科技中心
    Expected Function Call: camera_move_to(location="科技中心", relatives="下方")
 
-3. Prompt: 镜头移动到我方上方修理厂
-   Expected Function Call: camera_move_to(location="修理厂", actor="我方", relatives="上方")
+3. Prompt: 镜头移动到己方上方修理厂
+   Expected Function Call: camera_move_to(location="修理厂", actor="己方", relatives="上方")
 
 4. Prompt: 视角移动到敌方基地
    Expected Function Call: camera_move_to(location="基地", actor="敌方")
@@ -147,8 +147,8 @@ Here are examples for the 'camera_move_to' function:
 14. Prompt: 镜头移动到轻坦
    Expected Function Call: camera_move_to(location="轻坦")
 
-16. Prompt: 镜头移动到视线范围我方喷火兵
-   Expected Function Call: camera_move_to(location="喷火兵", actor="我方", region="视线范围")
+16. Prompt: 镜头移动到视线范围己方喷火兵
+   Expected Function Call: camera_move_to(location="喷火兵", actor="己方", region="视线范围")
 
 17. Prompt: 镜头移动到上方工程师
    Expected Function Call: camera_move_to(location="工程师", relatives="上方")
@@ -156,8 +156,8 @@ Here are examples for the 'camera_move_to' function:
 19. Prompt: 镜头移动到第一组步兵
    Expected Function Call: camera_move_to(group=1, location="步兵")
 
-20. Prompt: 镜头移动到我方第2组矿车
-   Expected Function Call: camera_move_to(group=2, location="矿车", actor="我方")
+20. Prompt: 镜头移动到己方第2组矿车
+   Expected Function Call: camera_move_to(group=2, location="矿车", actor="己方")
 
 Here are examples for the 'build' function:
 
@@ -182,11 +182,11 @@ Here are examples for the 'build' function:
 9. Prompt: 在视线范围建造四个铁幕
    Expected Function Call: build(region="视线范围", unit_type="铁幕", quantity=4)
 
-11. Prompt: 在我方喷火碉堡附近建造坦克厂
-   Expected Function Call: build(unit_type="坦克厂", location="喷火碉堡", actor='我方')
+11. Prompt: 在己方喷火碉堡附近建造坦克厂
+   Expected Function Call: build(unit_type="坦克厂", location="喷火碉堡", actor='己方')
 
-12. Prompt: 在我方右下方喷火碉堡附近建造矿厂
-   Expected Function Call: build(unit_type="矿厂", location="喷火碉堡", relatives="右下方", actor='我方')
+12. Prompt: 在己方右下方喷火碉堡附近建造矿厂
+   Expected Function Call: build(unit_type="矿厂", location="喷火碉堡", relatives="右下方", actor='己方')
 
 13. Prompt: 在敌方储油罐附近搭建导弹发射井
    Expected Function Call: build(unit_type="导弹发射井", location="储油罐", actor='敌方')
@@ -369,8 +369,8 @@ Here are examples for the 'units_move_to' function:
 2. Prompt: 第1组轻坦克移动到上方基地附近
    Expected Function Call: units_move_to(select_group=1, unit_type="轻坦克", relatives="上方", location="基地")
 
-8. Prompt: 三个炮兵移动到我方右侧兵营附近
-   Expected Function Call: units_move_to(select_max=3, relatives="右侧", unit_type="炮兵", location="兵营", actor="我方")
+8. Prompt: 三个炮兵移动到己方右侧兵营附近
+   Expected Function Call: units_move_to(select_max=3, relatives="右侧", unit_type="炮兵", location="兵营", actor="己方")
 
 9. Prompt: 第4组一半火箭炮移动到敌方基地
    Expected Function Call: units_move_to(select_group=4, select_max=0.5, unit_type="火箭炮", location="基地", actor="敌方")
@@ -387,8 +387,8 @@ Here are examples for the 'units_move_to' function:
 14. Prompt: 所有选中的磁暴坦克移动到地图中央
    Expected Function Call: units_move_to(selected=1, select_max=0, unit_type="磁暴坦克", region="地图中央")
 
-15. Prompt: 一半选中的轻坦移动到我方基地
-   Expected Function Call: units_move_to(selected=1, select_max=0.5, unit_type="轻坦", location="基地", actor="我方")
+15. Prompt: 一半选中的轻坦移动到己方基地
+   Expected Function Call: units_move_to(selected=1, select_max=0.5, unit_type="轻坦", location="基地", actor="己方")
 
 16. Prompt: 三辆选中的装甲车移动到敌方采矿厂
    Expected Function Call: units_move_to(selected=1, select_max=3, unit_type="装甲车", location="采矿场", actor="敌方")
@@ -405,8 +405,8 @@ Here are examples for the 'units_move_to' function:
 22. Prompt: 地图上方所有间谍移动到敌方核弹附近
    Expected Function Call: units_move_to(selected_region="地图上方", unit_type="间谍", select_max=0, actor="敌方", location="核弹")
 
-23. Prompt: 地图中央火箭筒移动到我方电塔附近
-   Expected Function Call: units_move_to(selected_region="地图中央", unit_type="火箭筒", actor="我方", location="电塔")
+23. Prompt: 地图中央火箭筒移动到己方电塔附近
+   Expected Function Call: units_move_to(selected_region="地图中央", unit_type="火箭筒", actor="己方", location="电塔")
 
 24. Prompt: 全屏幕所有电兵移动到敌方兵营
    Expected Function Call: units_move_to(select_region="全屏幕", unit_type="电兵", select_max=0, actor="敌方", location="兵营")
@@ -588,7 +588,7 @@ class GameAPI:
         # distance: int, 移动距离
 
     # when we call this api, unit_type should be one of the {ALL_UNITS}, otherwise convert it to possible value.
-    def able_to_produce(self, unit_type: str, quantity: int) -> bool:
+    def able_to_produce(self, unit_type: str) -> bool:
         # 准备生产单位. 实时操作，调用结束时操作已经完成
         # unit_type: str, 单位类型, one of the {ALL_UNITS}
         # quantity: int, 生产数量
@@ -611,27 +611,23 @@ class GameAPI:
         # waitId: int, thewaitId returned from previous async call like produce_units or move_units_by_location. None means previous action do not generate waitId.
         # Returns: bool, True is is wait success, else False.
 
-    def move_units_by_location(self, actors: List[Actor], location: Location, attack: bool=False) -> int:
+    def move_units_by_location(self, actors: List[Actor], location: Location, attackmove: bool=False) -> None:
         # 移动单位到指定位置. 异步操作，会返回action_id. api可以调用wait(action_id) 等待操作完成。
         # actors: List[Actor], 需要移动的实体列表
         # location: Location, 目标位置
         # attack: bool, 是否攻击目标
-        # Returns: int, operation id, used in waiting operation is done.
 
-    def move_units_by_direction(self, actors: List[Actor], direction: str, distance: int, attack: bool=False) -> int:
+    def move_units_by_direction(self, actors: List[Actor], direction: str, distance: int) -> None:
         # 按方向和距离移动单位. 异步操作，会返回action_id. api可以调用wait(action_id) 等待操作完成。
         # actors: List[Actor], 需要移动的实体列表
         # direction: str, 移动方向, one of the {ALL_DIRECTIONS}
         # distance: int, 移动距离
         # attack: bool, 是否攻击目标
-        # Returns: int, operation id, used in waiting operation is done.
 
-    def move_units_by_path(self, actors: List[Actor], path: List[Location], attack: bool=False) -> int:
+    def move_units_by_path(self, actors: List[Actor], path: List[Location]) -> None:
         # 按路径移动单位. 异步操作，会返回action_id. api可以调用wait(action_id) 等待操作完成。
         # actors: List[Actor], 需要移动的实体列表
         # path: List[Location], 路径上的格子列表
-        # attack: bool, 是否攻击目标
-        # Returns: int, operation id, used in waiting operation is done.
 
     # when we call this api, group_id should be one of the {ALL_GROUPS}, otherwise convert it to possible value.
     def form_group(self, actors: List[Actor], group_id: int) -> None:
@@ -694,28 +690,38 @@ Given input context is:
 
 The expectd generated python code is wrapped with <code> and </code> tag pair as follows:
 <code>
-if GAME_API.able_to_produce("电厂"):
-    p1 = GAME_API.produce_units("电厂", 1)
+import OpenRA_Copilot_Library as OpenRA
+from OpenRA_Copilot_Library import TargetsQueryParam
+from openai import OpenAI
+
+GAME_API = OpenRA.GameAPI("localhost")
+
+if GAME_API.able_to_produce('电厂'):
+    p1 = GAME_API.produce_units('电厂', 1)
     GAME_API.wait(p1)
 
-if GAME_API.able_to_produce("兵营"):
-    p2 = GAME_API.produce_units("兵营", 1)
+if GAME_API.able_to_produce('兵营'):
+    p2 = GAME_API.produce_units('兵营', 1)
     GAME_API.wait(p2)
-if GAME_API.able_to_produce("步兵"):
-    p3 = GAME_API.produce_units("步兵", 5)
-    p4 = GAME_API.produce_units("火箭筒兵", 2)
+
+if GAME_API.able_to_produce('步兵'):
+    p3 = GAME_API.produce_units('步兵', 5)
+    if GAME_API.able_to_produce('火箭筒'):
+        p4 = GAME_API.produce_units('火箭筒', 2)
+        GAME_API.wait(p4)
     GAME_API.wait(p3)
-    GAME_API.wait(p4)
-GAME_API.produce_units("矿场", 1)
-infantry = GAME_API.query_actor(
-    TargetsQueryParam(type=["步兵"], faction="自己"))
-rocket_soldiers = GAME_API.query_actor(
-    TargetsQueryParam(type=["火箭筒兵"], faction="自己"))
-enemy_base = GAME_API.query_actor(
-    TargetsQueryParam(type=["基地"], faction="敌方"))[0]
+
+if GAME_API.able_to_produce('矿场'):
+    p5 = GAME_API.produce_units('矿场', 1)
+
+infantry = GAME_API.query_actor(TargetsQueryParam(type=['步兵'], faction='己方'))
+light_tanks = GAME_API.query_actor(TargetsQueryParam(type=['火箭筒'], faction='己方'))
+enemy_base = GAME_API.query_actor(TargetsQueryParam(type=['基地'], faction='敌方'))[0]
 base_position = enemy_base.position
-units_to_attack = infantry + rocket_soldiers
+
+units_to_attack = infantry + light_tanks
 GAME_API.move_units_by_location(units_to_attack, base_position, attackmove=True)
+
 </code>
 
 Given input context is:
@@ -733,8 +739,8 @@ soldier1 = soldiers[:half_num]
 soldier2 = soldiers[half_num:]
 path1 = GAME_API.find_path(soldier1, destination, '左侧路径')
 path2 = GAME_API.find_path(soldier2, destination, '右侧路径')
-GAME_API.move_units_by_path(soldier1, path1, attack=True)
-GAME_API.move_units_by_path(soldier2, path2, attack=True)
+GAME_API.move_units_by_path(soldier1, path1, attackmove=True)
+GAME_API.move_units_by_path(soldier2, path2, attackmove=True)
 </code>
 
 Given input context is:
@@ -765,7 +771,7 @@ while True:
             # 等待敌人靠近
             while not GAME_API.query_actor(TargetsQueryParam(faction='敌方', location=intermediate_position, restrain=[{{'distance': 2}}])):
                 pass
-            GAME_API.move_units_by_location(soldiers + tanks, intermediate_position, attack=True)
+            GAME_API.move_units_by_location(soldiers + tanks, intermediate_position, attackmove=True)
     break
 </code>
 
@@ -830,31 +836,31 @@ MAX_CACHED_PROMPTS = 0
 CODE_REGEX = re.compile(r'<code>(.*)</code>', re.M | re.S)
 
 def default_func0():
-    if GAME_API.able_to_produce("电厂"):
-        p1 = GAME_API.produce_units("电厂", 1)
-        GAME_API.wait(p1)
+   if GAME_API.able_to_produce('电厂'):
+      p1 = GAME_API.produce_units('电厂', 1)
+      GAME_API.wait(p1)
 
-    if GAME_API.able_to_produce("兵营"):
-        p2 = GAME_API.produce_units("兵营", 1)
-        GAME_API.wait(p2)
+   if GAME_API.able_to_produce('兵营'):
+      p2 = GAME_API.produce_units('兵营', 1)
+      GAME_API.wait(p2)
 
-    if GAME_API.able_to_produce("步兵"):
-        p3 = GAME_API.produce_units("步兵", 5)
-        p4 = GAME_API.produce_units("火箭筒兵", 2)
-        GAME_API.wait(p3)
-        GAME_API.wait(p4)
+   if GAME_API.able_to_produce('步兵'):
+      p3 = GAME_API.produce_units('步兵', 5)
+      if GAME_API.able_to_produce('火箭筒'):
+         p4 = GAME_API.produce_units('火箭筒', 2)
+         GAME_API.wait(p4)
+      GAME_API.wait(p3)
 
-    GAME_API.produce_units("矿场", 1)
+   if GAME_API.able_to_produce('矿场'):
+      p5 = GAME_API.produce_units('矿场', 1)
 
-    infantry = GAME_API.query_actor(
-        TargetsQueryParam(type=["步兵"], faction="自己"))
-    rocket_soldiers = GAME_API.query_actor(
-        TargetsQueryParam(type=["火箭筒兵"], faction="自己"))
-    enemy_base = GAME_API.query_actor(
-        TargetsQueryParam(type=["基地"], faction="敌方"))[0]
-    base_position = enemy_base.position
-    units_to_attack = infantry + rocket_soldiers
-    GAME_API.move_units_by_location(units_to_attack, base_position, attackmove=True)
+   infantry = GAME_API.query_actor(TargetsQueryParam(type=['步兵'], faction='己方'))
+   light_tanks = GAME_API.query_actor(TargetsQueryParam(type=['火箭筒'], faction='己方'))
+   enemy_base = GAME_API.query_actor(TargetsQueryParam(type=['基地'], faction='敌方'))[0]
+   base_position = enemy_base.position
+
+   units_to_attack = infantry + light_tanks
+   GAME_API.move_units_by_location(units_to_attack, base_position, attackmove=True)
 
 def default_func1():
     soldiers = GAME_API.query_actor(TargetsQueryParam(type=['士兵', '坦克'], group_id=[1]))
@@ -870,8 +876,8 @@ def default_func1():
     print(f'soldier2={soldier2}')
     path1 = GAME_API.find_path(soldier1, destination, '左侧路径')
     path2 = GAME_API.find_path(soldier2, destination, '右侧路径')
-    GAME_API.move_units_by_path(soldier1, path1, attack=True)
-    GAME_API.move_units_by_path(soldier2, path2, attack=True)
+    GAME_API.move_units_by_path(soldier1, path1, attackmove=True)
+    GAME_API.move_units_by_path(soldier2, path2, attackmove=True)
 
 
 def default_func2():
@@ -898,7 +904,7 @@ def default_func2():
                 # 等待敌人靠近
                 while not GAME_API.query_actor(TargetsQueryParam(faction='敌方', location=intermediate_position, restrain=[{'distance': 2}])):
                     pass
-                GAME_API.move_units_by_location(soldiers + tanks, intermediate_position, attack=True)
+                GAME_API.move_units_by_location(soldiers + tanks, intermediate_position, attackmove=True)
             break
 
 

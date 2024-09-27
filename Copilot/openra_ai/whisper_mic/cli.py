@@ -5,6 +5,7 @@ import click
 import speech_recognition as sr
 from typing import Optional
 import time
+import os
 
 from rafuncs import handle_strategy_command
 from whisper_mic import WhisperMic
@@ -79,7 +80,9 @@ def main(
     if list_devices:
         print("Possible devices: ",sr.Microphone.list_microphone_names())
         return
-    handle_strategy_command(index=0)
+    # while True:
+    #     handle_strategy_command(index=0)
+    #     os.system("Pause")
     mic = WhisperMic(
         model=model, language=language, verbose=verbose, energy=energy,
         pause=pause, dynamic_energy=dynamic_energy, save_file=save_file,

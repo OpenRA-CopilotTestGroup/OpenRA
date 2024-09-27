@@ -52,7 +52,7 @@ namespace OpenRA.Mods.Common.Commands
 			}
 
 			IEnumerable<Actor> actors;
-			if (faction == "己方" || faction == "自己" || faction == "我" || faction == "我的")
+			if (faction == "己方" || faction == "自己" || faction == "我" || faction == "我的" || faction == "我方")
 				actors = world.Actors.Where(a => a.Owner == player && a.OccupiesSpace != null);
 			else if (faction == "敌方" || faction == "敌人" || faction == "对面" || faction == "他的" || faction == "他")
 				actors = world.Actors.Where(a => a.Owner != player && a.Owner.IsBot && a.OccupiesSpace != null);
@@ -498,11 +498,6 @@ namespace OpenRA.Mods.Common.Commands
 				if (unitNames == null)
 				{
 					throw new NotImplementedException("Missing parameters for StartProdunctionCommand");
-				}
-
-				if (unitNames.Count > 1)
-				{
-					throw new NotImplementedException("建造内容 {unitName} 不明确");
 				}
 
 				var validUnits = unitNames

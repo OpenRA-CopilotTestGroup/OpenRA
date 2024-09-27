@@ -49,8 +49,8 @@ class GameAPI:
 
     def able_to_produce(self, unit_type: str):
         data = {"units": [{"unit_type": unit_type}]}
-        response = self._send_request('query_prodeceInfo', data)
-        if response is not None:
+        response = self._send_request('query_produceInfo', data)
+        if response is not None and "canProduce" in response:
             return response["canProduce"]
         return False
 
