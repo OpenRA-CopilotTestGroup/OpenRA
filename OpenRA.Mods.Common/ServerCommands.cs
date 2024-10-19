@@ -14,6 +14,8 @@ using OpenRA.Mods.Common.Widgets;
 using OpenRA.Traits;
 using static OpenRA.GameInformation;
 using System.Collections;
+using TagLib.Mpeg4;
+using System.Text.RegularExpressions;
 namespace OpenRA.Mods.Common.Commands
 {
 	[TraitLocation(SystemActors.World)]
@@ -369,7 +371,7 @@ namespace OpenRA.Mods.Common.Commands
 				}
 				else
 				{
-					actor.QueueActivity(new Move(actor, targetLocation));
+					actor.QueueActivity(move.MoveTo(targetLocation, 5));
 				}
 			}
 
@@ -828,6 +830,128 @@ namespace OpenRA.Mods.Common.Commands
 			return result;
 		}
 
+		public static string DeployCommand(JObject json, World world)
+		{
+			var actors = GetTargetsFromJson(json, world);
+			var selectedDeploys = Array.Empty<TraitPair<IIssueDeployOrder>>();
+			selectedDeploys = actors
+				.SelectMany(a => a.TraitsImplementing<IIssueDeployOrder>()
+				.Select(d => new TraitPair<IIssueDeployOrder>(a, d)))
+				.ToArray();
+			// 是否是多点下令
+			var queued = false;
+			var orders = selectedDeploys
+				.Where(pair => pair.Trait.CanIssueDeployOrder(pair.Actor, queued))
+				.Select(d => d.Trait.IssueDeployOrder(d.Actor, queued))
+				.Where(d => d != null)
+				.ToArray();
+
+			foreach (var o in orders)
+				world.IssueOrder(o);
+
+			orders.PlayVoiceForOrders();
+			return "Deploy action executed.";
+		}
+
+		public static string ViewCommand(JObject json, World world)
+		{
+			var actorId = json["actorId"]?.ToObject<int>();
+			if (actorId == null)
+				throw new ArgumentException("Missing actorId for View command");
+
+			var actor = world.Actors.FirstOrDefault(a => a.ActorID == actorId);
+			if (actor == null)
+				throw new ArgumentException("Actor not found for View command");
+
+			var worldRenderer = Game.worldRenderer;
+			worldRenderer.Viewport.Center(world.Map.CenterOfCell(actor.Location));
+			return "Camera moved to actor.";
+		}
+
+		public static string OccupyCommand(JObject json, World world)
+		{
+			var player = world.LocalPlayer;
+			var actors = GetTargets(json["occupiers"], world, player);
+			var targets = GetTargets(json["targets"], world, player);
+
+			var capturers = actors
+				.Select(a => new TraitPair<CaptureManager>(a, a.TraitOrDefault<CaptureManager>()))
+				.Where(tp => tp.Trait != null)
+				.ToArray();
+
+			if (capturers.ToList().Count == 0)
+				return "No Capturer";
+
+			var capturableTargetOptions = targets
+				.Where(target =>
+				{
+					var captureManager = target.TraitOrDefault<CaptureManager>();
+					if (captureManager == null)
+						return false;
+
+					return capturers.Any(tp => tp.Trait.CanTarget(captureManager));
+				})
+				.OrderByDescending(target => target.GetSellValue());
+
+			var capturableTargetOptionsList = capturableTargetOptions.ToList();
+			if (capturableTargetOptionsList.Count == 0)
+				return "No Target Can Be Capture";
+			foreach (var capturer in capturers)
+			{
+				var targetActor = capturableTargetOptionsList.ClosestToWithPathFrom(capturer.Actor);
+				if (targetActor == null)
+					continue;
+
+				world.IssueOrder(new Order("CaptureActor", capturer.Actor, Target.FromActor(targetActor), true));
+			}
+			return "Order Executed";
+		}
+
+		public static string RepairCommand(JObject json, World world)
+		{
+			return "Todo..";
+		}
+
+		public static string StopCommand(JObject json, World world)
+		{
+			var actors = GetTargetsFromJson(json, world);
+			foreach (var a in actors)
+			{
+				world.IssueOrder(new Order("Stop", a, false));
+			}
+
+			return "Stop Executed";
+		}
+
+		public static JObject FogQueryCommand(JObject json, World world)
+		{
+			var result = new JObject
+			{
+				["To"] = "Todo..."
+			};
+			return result;
+		}
+
+		public static JObject UnitRangeQueryCommand(JObject json, World world)
+		{
+			var actors = GetTargetsFromJson(json, world);
+			var actorIds = actors.Select(a => a.ActorID).ToList();
+			var result = new JObject
+			{
+				["actors"] = new JArray(actorIds)
+			};
+			return result;
+		}
+
+		public static JObject UnitAttributeQueryCommand(JObject json, World world)
+		{
+			var result = new JObject
+			{
+				["To"] = "Todo..."
+			};
+			return result;
+		}
+
 		public void WorldLoaded(World w, WorldRenderer wr)
 		{
 			if (w.Type == WorldType.Regular && w.CopilotServer != null)
@@ -843,6 +967,14 @@ namespace OpenRA.Mods.Common.Commands
 				w.CopilotServer.OnCameraMoveCommand += CameraMoveCommand;
 				w.CopilotServer.OnSelectUnitCommand += SelectUnitCommand;
 				w.CopilotServer.OnFormGroupCommand += FormGroupCommand;
+				w.CopilotServer.OnDeployCommand += DeployCommand;
+				w.CopilotServer.OnViewCommand += ViewCommand;
+				w.CopilotServer.OnOccupyCommand += OccupyCommand;
+				w.CopilotServer.OnRepairCommand += RepairCommand;
+				w.CopilotServer.OnStopCommand += StopCommand;
+				w.CopilotServer.OnFogQueryCommand += FogQueryCommand;
+				w.CopilotServer.OnUnitRangeQueryCommand += UnitRangeQueryCommand;
+				w.CopilotServer.OnUnitAttributeQueryCommand += UnitAttributeQueryCommand;
 				CopilotsConfig.LoadConfig();
 				CopilotsUtils.WaitInit();
 			}

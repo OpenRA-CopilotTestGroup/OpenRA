@@ -1,6 +1,7 @@
 import socket
 import json
 import time
+from typing import List, Optional
 from .models import Actor, Location, TargetsQueryParam
 
 
@@ -103,7 +104,7 @@ class GameAPI:
             return
         data = {
             "targets": {"actorId": [actor.actor_id for actor in actors]},
-            "path" : [point.to_dict() for point in path]
+            "path": [point.to_dict() for point in path]
         }
         return self._send_request('move_actor', data)
 
@@ -149,7 +150,8 @@ class GameAPI:
         }
         response = self._send_request('query_path', data)
         try:
-            path = [Location(step["x"], step["y"]) for step in response["path"]]
+            path = [Location(step["x"], step["y"])
+                    for step in response["path"]]
             return path
         except:
             print("Error in Find Path ,Response:")
@@ -165,3 +167,50 @@ class GameAPI:
         actor.update_details(
             response["actors"][0]["type"], response["actors"][0]["faction"], position)
         self._cache_actor(actor)
+
+
+def deploy_units(self, actors: List[Actor]) -> Optional[int]:
+    data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
+    response = self._send_request('deploy', data)
+    return response.get('waitId') if response else None
+
+
+def move_camera_to(self, actor: Actor) -> dict:
+    data = {"actorId": actor.actor_id}
+    return self._send_request('view', data)
+
+
+def occupy_units(self, occupiers: List[Actor], targets: List[Actor]) -> dict:
+    data = {
+        "occupiers": {"actorId": [actor.actor_id for actor in occupiers]},
+        "targets": {"actorId": [target.actor_id for target in targets]}
+    }
+    return self._send_request('occupy', data)
+
+
+def repair_units(self, actors: List[Actor]) -> Optional[int]:
+    data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
+    response = self._send_request('repair', data)
+    return response.get('waitId') if response else None
+
+
+def stop(self, actors: List[Actor]) -> dict:
+    data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
+    return self._send_request('stop', data)
+
+
+def fog_query(self, location: Location) -> bool:
+    data = {"location": location.to_dict()}
+    response = self._send_request('fog_query', data)
+    return response.get('isVisible', False) if response else False
+
+
+def unit_range_query(self, actors: List[Actor]) -> List[int]:
+    data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
+    response = self._send_request('unit_range_query', data)
+    return response.get('actors', []) if response else []
+
+
+def unit_attribute_query(self, actors: List[Actor]) -> dict:
+    data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
+    return self._send_request('unit_attribute_query', data)

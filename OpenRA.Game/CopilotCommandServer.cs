@@ -28,6 +28,11 @@ namespace OpenRA
 		public event CommandHandler OnSetRallyPointCommand;
 		public event CommandHandler OnSelectUnitCommand;
 		public event CommandHandler OnFormGroupCommand;
+		public event CommandHandler OnDeployCommand;
+		public event CommandHandler OnViewCommand;
+		public event CommandHandler OnOccupyCommand;
+		public event CommandHandler OnRepairCommand;
+		public event CommandHandler OnStopCommand;
 
 		public delegate JObject QueryHandler(JObject json, World world);
 		public event QueryHandler QueryActor;
@@ -35,6 +40,10 @@ namespace OpenRA
 		public event QueryHandler QueryTile;
 		public event QueryHandler QueryPath;
 		public event QueryHandler QueryWaitInfo;
+		public event QueryHandler OnFogQueryCommand;
+		public event QueryHandler OnUnitRangeQueryCommand;
+		public event QueryHandler OnUnitAttributeQueryCommand;
+
 
 		public CopilotCommandServer(int port, World world)
 		{
@@ -143,6 +152,30 @@ namespace OpenRA
 						break;
 					case "form_group":
 						result = OnFormGroupCommand?.Invoke(json, world);
+						break;
+					case "deploy":
+						result = OnDeployCommand?.Invoke(json, world);
+						break;
+					case "view":
+						result = OnViewCommand?.Invoke(json, world);
+						break;
+					case "occupy":
+						result = OnOccupyCommand?.Invoke(json, world);
+						break;
+					case "repair":
+						result = OnRepairCommand?.Invoke(json, world);
+						break;
+					case "stop":
+						result = OnStopCommand?.Invoke(json, world);
+						break;
+					case "fog_query":
+						resultJson = OnFogQueryCommand?.Invoke(json, world);
+						break;
+					case "unit_range_query":
+						resultJson = OnUnitRangeQueryCommand?.Invoke(json, world);
+						break;
+					case "unit_attribute_query":
+						resultJson = OnUnitAttributeQueryCommand?.Invoke(json, world);
 						break;
 					default:
 						SendResponse(clientSocket, "Unknown command");
