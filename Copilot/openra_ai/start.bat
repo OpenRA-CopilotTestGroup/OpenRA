@@ -39,4 +39,4 @@ if exist "%marker_file%" (
     echo installed=true> "%marker_file%"
 )
 
-start "Copilot_Whisper_Mic" python ./whisper_mic/cli.py --config config.json
+start "Copilot_Whisper_Mic" cmd /c python ./whisper_mic/cli.py --config config.json %* & pause

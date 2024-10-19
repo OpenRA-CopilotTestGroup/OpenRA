@@ -15,7 +15,7 @@ import pygetwindow as gw
 import ctypes
 
 CONFIG_FILE = "settings.ini"
-VERSION = "0.0.2"
+VERSION = "0.0.3"
 
 
 def load_settings():
@@ -190,8 +190,15 @@ def start_python_script(Alert=True):
 
     os.environ['OPENAI_API_KEY'] = openai_key
     set_proxy_env(proxy_port)
-    subprocess.Popen([os.path.join("openra_ai", "start.bat")],
-                     env=os.environ, creationflags=subprocess.CREATE_NEW_CONSOLE)
+    mic_mode = selected_mic_version.get()
+    command = [os.path.join("openra_ai", "start.bat")]
+
+    if mic_mode == "手动输入":
+        command.append("--input_mode")
+        command.append("keyboard")
+
+    subprocess.Popen(command, env=os.environ, creationflags=subprocess.CREATE_NEW_CONSOLE)
+
     return True
 
 
@@ -506,15 +513,23 @@ proxy_port_entry.grid(row=2, column=0, columnspan=2,
 
 button_font = ("Microsoft YaHei", 10)
 
-gpt_versions = ["GPT-3.5", "GPT-4", "GPT-4o", "GPT-4o mini", "GPT-o1"]
+gpt_versions = ["GPT-3.5", "GPT-4", "GPT-4o",
+                "GPT-4o mini", "GPT-o1", "目前仅测试用，无实际效果"]
 
-# 创建一个 StringVar 来存储选择的值
 selected_version = StringVar(root)
-selected_version.set("GPT-4o")  # 默认值
+selected_version.set("GPT-4o")
 
-# 创建 OptionMenu 下拉选择框
 dropdown = tk.OptionMenu(root, selected_version, *gpt_versions)
 dropdown.grid(row=3, column=1, padx=(15, 15), pady=5, sticky="we")
+
+selected_mic_version = StringVar(root)
+selected_mic_version.set("openai")
+
+mic_versions = ["openai", "手动输入"]
+
+dropdown_mic = tk.OptionMenu(root, selected_mic_version, *mic_versions)
+dropdown_mic.grid(row=3, column=2, padx=(15, 15), pady=5, sticky="we")
+
 
 # install_button = tk.Button(root, text="安装Python",
 #                            command=install_python, font=button_font)
@@ -530,7 +545,7 @@ start_openra_button.grid(row=4, column=1, padx=(15, 15), pady=5, sticky="we")
 
 auto_proxy_button = tk.Button(
     root, text="自动设置代理端口", command=auto_detect_proxy, font=button_font)
-auto_proxy_button.grid(row=3, column=2, padx=(15, 15), pady=5, sticky="we")
+auto_proxy_button.grid(row=2, column=2, padx=(15, 15), pady=5, sticky="we")
 
 one_click_button = tk.Button(
     root, text="一键启动！", command=one_click_start, font=("Microsoft YaHei", 18))

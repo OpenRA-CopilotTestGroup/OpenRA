@@ -70,7 +70,7 @@ def handle_mic_input(
     if list_devices:
         print("Possible devices: ",sr.Microphone.list_microphone_names())
         return
-    
+
     mic = WhisperMic(
         model=model, language=language, verbose=verbose, energy=energy,
         pause=pause, dynamic_energy=dynamic_energy, save_file=save_file,
@@ -126,7 +126,7 @@ def handle_mic_input(
 @click.option("--logging_level", default="info", help="logging_level", type=click.Choice(["fatal", "error", "warning", "info", "debug"]))
 @click.option("--config", default=None, help="json filename that contains config", type=str)
 def main(
-    input_mode: str, 
+    input_mode: str,
     model: str, language: str, verbose: bool, energy: int, pause: float, dynamic_energy: bool, save_file: bool, device: str,
     mic_index: Optional[int], list_devices: bool, faster: bool, hallucinate_threshold: int,
     prompt: Optional[str], prefix: Optional[str], initial_prompt: Optional[str], remote: bool,
@@ -135,6 +135,7 @@ def main(
     logging_level: str,
     config: Optional[str]
 ) -> None:
+    print(input_mode)
     if input_mode == "mic":
         handle_mic_input(
             model=model, language=language, verbose=verbose, energy=energy,
