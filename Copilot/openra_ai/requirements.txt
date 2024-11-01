@@ -11,3 +11,4 @@ openai
 pynput
 rich
 setuptools
+pyyaml

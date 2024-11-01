@@ -14,7 +14,7 @@ from io import BytesIO
 from openai import OpenAI
 # from ctypes import *
 
-from utils import get_logger
+from .utils import get_logger
 
 #TODO: This is a linux only fix and needs to be testd.  Have one for mac and windows too.
 # Define a null error handler for libasound to silence the error message spam

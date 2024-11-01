@@ -1,23 +1,26 @@
 #!/usr/bin/env python3
 
 import click
-#import torch
+# import torch
 import speech_recognition as sr
 from typing import Optional
 import time
 import os
 
-from rafuncs import handle_strategy_command
-from whisper_mic import WhisperMic
+from .rafuncs import handle_strategy_command
+from .whisper_mic import WhisperMic
 
 CACHED_PROMPTS = []
 CACHED_TIME = 0.0
 LAST_TIME = 0.0
+GPTMODEL = "gpt-4o"
+
 
 def text_callback(text: str):
     print(repr(text))
     global CACHED_PROMPTS
     global CACHED_TIME
+    global GPTMODEL
     # if text.endswith("执行预设命令"):
     #     CACHED_PROMPTS.append(text)
     #     full_text = ",".join(CACHED_PROMPTS)
@@ -30,7 +33,7 @@ def text_callback(text: str):
     full_text = ",".join(CACHED_PROMPTS)
     full_text = full_text.removesuffix("执行命令")
     print("The strategy command is: ", full_text)
-    handle_strategy_command(prompt=full_text)
+    handle_strategy_command(prompt=full_text, model=GPTMODEL)
     CACHED_PROMPTS.clear()
     # else:
     #     new_time = time.time()
@@ -42,6 +45,7 @@ def text_callback(text: str):
     #         CACHED_TIME = new_time
     #     print("cache ", text)
     #     CACHED_PROMPTS.append(text)
+
 
 def handle_keyboard_input():
     # Keyboard input handling
@@ -58,6 +62,7 @@ def handle_keyboard_input():
             print("Operation interrupted successfully")
             break
 
+
 def handle_mic_input(
     model: str, language: str, verbose: bool, energy: int, pause: float, dynamic_energy: bool, save_file: bool, device: str,
     mic_index: Optional[int], list_devices: bool, faster: bool, hallucinate_threshold: int,
@@ -68,13 +73,13 @@ def handle_mic_input(
     config: Optional[str]
 ):
     if list_devices:
-        print("Possible devices: ",sr.Microphone.list_microphone_names())
+        print("Possible devices: ", sr.Microphone.list_microphone_names())
         return
 
     mic = WhisperMic(
         model=model, language=language, verbose=verbose, energy=energy,
         pause=pause, dynamic_energy=dynamic_energy, save_file=save_file,
-        device=device,mic_index=mic_index,
+        device=device, mic_index=mic_index,
         faster=faster,
         hallucinate_threshold=hallucinate_threshold,
         text_callback=text_callback,
@@ -99,13 +104,14 @@ def handle_mic_input(
         if save_file:
             mic.file.close()
 
+
 @click.command()
 @click.option("--input_mode", default="mic", help="Input mode: 'mic' for microphone, 'keyboard' for keyboard input", type=click.Choice(["mic", "keyboard"]))
-
-@click.option("--model", default="large", help="Model to use", type=click.Choice(["tiny","base", "small","medium","large","large-v2","large-v3"]))
+@click.option("--model", default="large", help="Model to use", type=click.Choice(["tiny", "base", "small", "medium", "large", "large-v2", "large-v3"]))
+@click.option("--gptmodel", default="gpt-4o", help="AI Gen GPT Model to use", type=str)
 @click.option("--device", default="mps", help="Device to use", type=click.Choice(["mps"]))
-@click.option("--language", default="zh", help="language model",type=click.Choice(["en", "zh"]))
-@click.option("--verbose", default=False, help="Whether to print verbose output", is_flag=True,type=bool)
+@click.option("--language", default="zh", help="language model", type=click.Choice(["en", "zh"]))
+@click.option("--verbose", default=False, help="Whether to print verbose output", is_flag=True, type=bool)
 @click.option("--prompt", default=None, help="prompt", type=str)
 @click.option("--prefix", default=None, help="prefix", type=str)
 @click.option("--ignore_text_without_prefix", default=False, help="ignore text without prefix", is_flag=True, type=bool)
@@ -114,20 +120,20 @@ def handle_mic_input(
 @click.option("--enable_post_processing", default=False, help="enable post_processing", is_flag=True, type=bool)
 @click.option("--post_prompt", default=None, help="post_prompt", type=str)
 @click.option("--energy", default=300, help="Energy level for mic to detect", type=int)
-@click.option("--dynamic_energy", default=False,is_flag=True, help="Flag to enable dynamic energy", type=bool)
+@click.option("--dynamic_energy", default=False, is_flag=True, help="Flag to enable dynamic energy", type=bool)
 @click.option("--pause", default=1.2, help="Pause time before entry ends", type=float)
-@click.option("--save_file",default=False, help="Flag to save file", is_flag=True,type=bool)
+@click.option("--save_file", default=False, help="Flag to save file", is_flag=True, type=bool)
 @click.option("--mic_index", default=None, help="Mic index to use", type=int)
-@click.option("--list_devices",default=False, help="Flag to list devices", is_flag=True,type=bool)
-@click.option("--faster",default=False, help="Use faster_whisper implementation", is_flag=True,type=bool)
+@click.option("--list_devices", default=False, help="Flag to list devices", is_flag=True, type=bool)
+@click.option("--faster", default=False, help="Use faster_whisper implementation", is_flag=True, type=bool)
 @click.option("--remote", default=False, help="Use openAI whisper client", is_flag=True, type=bool)
-@click.option("--hallucinate_threshold",default=400, help="Raise this to reduce hallucinations.  Lower this to activate more often.", is_flag=True,type=int)
+@click.option("--hallucinate_threshold", default=400, help="Raise this to reduce hallucinations.  Lower this to activate more often.", is_flag=True, type=int)
 @click.option("--phrase_time_limit", default=10, help="phrase time limit", type=int)
 @click.option("--logging_level", default="info", help="logging_level", type=click.Choice(["fatal", "error", "warning", "info", "debug"]))
 @click.option("--config", default=None, help="json filename that contains config", type=str)
 def main(
     input_mode: str,
-    model: str, language: str, verbose: bool, energy: int, pause: float, dynamic_energy: bool, save_file: bool, device: str,
+    model: str, gptmodel: str, language: str, verbose: bool, energy: int, pause: float, dynamic_energy: bool, save_file: bool, device: str,
     mic_index: Optional[int], list_devices: bool, faster: bool, hallucinate_threshold: int,
     prompt: Optional[str], prefix: Optional[str], initial_prompt: Optional[str], remote: bool,
     enable_post_processing: bool, post_prompt: Optional[str], ignore_text_without_prefix: bool, remove_prefix: bool,
@@ -136,11 +142,12 @@ def main(
     config: Optional[str]
 ) -> None:
     print(input_mode)
+    GPTMODEL = gptmodel
     if input_mode == "mic":
         handle_mic_input(
             model=model, language=language, verbose=verbose, energy=energy,
             pause=pause, dynamic_energy=dynamic_energy, save_file=save_file,
-            device=device,mic_index=mic_index,list_devices=list_devices,
+            device=device, mic_index=mic_index, list_devices=list_devices,
             faster=faster,
             hallucinate_threshold=hallucinate_threshold,
             prompt=prompt,
@@ -157,6 +164,7 @@ def main(
         )
     elif input_mode == "keyboard":
         handle_keyboard_input()
+
 
 if __name__ == "__main__":
     main()

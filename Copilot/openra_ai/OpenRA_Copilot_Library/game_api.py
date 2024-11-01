@@ -44,10 +44,12 @@ class GameAPI:
         data = {"location": location.to_dict()}
         return self._send_request('camera_move', data)
 
+    # when we call this api, direction should be one of the {ALL_DIRECTIONS}, otherewise convert it to possible value.
     def move_camera_by_direction(self, direction, distance):
         data = {"direction": direction, "distance": distance}
         return self._send_request('camera_move', data)
 
+    # when we call this api, unit_type should be one of the {ALL_UNITS}, otherwise convert it to possible value.
     def able_to_produce(self, unit_type: str):
         data = {"units": [{"unit_type": unit_type}]}
         response = self._send_request('query_produceInfo', data)
@@ -70,7 +72,7 @@ class GameAPI:
         response = self._send_request('query_waitInfo', data)
         return response["status"]
 
-    def wait(self, waitId: int, maxWaitTime: float = 15.0):
+    def wait(self, waitId: int, maxWaitTime: float = 20.0):
         data = {"waitId": waitId}
         response = self._send_request('query_waitInfo', data)
         waitTime = .0
@@ -169,48 +171,48 @@ class GameAPI:
         self._cache_actor(actor)
 
 
-def deploy_units(self, actors: List[Actor]) -> Optional[int]:
-    data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
-    response = self._send_request('deploy', data)
-    return response.get('waitId') if response else None
+    def deploy_units(self, actors: List[Actor]) -> Optional[int]:
+        data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
+        response = self._send_request('deploy', data)
+        return response.get('waitId') if response else None
 
 
-def move_camera_to(self, actor: Actor) -> dict:
-    data = {"actorId": actor.actor_id}
-    return self._send_request('view', data)
+    def move_camera_to(self, actor: Actor) -> dict:
+        data = {"actorId": actor}
+        return self._send_request('view', data)
 
 
-def occupy_units(self, occupiers: List[Actor], targets: List[Actor]) -> dict:
-    data = {
-        "occupiers": {"actorId": [actor.actor_id for actor in occupiers]},
-        "targets": {"actorId": [target.actor_id for target in targets]}
-    }
-    return self._send_request('occupy', data)
+    def occupy_units(self, occupiers: List[Actor], targets: List[Actor]) -> dict:
+        data = {
+            "occupiers": {"actorId": [actor.actor_id for actor in occupiers]},
+            "targets": {"actorId": [target.actor_id for target in targets]}
+        }
+        return self._send_request('occupy', data)
 
 
-def repair_units(self, actors: List[Actor]) -> Optional[int]:
-    data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
-    response = self._send_request('repair', data)
-    return response.get('waitId') if response else None
+    def repair_units(self, actors: List[Actor]) -> Optional[int]:
+        data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
+        response = self._send_request('repair', data)
+        return response.get('waitId') if response else None
 
 
-def stop(self, actors: List[Actor]) -> dict:
-    data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
-    return self._send_request('stop', data)
+    def stop(self, actors: List[Actor]) -> dict:
+        data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
+        return self._send_request('stop', data)
 
 
-def fog_query(self, location: Location) -> bool:
-    data = {"location": location.to_dict()}
-    response = self._send_request('fog_query', data)
-    return response.get('isVisible', False) if response else False
+    def fog_query(self, location: Location) -> bool:
+        data = {"location": location.to_dict()}
+        response = self._send_request('fog_query', data)
+        return response.get('isVisible', False) if response else False
 
 
-def unit_range_query(self, actors: List[Actor]) -> List[int]:
-    data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
-    response = self._send_request('unit_range_query', data)
-    return response.get('actors', []) if response else []
+    def unit_range_query(self, actors: List[Actor]) -> List[int]:
+        data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
+        response = self._send_request('unit_range_query', data)
+        return response.get('actors', []) if response else []
 
 
-def unit_attribute_query(self, actors: List[Actor]) -> dict:
-    data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
-    return self._send_request('unit_attribute_query', data)
+    def unit_attribute_query(self, actors: List[Actor]) -> dict:
+        data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
+        return self._send_request('unit_attribute_query', data)
