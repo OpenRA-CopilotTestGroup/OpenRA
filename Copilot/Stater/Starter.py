@@ -15,7 +15,7 @@ import pygetwindow as gw
 import ctypes
 
 CONFIG_FILE = "settings.ini"
-VERSION = "0.0.3"
+VERSION = "0.0.4"
 
 
 def load_settings():
@@ -362,8 +362,8 @@ def download_and_replace(download_url):
             messagebox.showerror("错误", f"下载更新时出现错误：{e}")
 
     def replace_and_restart_thread(zip_file, root):
-        replace_and_restart(zip_file)
-        root.after(0, root.destroy)
+        if not replace_and_restart(zip_file):
+            messagebox.showerror("错误", "更新失败，请联系开发人员")
 
     def start_download():
 
@@ -419,9 +419,10 @@ def replace_and_restart(zip_file):
         print(f"找到新的启动器: {new_exe_file}")
         shutil.move(new_exe_file, "Starter_new.exe")
         run_update_bat(current_process_name, temp_dir)
-
+        return True
     else:
         print("未找到 Starter.exe 文件")
+        return False
 
 
 def run_update_bat(current_process_name, temp_dir):
