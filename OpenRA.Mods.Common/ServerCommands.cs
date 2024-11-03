@@ -16,6 +16,7 @@ using static OpenRA.GameInformation;
 using System.Collections;
 using TagLib.Mpeg4;
 using System.Text.RegularExpressions;
+using OpenRA.Network;
 namespace OpenRA.Mods.Common.Commands
 {
 	[TraitLocation(SystemActors.World)]
@@ -27,8 +28,8 @@ namespace OpenRA.Mods.Common.Commands
 		{
 			var result = new List<Actor>();
 
-			var actorIds = targets["actorId"]?.ToObject<List<int>>() ?? new List<int>();
-			if (actorIds.Count > 0)
+			var actorIds = targets["actorId"]?.ToObject<List<int>>();
+			if (actorIds != null)
 			{
 				foreach (var actorId in actorIds)
 				{
@@ -344,11 +345,11 @@ namespace OpenRA.Mods.Common.Commands
 				actor.CancelActivity();
 				if (isAttackMove || isAssaultMove)
 				{
-					actor.QueueActivity(new AttackMoveActivity(actor, () => move.MoveTo(targetLocation, 8, null), isAssaultMove));
+					actor.QueueActivity(new AttackMoveActivity(actor, () => move.MoveTo(targetLocation, 8, null, true), isAssaultMove));
 				}
 				else
 				{
-					actor.QueueActivity(new Move(actor, targetLocation));
+					actor.QueueActivity(move.MoveTo(targetLocation, 5, null, true));
 				}
 			}
 
@@ -367,11 +368,11 @@ namespace OpenRA.Mods.Common.Commands
 				actor.CancelActivity();
 				if (isAttackMove || isAssaultMove)
 				{
-					actor.QueueActivity(new AttackMoveActivity(actor, () => move.MoveTo(targetLocation, 8, null), isAssaultMove));
+					actor.QueueActivity(new AttackMoveActivity(actor, () => move.MoveTo(targetLocation, 8, null, true), isAssaultMove));
 				}
 				else
 				{
-					actor.QueueActivity(move.MoveTo(targetLocation, 5));
+					actor.QueueActivity(move.MoveTo(targetLocation, 5, null, true));
 				}
 			}
 
@@ -909,7 +910,39 @@ namespace OpenRA.Mods.Common.Commands
 
 		public static string RepairCommand(JObject json, World world)
 		{
-			return "Todo..";
+			var actors = GetTargetsFromJson(json, world);
+			var player = world.LocalPlayer;
+			foreach (var a in actors)
+			{
+				if (a.Info.HasTraitInfo<RepairableBuildingInfo>())
+					world.IssueOrder(new Order("RepairBuilding", player.PlayerActor, Target.FromActor(a), false));
+				else
+				{
+					Actor repairBuilding = null;
+					var orderId = "Repair";
+
+					// Test for generic Repairable (used on units).
+					var repairable = a.TraitOrDefault<Repairable>();
+					if (repairable != null)
+						repairBuilding = repairable.FindRepairBuilding(a);
+					else
+					{
+						var repairableNear = a.TraitOrDefault<RepairableNear>();
+						if (repairableNear != null)
+						{
+							orderId = "RepairNear";
+							repairBuilding = repairableNear.FindRepairBuilding(a);
+						}
+					}
+
+					if (repairBuilding == null)
+						continue;
+
+					world.IssueOrder(new Order(orderId, a, Target.FromActor(repairBuilding), Target.FromActor(a), false));
+				}
+			}
+
+			return "Repair Executed";
 		}
 
 		public static string StopCommand(JObject json, World world)

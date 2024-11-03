@@ -178,7 +178,7 @@ class GameAPI:
 
 
     def move_camera_to(self, actor: Actor) -> dict:
-        data = {"actorId": actor}
+        data = {"actorId": actor.actor_id}
         return self._send_request('view', data)
 
 
@@ -189,11 +189,10 @@ class GameAPI:
         }
         return self._send_request('occupy', data)
 
-
+    # 建筑和单位都可以使用这个修复
     def repair_units(self, actors: List[Actor]) -> Optional[int]:
         data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
-        response = self._send_request('repair', data)
-        return response.get('waitId') if response else None
+        return self._send_request('repair', data)
 
 
     def stop(self, actors: List[Actor]) -> dict:
