@@ -974,10 +974,10 @@ namespace OpenRA.Mods.Common.Commands
 			foreach (var a in actors)
 			{
 				var autoTarget = a.Trait<AutoTarget>();
-				if (autoTarget != null)
+				if (autoTarget == null)
 					continue;
 				var t = autoTarget.ScanForTarget(a, true, true, true);
-				if (t != Target.Invalid)
+				if (t.Type == TargetType.Actor)
 					actorIds.Add(t.Actor.ActorID);
 			}
 

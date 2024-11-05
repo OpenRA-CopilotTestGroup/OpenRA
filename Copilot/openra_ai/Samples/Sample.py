@@ -28,6 +28,7 @@ while infantry:
         if not api.update_actor(s):
             infantry.remove(s)
         if api.unit_range_query([s]):
-            api.move_units_by_location(infantry, home.position)
+            api.move_units_by_location([s], home.position)
             infantry.remove(s)
+    time.sleep(0.1)
 
