@@ -5,14 +5,12 @@ using System.Text;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Newtonsoft.Json.Schema;
-using OpenRA.Traits;
 
 namespace OpenRA
 {
 	public class CopilotCommandServer
 	{
-		readonly Socket serverSocket = new Socket(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
+		readonly Socket serverSocket = new(AddressFamily.InterNetwork, SocketType.Stream, ProtocolType.Tcp);
 		readonly int port;
 		readonly World world;
 		bool isRunning;
@@ -43,7 +41,6 @@ namespace OpenRA
 		public event QueryHandler OnFogQueryCommand;
 		public event QueryHandler OnUnitRangeQueryCommand;
 		public event QueryHandler OnUnitAttributeQueryCommand;
-
 
 		public CopilotCommandServer(int port, World world)
 		{
@@ -94,9 +91,9 @@ namespace OpenRA
 		{
 			try
 			{
-				if(clientSocket == null)
+				if (clientSocket == null)
 				{
-					throw new ArgumentException($"clientSocket Uninit");
+					throw new ArgumentException("clientSocket Uninit");
 				}
 
 				var buffer = new byte[16384];
@@ -207,8 +204,8 @@ namespace OpenRA
 
 		static void SendResponse(Socket clientSocket, string message, int status = 1)
 		{
-			//var buffer = Encoding.UTF8.GetBytes(message);
-			//clientSocket.Send(buffer);
+			// var buffer = Encoding.UTF8.GetBytes(message);
+			// clientSocket.Send(buffer);
 			var responseJson = new JObject
 			{
 				["response"] = message,

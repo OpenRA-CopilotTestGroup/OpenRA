@@ -1,22 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using ICSharpCode.SharpZipLib.Core;
-using System.Numerics;
-using System.Reflection;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using OpenRA.Graphics;
 using OpenRA.Mods.Common.Activities;
-using OpenRA.Mods.Common.Orders;
 using OpenRA.Mods.Common.Traits;
 using OpenRA.Mods.Common.Widgets;
 using OpenRA.Traits;
-using static OpenRA.GameInformation;
-using System.Collections;
-using TagLib.Mpeg4;
-using System.Text.RegularExpressions;
-using OpenRA.Network;
 namespace OpenRA.Mods.Common.Commands
 {
 	[TraitLocation(SystemActors.World)]
@@ -176,7 +167,8 @@ namespace OpenRA.Mods.Common.Commands
 			if (targets == null)
 			{
 				return null;
-				//throw new NotImplementedException("Missing parameters targets for location");
+
+				// throw new NotImplementedException("Missing parameters targets for location");
 			}
 
 			var sum = new CPos(0, 0);
@@ -185,7 +177,8 @@ namespace OpenRA.Mods.Common.Commands
 			if (targetActors.Count == 0)
 			{
 				return null;
-				//throw new NotImplementedException("no actor targets for location");
+
+				// throw new NotImplementedException("no actor targets for location");
 			}
 
 			foreach (var target in targetActors)
@@ -225,6 +218,7 @@ namespace OpenRA.Mods.Common.Commands
 			{
 				throw new NotImplementedException("Missing parameters groupId for FormGroupCommand");
 			}
+
 			var actors = GetTargetsFromJson(json, world);
 			var newSelection = SelectionUtils.SelectActorsByOwnerAndSelectionClass(actors, new List<Player> { player }, null).ToList();
 			world.Selection.Combine(world, newSelection, false, false);
@@ -277,7 +271,8 @@ namespace OpenRA.Mods.Common.Commands
 			if (targets == null)
 			{
 				return null;
-				//targetActors = world.Actors.Where(a => a.OccupiesSpace != null).ToList();
+
+				// targetActors = world.Actors.Where(a => a.OccupiesSpace != null).ToList();
 			}
 			else
 			{
@@ -301,7 +296,7 @@ namespace OpenRA.Mods.Common.Commands
 
 			var result = new JObject
 			{
-				//["status"] = "success",
+				// ["status"] = "success",
 				["actors"] = new JArray(actorsInfo)
 			};
 
@@ -310,12 +305,12 @@ namespace OpenRA.Mods.Common.Commands
 
 		public static JObject WaitQueryCommand(JObject json, World world)
 		{
-
 			var waitId = json.TryGetFieldValue("waitId")?.ToObject<int>();
 			if (waitId == null)
 			{
 				return null;
 			}
+
 			var result = new JObject
 			{
 				["waitStatus"] = CopilotsUtils.QueryWaitStatus(waitId.Value)
@@ -378,6 +373,7 @@ namespace OpenRA.Mods.Common.Commands
 
 			return $"{num} Actor Moved";
 		}
+
 		public static string MoveActorInPath(IEnumerable<Actor> actors, List<JToken> path, bool isAttackMove, bool isAssaultMove, World world)
 		{
 			var num = 0;
@@ -427,11 +423,10 @@ namespace OpenRA.Mods.Common.Commands
 					throw new NotImplementedException("Missing parameters for StartProdunctionCommand");
 				}
 
-				//if (unitNames.Count > 1)
-				//{
-				//	throw new NotImplementedException("建造内容 {unitName} 不明确");
-				//}
-
+				// if (unitNames.Count > 1)
+				// {
+				// 	throw new NotImplementedException("建造内容 {unitName} 不明确");
+				// }
 				var validUnits = unitNames
 				.Select(unitName =>
 				{
@@ -568,7 +563,8 @@ namespace OpenRA.Mods.Common.Commands
 			}
 
 			directionVector *= world.Map.Grid.TileSize.Width;
-			//CopilotsUtils.GetDirectionVector(direction) * distance.Value * world.Map.Grid.TileSize.Width;
+
+			// CopilotsUtils.GetDirectionVector(direction) * distance.Value * world.Map.Grid.TileSize.Width;
 			worldRenderer.Viewport.Scroll(new float2(directionVector.X, directionVector.Y), true);
 
 			return $"Camera moved {direction} by {distance.Value}.";
@@ -610,7 +606,8 @@ namespace OpenRA.Mods.Common.Commands
 				for (var y = 0; y < map.Bounds.Height; y++)
 				{
 					var pos = new CPos(x, y);
-					//var target = Target.FromCell(world, pos);
+
+					// var target = Target.FromCell(world, pos);
 					var mobile = actor.TraitOrDefault<Mobile>();
 					if (mobile == null)
 						return null;
@@ -618,27 +615,29 @@ namespace OpenRA.Mods.Common.Commands
 					var pathFinder = actor.World.WorldActor.Trait<PathFinder>();
 					var locomotor = mobile.Locomotor;
 					var canMove = pathFinder.PathExistsForLocomotor(locomotor, actor.Location, pos);
-					//	var orders = actor.TraitsImplementing<IIssueOrder>()
-					//.SelectMany(trait => trait.Orders.Select(x => new { Trait = trait, Order = x }))
-					//.Where(order => order.Order. == "Move" || order.OrderName == "AttackMove")
-					//.Select(x => x)
-					//.OrderByDescending(x => x.Order.OrderPriority)
-					//.ToList();
-					//	var CanMove = false;
-					//	foreach (var o in orders)
-					//	{
-					//		var localModifiers = TargetModifiers.None;
-					//		string cursor = null;
-					//		if (o.Order.CanTarget(actor, target, ref localModifiers, ref cursor))
-					//			CanMove = true;
-					//	}
 
+					// 	var orders = actor.TraitsImplementing<IIssueOrder>()
+					// .SelectMany(trait => trait.Orders.Select(x => new { Trait = trait, Order = x }))
+					// .Where(order => order.Order. == "Move" || order.OrderName == "AttackMove")
+					// .Select(x => x)
+					// .OrderByDescending(x => x.Order.OrderPriority)
+					// .ToList();
+					// 	var CanMove = false;
+					// 	foreach (var o in orders)
+					// 	{
+					// 		var localModifiers = TargetModifiers.None;
+					// 		string cursor = null;
+					// 		if (o.Order.CanTarget(actor, target, ref localModifiers, ref cursor))
+					// 			CanMove = true;
+					// 	}
 					tempList.Add((byte)(canMove ? 0 : 1));
-					//var terrainTile = map.Tiles[new MPos(x, y)];
 
+					// var terrainTile = map.Tiles[new MPos(x, y)];
 				}
+
 				tileInfo.Add(tempList);
 			}
+
 			return tileInfo;
 		}
 
@@ -679,6 +678,7 @@ namespace OpenRA.Mods.Common.Commands
 					// 如果1的数量超过50%，则压缩后的格子为1，否则为0
 					compressedRow.Add((byte)(count > total / 2 ? 1 : 0));
 				}
+
 				compressedTileInfo.Add(compressedRow);
 			}
 
@@ -839,11 +839,12 @@ namespace OpenRA.Mods.Common.Commands
 				.SelectMany(a => a.TraitsImplementing<IIssueDeployOrder>()
 				.Select(d => new TraitPair<IIssueDeployOrder>(a, d)))
 				.ToArray();
+
 			// 是否是多点下令
-			var queued = false;
+			const bool Queued = false;
 			var orders = selectedDeploys
-				.Where(pair => pair.Trait.CanIssueDeployOrder(pair.Actor, queued))
-				.Select(d => d.Trait.IssueDeployOrder(d.Actor, queued))
+				.Where(pair => pair.Trait.CanIssueDeployOrder(pair.Actor, Queued))
+				.Select(d => d.Trait.IssueDeployOrder(d.Actor, Queued))
 				.Where(d => d != null)
 				.ToArray();
 
@@ -905,6 +906,7 @@ namespace OpenRA.Mods.Common.Commands
 
 				world.IssueOrder(new Order("CaptureActor", capturer.Actor, Target.FromActor(targetActor), true));
 			}
+
 			return "Order Executed";
 		}
 
@@ -968,7 +970,17 @@ namespace OpenRA.Mods.Common.Commands
 		public static JObject UnitRangeQueryCommand(JObject json, World world)
 		{
 			var actors = GetTargetsFromJson(json, world);
-			var actorIds = actors.Select(a => a.ActorID).ToList();
+			var actorIds = new List<uint>();
+			foreach (var a in actors)
+			{
+				var autoTarget = a.Trait<AutoTarget>();
+				if (autoTarget != null)
+					continue;
+				var t = autoTarget.ScanForTarget(a, true, true, true);
+				if (t != Target.Invalid)
+					actorIds.Add(t.Actor.ActorID);
+			}
+
 			var result = new JObject
 			{
 				["actors"] = new JArray(actorIds)

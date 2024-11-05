@@ -163,12 +163,13 @@ class GameAPI:
         data = {"targets": {"actorId":  [actor.actor_id]}}
         response = self._send_request('query_actor', data)
         if response is None:
-            return
+            return False
         position = Location(
             response["actors"][0]["position"]["x"], response["actors"][0]["position"]["y"])
         actor.update_details(
             response["actors"][0]["type"], response["actors"][0]["faction"], position)
         self._cache_actor(actor)
+        return True
 
 
     def deploy_units(self, actors: List[Actor]) -> Optional[int]:
@@ -205,7 +206,7 @@ class GameAPI:
         response = self._send_request('fog_query', data)
         return response.get('isVisible', False) if response else False
 
-
+    # 获取这些传入Actor攻击范围内的所有Target
     def unit_range_query(self, actors: List[Actor]) -> List[int]:
         data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
         response = self._send_request('unit_range_query', data)
