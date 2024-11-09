@@ -197,7 +197,8 @@ def start_python_script(Alert=True):
         command.append("--input_mode")
         command.append("keyboard")
 
-    subprocess.Popen(command, env=os.environ, creationflags=subprocess.CREATE_NEW_CONSOLE)
+    subprocess.Popen(command, env=os.environ,
+                     creationflags=subprocess.CREATE_NEW_CONSOLE)
 
     return True
 
@@ -484,33 +485,56 @@ root.title("Copilot-OpenRA启动器" + " v" + VERSION)
 root.geometry("350x300")
 root.configure(bg="#f0f0f0")
 
-root.grid_columnconfigure(0, weight=1, uniform="col")
-root.grid_columnconfigure(1, weight=8, uniform="col")
-root.grid_columnconfigure(2, weight=8, uniform="col")
-root.grid_columnconfigure(3, weight=1, uniform="col")
-root.grid_rowconfigure(0, weight=1, uniform="row")
-root.grid_rowconfigure(1, weight=2, uniform="row")
-root.grid_rowconfigure(2, weight=2, uniform="row")
-root.grid_rowconfigure(3, weight=3, uniform="row")
-root.grid_rowconfigure(4, weight=3, uniform="row")
-root.grid_rowconfigure(5, weight=6, uniform="row")
-root.grid_rowconfigure(6, weight=1, uniform="row")
+
+class GridConfig:
+    def __init__(self, index, weight):
+        self.index = index
+        self.weight = weight
+
+
+class GridRows:
+    HEADER = GridConfig(0, 1)
+    OPENAI_KEY = GridConfig(1, 2)
+    PROXY_PORT = GridConfig(2, 2)
+    DROPDOWNS = GridConfig(3, 3)
+    BUTTONS = GridConfig(4, 3)
+    ONE_CLICK = GridConfig(5, 6)
+    FOOTER = GridConfig(6, 1)
+
+
+class GridColumns:
+    LEFT_PADDING = GridConfig(0, 1)
+    CONTENT_LEFT = GridConfig(1, 8)
+    CONTENT_RIGHT = GridConfig(2, 8)
+    RIGHT_PADDING = GridConfig(3, 1)
+
+
+# Configuring rows and columns dynamically using enumerations
+for row_key, row_value in vars(GridRows).items():
+    if isinstance(row_value, GridConfig):
+        root.grid_rowconfigure(
+            row_value.index, weight=row_value.weight, uniform="row")
+
+for col_key, col_value in vars(GridColumns).items():
+    if isinstance(col_value, GridConfig):
+        root.grid_columnconfigure(
+            col_value.index, weight=col_value.weight, uniform="col")
 
 openai_key_label = tk.Label(root, text="OPENAI-KEY:", bg="#f0f0f0")
-openai_key_label.grid(row=1, column=0, columnspan=2,
-                      padx=(20, 0), pady=5, sticky="w")
+openai_key_label.grid(row=GridRows.OPENAI_KEY.index, column=GridColumns.LEFT_PADDING.index,
+                      columnspan=2, padx=(20, 0), pady=5, sticky="w")
 
 openai_key_entry = tk.Entry(root)
-openai_key_entry.grid(row=1, column=0, columnspan=3,
-                      padx=(120, 10), pady=5, sticky="we")
+openai_key_entry.grid(row=GridRows.OPENAI_KEY.index, column=GridColumns.LEFT_PADDING.index,
+                      columnspan=3, padx=(120, 10), pady=5, sticky="we")
 
 proxy_port_label = tk.Label(root, text="设置代理端口:", bg="#f0f0f0")
-proxy_port_label.grid(row=2, column=0, columnspan=2,
-                      padx=(20, 0), pady=5, sticky="w")
+proxy_port_label.grid(row=GridRows.PROXY_PORT.index, column=GridColumns.LEFT_PADDING.index,
+                      columnspan=2, padx=(20, 0), pady=5, sticky="w")
 
 proxy_port_entry = tk.Entry(root, width=6)
-proxy_port_entry.grid(row=2, column=0, columnspan=2,
-                      padx=(120, 10), pady=5, sticky="w")
+proxy_port_entry.grid(row=GridRows.PROXY_PORT.index, column=GridColumns.LEFT_PADDING.index,
+                      columnspan=2, padx=(120, 10), pady=5, sticky="w")
 
 button_font = ("Microsoft YaHei", 10)
 
@@ -521,7 +545,8 @@ selected_version = StringVar(root)
 selected_version.set("GPT-4o")
 
 dropdown = tk.OptionMenu(root, selected_version, *gpt_versions)
-dropdown.grid(row=3, column=1, padx=(15, 15), pady=5, sticky="we")
+dropdown.grid(row=GridRows.DROPDOWNS.index,
+              column=GridColumns.CONTENT_LEFT.index, padx=(15, 15), pady=5, sticky="we")
 
 selected_mic_version = StringVar(root)
 selected_mic_version.set("openai")
@@ -529,29 +554,28 @@ selected_mic_version.set("openai")
 mic_versions = ["openai", "手动输入"]
 
 dropdown_mic = tk.OptionMenu(root, selected_mic_version, *mic_versions)
-dropdown_mic.grid(row=3, column=2, padx=(15, 15), pady=5, sticky="we")
-
-
-# install_button = tk.Button(root, text="安装Python",
-#                            command=install_python, font=button_font)
-# install_button.grid(row=3, column=1, padx=(15, 15), pady=5, sticky="we")
+dropdown_mic.grid(row=GridRows.DROPDOWNS.index,
+                  column=GridColumns.CONTENT_RIGHT.index, padx=(15, 15), pady=5, sticky="we")
 
 start_python_button = tk.Button(
     root, text="启动语音识别", command=start_python_script, font=button_font)
-start_python_button.grid(row=4, column=2, padx=(15, 15), pady=5, sticky="we")
+start_python_button.grid(row=GridRows.BUTTONS.index,
+                         column=GridColumns.CONTENT_RIGHT.index, padx=(15, 15), pady=5, sticky="we")
 
 start_openra_button = tk.Button(
     root, text="启动OpenRA", command=start_openra, font=button_font)
-start_openra_button.grid(row=4, column=1, padx=(15, 15), pady=5, sticky="we")
+start_openra_button.grid(row=GridRows.BUTTONS.index,
+                         column=GridColumns.CONTENT_LEFT.index, padx=(15, 15), pady=5, sticky="we")
 
 auto_proxy_button = tk.Button(
     root, text="自动设置代理端口", command=auto_detect_proxy, font=button_font)
-auto_proxy_button.grid(row=2, column=2, padx=(15, 15), pady=5, sticky="we")
+auto_proxy_button.grid(row=GridRows.PROXY_PORT.index,
+                       column=GridColumns.CONTENT_RIGHT.index, padx=(15, 15), pady=5, sticky="we")
 
 one_click_button = tk.Button(
     root, text="一键启动！", command=one_click_start, font=("Microsoft YaHei", 18))
-one_click_button.grid(row=5, column=1, columnspan=2,
-                      pady=10, ipadx=50, ipady=10)
+one_click_button.grid(row=GridRows.ONE_CLICK.index,
+                      column=GridColumns.CONTENT_LEFT.index, columnspan=2, pady=10, ipadx=50, ipady=10)
 
 if update_available:
     auto_update_button = tk.Button(
@@ -560,13 +584,8 @@ else:
     auto_update_button = tk.Button(
         root, text="U", command=update_button, font=button_font, width=3)
 
-auto_update_button.grid(row=5, rowspan=2, column=2, columnspan=2, padx=(
-    10, 10), pady=(10, 10), sticky="es")
-
-# debug_button = tk.Button(root, text="D",  command=lambda: replace_and_restart(
-#     "launcher_update.zip"), font=button_font, width=3)
-# debug_button.grid(row=5, rowspan=2, column=0, columnspan=2,
-#                   padx=(10, 10), pady=(10, 10), sticky="es")
+auto_update_button.grid(row=GridRows.ONE_CLICK.index, rowspan=2,
+                        column=GridColumns.CONTENT_RIGHT.index, columnspan=2, padx=(10, 10), pady=(10, 10), sticky="es")
 
 load_settings()
 
