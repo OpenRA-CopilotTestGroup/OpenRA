@@ -27,89 +27,97 @@ from .utils import get_logger
 # asound = cdll.LoadLibrary('libasound.so')
 # asound.snd_lib_error_set_handler(c_error_handler)
 class WhisperMic:
-    def __init__(
-        self,model="base",
-        device="cpu",
-        language="zh",verbose=False,energy=300,pause=2,dynamic_energy=False,save_file=False,
-        model_root="~/.cache/whisper",mic_index=None,faster=False,hallucinate_threshold=300,
-        prompt=None,
-        prefix=None,
-        initial_prompt=None,
-        remote=False,
-        enable_post_processing=False,
-        post_prompt=None,
-        ignore_text_without_prefix=False,
-        remove_prefix=False,
-        phrase_time_limit=10,
-        logging_level="info",
-        config=None,
-        text_callback=None
-    ):
+    def __init__(self, text_callback=None, **kwargs):
+        self.text_callback = text_callback
+
+        # Initialize parameters from the kwargs
+        self.energy = kwargs.get('energy', 300)
+        self.language = kwargs.get('language', 'zh')
+        self.verbose = kwargs.get('verbose', False)
+        self.pause = kwargs.get('pause', 1.2)
+        self.dynamic_energy = kwargs.get('dynamic_energy', False)
+        self.save_file = kwargs.get('save_file', False)
+        self.device = kwargs.get('device', 'mps')
+        self.mic_index = kwargs.get('mic_index', None)
+        self.faster = kwargs.get('faster', False)
+        self.hallucinate_threshold = kwargs.get('hallucinate_threshold', 400)
+        self.prompt = kwargs.get('prompt', None)
+        self.prefix = kwargs.get('prefix', None)
+        self.initial_prompt = kwargs.get('initial_prompt', "以下是普通话的句子。")
+        if self.prefix:
+            self.initial_prompt += self.prefix
+        self.remote = kwargs.get('remote', False)
+        self.enable_post_processing = kwargs.get('enable_post_processing', False)
+        self.post_prompt = kwargs.get('post_prompt', None)
+        self.ignore_text_without_prefix = kwargs.get('ignore_text_without_prefix', False)
+        self.remove_prefix = kwargs.get('remove_prefix', False)
+        self.phrase_time_limit = kwargs.get('phrase_time_limit', 10)
+        self.logging_level = kwargs.get('logging_level', 'info')
+        self.config = kwargs.get('config', None)
+
+        # Logging and configuration setup
         self.config_json = {}
-        if not config:
+        if not self.config:
             import pkg_resources
-            config = pkg_resources.resource_filename('whisper_mic', 'config.json')
-        if config and os.path.exists(config):
-            with open(config, 'r', encoding="utf-8") as f:
+            self.config = pkg_resources.resource_filename('whisper_mic', 'config.json')
+        if self.config and os.path.exists(self.config):
+            with open(self.config, 'r', encoding="utf-8") as f:
                 self.config_json = json.load(f)
-        self.logging_level = self.config_json.get("logging_level", logging_level)
+
+        self.logging_level = self.config_json.get("logging_level", self.logging_level)
         self.logger = get_logger("whisper_mic", self.logging_level)
         self.logger.info("logging_level: %s", self.logging_level)
-        self.energy = self.config_json.get('energy', energy)
+        self.energy = self.config_json.get('energy', self.energy)
         self.logger.info('energy: %s', self.energy)
-        self.hallucinate_threshold = self.config_json.get('hallucinate_threshold', hallucinate_threshold)
+        self.hallucinate_threshold = self.config_json.get('hallucinate_threshold', self.hallucinate_threshold)
         self.logger.info('hallucinate_threshold: %s', self.hallucinate_threshold)
-        self.pause = self.config_json.get('pause', pause)
+        self.pause = self.config_json.get('pause', self.pause)
         self.logger.info('pause: %s', self.pause)
-        self.dynamic_energy = self.config_json.get('dynamic_energy: 5s', dynamic_energy)
+        self.dynamic_energy = self.config_json.get('dynamic_energy', self.dynamic_energy)
         self.logger.info('dynamic_energy: %s', self.dynamic_energy)
-        self.save_file = self.config_json.get('save_file', save_file)
+        self.save_file = self.config_json.get('save_file', self.save_file)
         self.logger.info('save_file: %s', self.save_file)
-        self.verbose = self.config_json.get('verbose', verbose)
+        self.verbose = self.config_json.get('verbose', self.verbose)
         self.logger.info('verbose: %s', self.verbose)
-        self.language = self.config_json.get('language', language)
+        self.language = self.config_json.get('language', self.language)
         self.logger.info("language: %s", self.language)
-        self.text_callback = text_callback
-        self.prompt = self.config_json.get('prompt', prompt)
+        self.prompt = self.config_json.get('prompt', self.prompt)
         self.logger.info("prompt: %s", self.prompt)
-        self.prefix = self.config_json.get('prefix', prefix)
+        self.prefix = self.config_json.get('prefix', self.prefix)
         self.logger.info("prefix: %s", self.prefix)
-        self.initial_prompt = self.config_json.get('initial_prompt', initial_prompt)
-        if self.prefix:
-            self.initial_prompt = self.initial_prompt + self.prefix
+        self.initial_prompt = self.config_json.get('initial_prompt', self.initial_prompt)
         self.logger.info("initial_prompt: %s", self.initial_prompt)
-        self.enable_post_processing = self.config_json.get('enable_post_processing', enable_post_processing)
+        self.enable_post_processing = self.config_json.get('enable_post_processing', self.enable_post_processing)
         self.logger.info('enable_post_processing: %s', self.enable_post_processing)
-        self.post_prompt = self.config_json.get('post_prompt', post_prompt)
+        self.post_prompt = self.config_json.get('post_prompt', self.post_prompt)
         self.logger.info('post_prompt: %s', self.post_prompt)
-        self.remote = self.config_json.get("remote", remote)
+        self.remote = self.config_json.get("remote", self.remote)
         self.logger.info("remote: %s", self.remote)
-        self.faster = self.config_json.get('faster', faster)
+        self.faster = self.config_json.get('faster', self.faster)
         self.logger.info("faster: %s", self.faster)
-        self.ignore_text_without_prefix = self.config_json.get('ignore_text_without_prefix', ignore_text_without_prefix)
+        self.ignore_text_without_prefix = self.config_json.get('ignore_text_without_prefix', self.ignore_text_without_prefix)
         self.logger.info('ignore_text_without_prefix: %s', self.ignore_text_without_prefix)
-        self.remove_prefix = self.config_json.get('remove_prefix', remove_prefix)
+        self.remove_prefix = self.config_json.get('remove_prefix', self.remove_prefix)
         self.logger.info('remove_prefix: %s', self.remove_prefix)
-        self.model = self.config_json.get("model", model)
+        self.model = self.config_json.get("model", kwargs.get('model', 'base'))
         if (self.model != "large" and self.model != "large-v2") and self.language == "en":
             self.model = self.model + ".en"
         self.logger.info("model: %s", self.model)
-        self.phrase_time_limit = self.config_json.get("phrase_time_limit", phrase_time_limit)
+        self.phrase_time_limit = self.config_json.get("phrase_time_limit", self.phrase_time_limit)
         self.logger.info("phrase_time_limit: %s", self.phrase_time_limit)
         self.keyboard = pynput.keyboard.Controller()
         self.platform = platform.system()
         self.logger.info('platform: %s', self.platform)
 
-        device = self.config_json.get('device', device)
+        device = self.config_json.get('device', self.device)
         if self.platform == "darwin":
             if device == "mps":
                 self.logger.warning("Using MPS for Mac, this does not work but may in the future")
                 device = "mps"
-                #device = torch.device(device)
         self.device = device
         self.logger.info("device: %s", self.device)
 
-        model_root = os.path.expanduser(model_root)
+        model_root = os.path.expanduser(kwargs.get('model_root', "~/.cache/whisper"))
         self.logger.info("model_root: %s", model_root)
         self.client = OpenAI()
         if self.remote:
@@ -128,13 +136,12 @@ class WhisperMic:
 
         self.break_threads = False
         self.mic_active = False
-
-        self.banned_results = [""," ","\n",None]
+        self.banned_results = ["", " ", "\n", None]
 
         if self.save_file:
             self.file = open("transcribed_text.txt", "w+", encoding="utf-8")
 
-        self.__setup_mic(mic_index)
+        self.__setup_mic(self.mic_index)
 
     def generate_corrected_transcript(self, transcribed_text):
         response = self.client.chat.completions.create(
