@@ -546,7 +546,7 @@ namespace OpenRA.Mods.Common.Traits
 				.Append(bi.BuildDurationModifier)
 				.Append(Info.BuildDurationModifier);
 
-			return Util.ApplyPercentageModifiers(time / 3, modifiers);
+			return Util.ApplyPercentageModifiers(time, modifiers);
 		}
 
 		public virtual int GetProductionCost(ActorInfo unit)
@@ -558,7 +558,7 @@ namespace OpenRA.Mods.Common.Traits
 			var modifiers = unit.TraitInfos<IProductionCostModifierInfo>()
 				.Select(t => t.GetProductionCostModifier(techTree, Info.Type));
 
-			return Util.ApplyPercentageModifiers(valued.Cost / 3, modifiers);
+			return Util.ApplyPercentageModifiers(valued.Cost, modifiers);
 		}
 
 		protected virtual void PauseProduction(string itemName, bool paused)
