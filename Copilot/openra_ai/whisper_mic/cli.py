@@ -6,6 +6,7 @@ import speech_recognition as sr
 from typing import Optional
 import time
 import os
+import sys
 
 from .rafuncs import handle_strategy_command
 from .whisper_mic import WhisperMic
@@ -98,7 +99,7 @@ def main(**kwargs):
             text_callback(player_input)
         _, GUI_WINDOW = create_ai_assistant_ui_instance()
         GUI_WINDOW.player_dialog_signal.connect(gui_input_callback)
-
+        GUI_WINDOW.ui_exit_signal.connect(lambda: sys.exit(0))
     if kwargs['input_mode'] == "mic":
         handle_mic_input(**kwargs)
     elif kwargs['input_mode'] == "keyboard":

@@ -7,6 +7,10 @@ import pyttsx3
 
 class AIAssistantUI(QWidget):
     player_dialog_signal = pyqtSignal(object, str)
+    ui_exit_signal = pyqtSignal(object)
+
+    def closeEvent(self, event):
+        self.ui_exit_signal.emit(self)
 
     def __init__(self):
         super().__init__()
@@ -117,7 +121,7 @@ class AIAssistantUI(QWidget):
         self.tts_engine.say(text)
         self.tts_engine.runAndWait()
 
-    def add_plan_item(self, plan_name, status="未开始"):
+    def add_plan_item(self, plan_name: str, status: str = "未开始"):
         widget = QWidget()
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -163,6 +167,7 @@ class AIAssistantUI(QWidget):
 
     def get_memory_content(self):
         return self.memory_text.toPlainText()
+
 
 def create_ai_assistant_ui_instance():
     app = QApplication(sys.argv)
