@@ -9,11 +9,15 @@ import os
 
 from .rafuncs import handle_strategy_command
 from .whisper_mic import WhisperMic
+from .gui import create_ai_assistant_ui_instance
 
 CACHED_PROMPTS = []
 CACHED_TIME = 0.0
 LAST_TIME = 0.0
 GPTMODEL = "gpt-4o"
+GUI_WINDOW = None
+
+
 def text_callback(text: str):
     print(repr(text))
     global CACHED_PROMPTS
@@ -23,8 +27,9 @@ def text_callback(text: str):
     full_text = ",".join(CACHED_PROMPTS)
     full_text = full_text.removesuffix("\u6267\u884c\u547d\u4ee4")
     print("The strategy command is: ", full_text)
-    handle_strategy_command(prompt=full_text, model=GPTMODEL)
+    handle_strategy_command(prompt=full_text, model=GPTMODEL, gui=GUI_WINDOW)
     CACHED_PROMPTS.clear()
+
 
 def handle_keyboard_input():
     print("Keyboard input mode. Type your command and press 'Enter':")
@@ -38,6 +43,7 @@ def handle_keyboard_input():
         except KeyboardInterrupt:
             print("Operation interrupted successfully")
             break
+
 
 def handle_mic_input(**kwargs):
     if kwargs.get('list_devices', False):
@@ -53,6 +59,7 @@ def handle_mic_input(**kwargs):
     finally:
         if kwargs.get('save_file', False):
             mic.file.close()
+
 
 @click.command()
 @click.option("--input_mode", default="mic", help="Input mode: 'mic' for microphone, 'keyboard' for keyboard input", type=click.Choice(["mic", "keyboard"]))
@@ -80,14 +87,23 @@ def handle_mic_input(**kwargs):
 @click.option("--phrase_time_limit", default=10, help="Phrase time limit", type=int)
 @click.option("--logging_level", default="info", help="Logging level", type=click.Choice(["fatal", "error", "warning", "info", "debug"]))
 @click.option("--config", default=None, help="JSON filename that contains config", type=str)
+@click.option("--gui", is_flag=True, help="Is need a GUI page")
 def main(**kwargs):
     global GPTMODEL
+    global GUI_WINDOW
     GPTMODEL = kwargs['gptmodel']
+
+    if kwargs['gui']:
+        def gui_input_callback(gui, player_input):
+            text_callback(player_input)
+        _, GUI_WINDOW = create_ai_assistant_ui_instance()
+        GUI_WINDOW.player_dialog_signal.connect(gui_input_callback)
 
     if kwargs['input_mode'] == "mic":
         handle_mic_input(**kwargs)
     elif kwargs['input_mode'] == "keyboard":
         handle_keyboard_input()
+
 
 if __name__ == "__main__":
     main()

@@ -7,10 +7,29 @@ import threading
 import traceback
 import OpenRA_Copilot_Library as OpenRA
 from OpenRA_Copilot_Library import TargetsQueryParam
+import time
+from datetime import datetime
 
 # from openai import client
 from openai import OpenAI
 CLIENT = OpenAI()
+
+start_time = time.perf_counter()
+
+log_directory = "Logs"
+os.makedirs(log_directory, exist_ok=True)
+
+current_time = datetime.now().strftime("%Y%m%d%H%M%S")
+log_filename = os.path.join(log_directory, f"{current_time}.log")
+
+def print_log(content):
+    elapsed_time = time.perf_counter() - start_time
+    formatted_elapsed_time = f"{elapsed_time:.2f}"
+
+    log_entry = f"COPILOT LOG{formatted_elapsed_time}: {content}\n"
+
+    with open(log_filename, "a") as log_file:
+        log_file.write(log_entry)
 
 def get_chat_completion(
     messages: list[dict[str, str]],
@@ -38,6 +57,8 @@ def get_chat_completion(
     except Exception as e:
         print(f'gpt completion fail with param: {params}')
         raise e
+
+MEMORY = "无"
 
 def make_promt():
 
@@ -82,11 +103,13 @@ def make_promt():
                 first_line = file.readline().strip()
                 if first_line == "# COPILOT_PROMPT_IGNORE":
                     print(f"Skipping {filename} due to ignore mark.")
-                continue
                 code_content = file.read()
 
             sample_code += f"{sample_index}. {filename}\n<code>{code_content}</code>\n\n"
             sample_index += 1
+
+    current_time = time.perf_counter() - start_time
+    formatted_time = f"{current_time:.2f}"
 
     prompt = f"""
 你是 OpenRA（红色警戒）游戏的战略AI指挥副官。你需要根据玩家的指示来辅助玩家进行游戏，具体来说，你需要输出python代码，使用python的OpenRA库与游戏交互，我们会执行你输出的代码
@@ -107,7 +130,7 @@ promt将分为6个部分：
 
 注意，不同部分需要用不同的尖括号框起来
 
-//todo..
+promt part 1:python 库相关内容，包括数据结构，api以及一些sample code
 
 以下是参数列表：
 ALL_ACTORS = {ALL_ACTORS}
@@ -127,13 +150,34 @@ ALL_UNITS = {ALL_UNITS}
 生成的代码必须封装在 <code> 和 </code> 标签对中。生成的代码应当是可执行的。API 可以从 <code> 标签中提取代码并执行。尝试使代码逻辑尽可能简单，并尽量避免使用 time.sleep 来等待某些操作完成。
 
 以下是一些示例代码： {sample_code}
+
+promt part 2:当前正在执行的内容，这些都是正在运行的，你之前的代码
+无
+promt part 3:你和玩家之前的历史对话
+无
+promt part 4:你的记忆
+{MEMORY}
+promt part 5:目前游戏的基本信息
+未知
+promt part 6:当前的时间戳
+当前是运行的第："{formatted_time}"秒
     """
+    print_log(f"prompt:\n{prompt}\n")
     return prompt
 
 CACHED_PREVIOUS_PROMPTS = []
 MAX_CACHED_PROMPTS = 0
-CODE_REGEX = re.compile(r'<code>(.*)</code>', re.M | re.S)
+
+def create_tag_regex(tag_name):
+    return re.compile(rf'<{tag_name}>(.*?)</{tag_name}>', re.M | re.S)
+
+CODE_REGEX = create_tag_regex('code')
 CODE_REGEX2 = re.compile(r'```python(.*)```', re.M | re.S)
+SPEECH_REGEX = create_tag_regex('speech')
+TITLE_REGEX = create_tag_regex('title')
+MEMORY_REGEX = create_tag_regex('memory')
+
+
 api = OpenRA.GameAPI("localhost")
 
 def execute(command):
@@ -148,42 +192,64 @@ def execute(command):
         print(f'failed to execute:\n`{command}\n`')
 
 
-def handle_strategy_command(prompt=None, model="gpt-4o"):
+def handle_strategy_command(prompt=None, model="gpt-4o", gui = None):
     global CACHED_PREVIOUS_PROMPTS
     global MAX_CACHED_PROMPTS
     global CODE_REGEX
+    global MEMORY
     default_func = None
     if prompt is None:
         print('prompt should not be None')
+        print_log('prompt should not be None')
         return
     messages = []
     messages.append({"role": "system", "content": make_promt()})
-    for previous_prompt in CACHED_PREVIOUS_PROMPTS:
-        messages.append(previous_prompt)
+    # for previous_prompt in CACHED_PREVIOUS_PROMPTS:
+    #     messages.append(previous_prompt)
     messages.append({"role": "user", "content": prompt})
-    # print(f'messages=\n{len(messages)}\n')
+
+    print_log(f'Full Promt:\n{messages}\n')
     completion = get_chat_completion(model=model, messages=messages, tools=None)
-    print(f'command to execute:\n{completion.content}\n')
+
+    print(f'Response:\n{completion.content}\n')
+    print_log(f'Response:\n{completion.content}\n')
+
     code_match = CODE_REGEX.search(completion.content)
+
+    if code_match:
+        executable = code_match.group(1)
+    else:
+        code_match = CODE_REGEX2.search(completion.content)
+
+    mermory_match = MEMORY_REGEX.search(completion.content)
+    if mermory_match:
+        MEMORY = mermory_match.group(1)
+        print_log(f'New Mermory:\n{MEMORY}\n')
+
+
+    if gui:
+        title_match = TITLE_REGEX.search(completion.content)
+        speech_match = SPEECH_REGEX.search(completion.content)
+        if speech_match:
+            gui.add_ai_dialog(speech_match.group(1))
+        if title_match:
+            gui.add_plan_item(plan_name = title_match.group(1), status="进行中")
+        if mermory_match:
+            gui.set_memory_content(MEMORY)
+
     if code_match:
         executable = code_match.group(1)
         print(f'executable={executable}')
+        print_log(f'executable={executable}')
         thread = threading.Thread(target=execute, args=(executable,))
         thread.start()
     else:
-        code_match = CODE_REGEX2.search(completion.content)
-        if code_match:
-            executable = code_match.group(1)
-            print(f'executable={executable}')
-            thread = threading.Thread(target=execute, args=(executable,))
-            thread.start()
-        else:
-            print(f'failed to find matched code\n{completion.content}\n')
-    if len(CACHED_PREVIOUS_PROMPTS) >= MAX_CACHED_PROMPTS:
-        if CACHED_PREVIOUS_PROMPTS:
-            CACHED_PREVIOUS_PROMPTS.pop(0)
-        if CACHED_PREVIOUS_PROMPTS:
-            CACHED_PREVIOUS_PROMPTS.pop(0)
-    if len(CACHED_PREVIOUS_PROMPTS) < MAX_CACHED_PROMPTS:
-        CACHED_PREVIOUS_PROMPTS.append({"role": "user", "content": prompt})
-        CACHED_PREVIOUS_PROMPTS.append({"role": "assistant", "content": completion.content})
+        print(f'failed to find matched code\n{completion.content}\n')
+    # if len(CACHED_PREVIOUS_PROMPTS) >= MAX_CACHED_PROMPTS:
+    #     if CACHED_PREVIOUS_PROMPTS:
+    #         CACHED_PREVIOUS_PROMPTS.pop(0)
+    #     if CACHED_PREVIOUS_PROMPTS:
+    #         CACHED_PREVIOUS_PROMPTS.pop(0)
+    # if len(CACHED_PREVIOUS_PROMPTS) < MAX_CACHED_PROMPTS:
+    #     CACHED_PREVIOUS_PROMPTS.append({"role": "user", "content": prompt})
+    #     CACHED_PREVIOUS_PROMPTS.append({"role": "assistant", "content": completion.content})

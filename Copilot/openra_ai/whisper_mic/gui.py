@@ -1,10 +1,13 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QPushButton, QLineEdit, QFrame
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QPushButton, QLineEdit, QFrame, QListWidget, QListWidgetItem, QGridLayout
+from PyQt5.QtCore import Qt, pyqtSignal
 from PyQt5.QtGui import QTextCursor, QTextCharFormat, QColor
+import pyttsx3
 
 
 class AIAssistantUI(QWidget):
+    player_dialog_signal = pyqtSignal(object, str)
+
     def __init__(self):
         super().__init__()
 
@@ -31,14 +34,9 @@ class AIAssistantUI(QWidget):
         left_layout.addWidget(line)
 
         self.plan_label = QLabel("当前计划")
-        self.plan_text = QTextEdit()
-        self.plan_text.setPlaceholderText("显示当前任务或计划...")
-        self.plan_text.setReadOnly(True)
-        self.plan_text.setCursor(Qt.ArrowCursor)
-        self.plan_text.setStyleSheet(
-            "QTextEdit { background-color: #f0f0f0; }")
+        self.plan_list = QListWidget()
         left_layout.addWidget(self.plan_label)
-        left_layout.addWidget(self.plan_text)
+        left_layout.addWidget(self.plan_list)
 
         right_layout = QVBoxLayout()
 
@@ -66,6 +64,11 @@ class AIAssistantUI(QWidget):
         main_layout.addLayout(right_layout, 3)
 
         self.setLayout(main_layout)
+
+        # TTS
+        self.tts_engine = pyttsx3.init()
+        self.tts_engine.setProperty('rate', 150)
+        self.tts_engine.setProperty('volume', 0.9)
 
     def handle_send(self):
         user_input = self.input_field.text()
@@ -100,11 +103,66 @@ class AIAssistantUI(QWidget):
         self.dialog_text.ensureCursorVisible()
 
     def add_player_dialog(self, text):
-        self.append_dialog(text + " :玩家", align_right=True, color=QColor("blue"))
+        self.append_dialog(text + " :玩家", align_right=True,
+                           color=QColor("blue"))
+        # 回调
+        self.player_dialog_signal.emit(self, text)
 
     def add_ai_dialog(self, text):
-        self.append_dialog("AI副官: " + text, align_right=False, color=QColor("green"))
+        self.append_dialog("AI副官: " + text, align_right=False,
+                           color=QColor("green"))
+        self.speak_text(text)
 
+    def speak_text(self, text):
+        self.tts_engine.say(text)
+        self.tts_engine.runAndWait()
+
+    def add_plan_item(self, plan_name, status="未开始"):
+        widget = QWidget()
+        layout = QHBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(10)
+
+        plan_label = QLabel(plan_name)
+        plan_label.setWordWrap(True)
+        plan_label.setStyleSheet("color: black;")
+        layout.addWidget(plan_label)
+
+        status_label = QLabel(status)
+        status_label.setFixedWidth(80)
+        status_label.setAlignment(Qt.AlignCenter)
+        self.set_status_label_color(status_label, status)
+        layout.addWidget(status_label)
+
+        widget.setLayout(layout)
+        widget.setStyleSheet("border: 1px solid black; padding: 5px;")
+
+        item = QListWidgetItem(self.plan_list)
+        item.setSizeHint(widget.sizeHint())
+        self.plan_list.addItem(item)
+        self.plan_list.setItemWidget(item, widget)
+
+        return item, status_label
+
+    def update_plan_item_status(self, item, status_label, status):
+        status_label.setText(status)
+        self.set_status_label_color(status_label, status)
+
+    def set_status_label_color(self, label, status):
+        if status == "进行中":
+            label.setStyleSheet("color: green;")
+        elif status == "失败":
+            label.setStyleSheet("color: red;")
+        elif status == "已完成":
+            label.setStyleSheet("color: gray;")
+        else:
+            label.setStyleSheet("color: black;")
+
+    def set_memory_content(self, content):
+        self.memory_text.setText(content)
+
+    def get_memory_content(self):
+        return self.memory_text.toPlainText()
 
 def create_ai_assistant_ui_instance():
     app = QApplication(sys.argv)
@@ -115,4 +173,14 @@ def create_ai_assistant_ui_instance():
 
 if __name__ == "__main__":
     app, window = create_ai_assistant_ui_instance()
+
+    def example_callback(this, player_input):
+        print(f"Player said: {player_input} from instance: {this}")
+
+    window.player_dialog_signal.connect(example_callback)
+
+    window.add_plan_item("优先攻击火箭兵", "进行中")
+    window.add_plan_item("建造三个步兵，两个坦克", "失败")
+    window.add_plan_item("工程师占领油田", "已完成")
+    window.add_plan_item("两路夹击地方基地，如果打不过就折返", "未开始")
     sys.exit(app.exec_())

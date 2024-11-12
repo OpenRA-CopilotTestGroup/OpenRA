@@ -197,6 +197,9 @@ def start_python_script(Alert=True):
         command.append("--input_mode")
         command.append("keyboard")
 
+    command.append("--gptmodel")
+    command.append(selected_version.get())
+
     subprocess.Popen(command, env=os.environ,
                      creationflags=subprocess.CREATE_NEW_CONSOLE)
 
@@ -551,14 +554,14 @@ dropdown.grid(row=GridRows.DROPDOWNS.index,
 selected_mic_version = StringVar(root)
 selected_mic_version.set("openai")
 
-mic_versions = ["openai", "手动输入"]
+mic_versions = ["openai语音识别", "手动输入"]
 
 dropdown_mic = tk.OptionMenu(root, selected_mic_version, *mic_versions)
 dropdown_mic.grid(row=GridRows.DROPDOWNS.index,
                   column=GridColumns.CONTENT_RIGHT.index, padx=(15, 15), pady=5, sticky="we")
 
 start_python_button = tk.Button(
-    root, text="启动语音识别", command=start_python_script, font=button_font)
+    root, text="启动AI助手", command=start_python_script, font=button_font)
 start_python_button.grid(row=GridRows.BUTTONS.index,
                          column=GridColumns.CONTENT_RIGHT.index, padx=(15, 15), pady=5, sticky="we")
 

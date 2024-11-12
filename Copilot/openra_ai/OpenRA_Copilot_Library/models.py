@@ -8,6 +8,11 @@ class Location:
     def to_dict(self):
         return {"x": self.x, "y": self.y}
 
+    def manhattan_distance(self, other):
+        return abs(self.x - other.x) + abs(self.y - other.y)
+
+    def euclidean_distance(self, other):
+        return ((self.x - other.x) ** 2 + (self.y - other.y) ** 2) ** 0.5
 class TargetsQueryParam:
     # when construct the TargetQueryParam, The type should be a list or None. each element in the list is one of {ALL_UNITS}. otherwise, convert it to elements in the possible list.
     # The faction should be None or one of {ALL_ACTORS}, otherwise convert it to the possible value.
