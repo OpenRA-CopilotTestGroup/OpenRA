@@ -545,7 +545,8 @@ namespace OpenRA.Mods.Common.Traits
 				.Select(t => t.GetProductionTimeModifier(techTree, Info.Type))
 				.Append(bi.BuildDurationModifier)
 				.Append(Info.BuildDurationModifier);
-
+			if (!Actor.Owner.IsBot)
+				time /= 2;
 			return Util.ApplyPercentageModifiers(time, modifiers);
 		}
 
@@ -557,6 +558,9 @@ namespace OpenRA.Mods.Common.Traits
 
 			var modifiers = unit.TraitInfos<IProductionCostModifierInfo>()
 				.Select(t => t.GetProductionCostModifier(techTree, Info.Type));
+
+			if (!Actor.Owner.IsBot)
+				return Util.ApplyPercentageModifiers(valued.Cost / 2, modifiers);
 
 			return Util.ApplyPercentageModifiers(valued.Cost, modifiers);
 		}

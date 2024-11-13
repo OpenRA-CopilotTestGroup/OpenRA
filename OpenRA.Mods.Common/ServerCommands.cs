@@ -386,7 +386,9 @@ namespace OpenRA.Mods.Common.Commands
 				var cposPath = new List<CPos>();
 				foreach (var c in path)
 					cposPath.Add(GetLocation(c));
+				cposPath.Add(actor.Location);
 				actor.CancelActivity();
+
 				if (isAttackMove || isAssaultMove)
 				{
 					actor.QueueActivity(new AttackMoveActivity(actor, () => new Move(actor, check => cposPath), isAssaultMove));

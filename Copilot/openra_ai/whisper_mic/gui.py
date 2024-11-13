@@ -57,6 +57,7 @@ class AIAssistantUI(QWidget):
         input_layout = QHBoxLayout()
         self.input_field = QLineEdit()
         self.input_field.setPlaceholderText("输入您的指令...")
+        self.input_field.returnPressed.connect(self.handle_send)
         self.send_button = QPushButton("发送")
         self.send_button.clicked.connect(self.handle_send)
         input_layout.addWidget(self.input_field)
