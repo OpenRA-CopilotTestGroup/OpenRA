@@ -15,7 +15,7 @@ import pygetwindow as gw
 import ctypes
 
 CONFIG_FILE = "settings.ini"
-VERSION = "0.0.4"
+VERSION = "0.1.0"
 
 
 def load_settings():
@@ -197,8 +197,10 @@ def start_python_script(Alert=True):
         command.append("--input_mode")
         command.append("keyboard")
 
-    command.append("--gptmodel")
-    command.append(selected_version.get())
+    # command.append("--gptmodel")
+    # command.append(selected_version.get())
+
+    command.append("--gui")
 
     subprocess.Popen(command, env=os.environ,
                      creationflags=subprocess.CREATE_NEW_CONSOLE)
