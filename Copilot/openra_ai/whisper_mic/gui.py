@@ -1,13 +1,15 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QPushButton, QLineEdit, QFrame, QListWidget, QListWidgetItem, QGridLayout
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QTimer
 from PyQt5.QtGui import QTextCursor, QTextCharFormat, QColor
 import pyttsx3
+import threading
 
 
 class AIAssistantUI(QWidget):
     player_dialog_signal = pyqtSignal(object, str)
     ui_exit_signal = pyqtSignal(object)
+    qt_tick_signal = pyqtSignal(object)
 
     def closeEvent(self, event):
         self.ui_exit_signal.emit(self)
@@ -75,15 +77,22 @@ class AIAssistantUI(QWidget):
         self.tts_engine.setProperty('rate', 150)
         self.tts_engine.setProperty('volume', 0.9)
 
+        self.tts_lock = threading.Lock()
+
+        tick_timer = QTimer(self)
+        tick_timer.timeout.connect(lambda: self.qt_tick_signal.emit(self))
+        tick_timer.start(100)
+
     def handle_send(self):
         user_input = self.input_field.text()
 
         if user_input:
+            self.player_dialog_signal.emit(self, user_input)
             self.add_player_dialog(user_input)
             self.input_field.clear()
 
-            ai_reply = "好的，正在执行..."
-            self.add_ai_dialog(ai_reply)
+            # ai_reply = "好的，正在执行..."
+            # self.add_ai_dialog(ai_reply)
 
     def append_dialog(self, text, align_right=False, color=QColor("black")):
         cursor = self.dialog_text.textCursor()
@@ -110,17 +119,21 @@ class AIAssistantUI(QWidget):
     def add_player_dialog(self, text):
         self.append_dialog(text + " :玩家", align_right=True,
                            color=QColor("blue"))
-        # 回调
-        self.player_dialog_signal.emit(self, text)
 
-    def add_ai_dialog(self, text):
+    def add_ai_dialog(self, text, NeedTTS : bool = True):
         self.append_dialog("AI副官: " + text, align_right=False,
                            color=QColor("green"))
-        self.speak_text(text)
+        if NeedTTS:
+            self.speak_text(text)
 
     def speak_text(self, text):
-        self.tts_engine.say(text)
-        self.tts_engine.runAndWait()
+        thread = threading.Thread(target=self._speak, args=(text,))
+        thread.start()
+
+    def _speak(self, text):
+        with self.tts_lock:
+            self.tts_engine.say(text)
+            self.tts_engine.runAndWait()
 
     def add_plan_item(self, plan_name: str, status: str = "未开始"):
         widget = QWidget()
@@ -144,12 +157,12 @@ class AIAssistantUI(QWidget):
 
         item = QListWidgetItem(self.plan_list)
         item.setSizeHint(widget.sizeHint())
-        self.plan_list.addItem(item)
+        self.plan_list.insertItem(0, item)
         self.plan_list.setItemWidget(item, widget)
 
-        return item, status_label
+        return status_label
 
-    def update_plan_item_status(self, item, status_label, status):
+    def update_plan_item_status(self, status_label, status):
         status_label.setText(status)
         self.set_status_label_color(status_label, status)
 

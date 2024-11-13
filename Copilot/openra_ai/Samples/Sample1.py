@@ -17,6 +17,9 @@ if api.able_to_produce("步兵"):
     p4 = api.produce_units("火箭筒兵", 2)
     api.wait(p3)
     api.wait(p4)
+else:
+    # 步兵建造需要兵营，兵营建造需要电厂，如果不能建造步兵，可能是这些建筑被攻击了，这个实例中选择了抛出错误
+    raise RuntimeError("不能建造步兵")
 
 infantry = api.query_actor(
     TargetsQueryParam(type=["步兵"], faction="自己"))

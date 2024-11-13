@@ -7,6 +7,8 @@ from typing import Optional
 import time
 import os
 import sys
+import queue
+import threading
 
 from .rafuncs import handle_strategy_command
 from .whisper_mic import WhisperMic
@@ -17,19 +19,27 @@ CACHED_TIME = 0.0
 LAST_TIME = 0.0
 GPTMODEL = "gpt-4o"
 GUI_WINDOW = None
+GUI_APP = None
+text_callback_queue = queue.Queue()
 
 
-def text_callback(text: str):
+def text_callback(text: str, is_from_ui: bool = False):
     print(repr(text))
     global CACHED_PROMPTS
     global CACHED_TIME
     global GPTMODEL
+    if not is_from_ui and GUI_WINDOW:
+        GUI_WINDOW.add_player_dialog(text)
     CACHED_PROMPTS.append(text)
     full_text = ",".join(CACHED_PROMPTS)
     full_text = full_text.removesuffix("\u6267\u884c\u547d\u4ee4")
     print("The strategy command is: ", full_text)
     handle_strategy_command(prompt=full_text, model=GPTMODEL, gui=GUI_WINDOW)
     CACHED_PROMPTS.clear()
+
+
+def text_callback_async(text: str, is_from_ui: bool = False):
+    text_callback_queue.put((text, is_from_ui))
 
 
 def handle_keyboard_input():
@@ -46,20 +56,44 @@ def handle_keyboard_input():
             break
 
 
+def process_queue():
+    while not text_callback_queue.empty():
+        try:
+            text, is_from_ui = text_callback_queue.get_nowait()
+            text_callback(text, is_from_ui)
+        except queue.Empty:
+            break
+
+
 def handle_mic_input(**kwargs):
     if kwargs.get('list_devices', False):
         print("Possible devices: ", sr.Microphone.list_microphone_names())
         return
 
-    mic = WhisperMic(**kwargs, text_callback=text_callback)
+    mic = WhisperMic(**kwargs, text_callback=text_callback_async)
 
     try:
-        mic.listen_loop()
+        listen_thread = threading.Thread(target=mic.listen_loop)
+        listen_thread.daemon = True
+        listen_thread.start()
+
     except KeyboardInterrupt:
         print("Operation interrupted successfully")
     finally:
         if kwargs.get('save_file', False):
             mic.file.close()
+
+    if GUI_WINDOW:
+        GUI_WINDOW.qt_tick_signal.connect(lambda: process_queue())
+        GUI_APP.exec_()
+        while True:
+            input()
+    else:
+        while True:
+            process_queue()
+            time.sleep(0.1)
+
+
 
 
 @click.command()
@@ -92,12 +126,13 @@ def handle_mic_input(**kwargs):
 def main(**kwargs):
     global GPTMODEL
     global GUI_WINDOW
+    global GUI_APP
     GPTMODEL = kwargs['gptmodel']
 
     if kwargs['gui']:
         def gui_input_callback(gui, player_input):
-            text_callback(player_input)
-        _, GUI_WINDOW = create_ai_assistant_ui_instance()
+            text_callback(player_input, True)
+        GUI_APP, GUI_WINDOW = create_ai_assistant_ui_instance()
         GUI_WINDOW.player_dialog_signal.connect(gui_input_callback)
         GUI_WINDOW.ui_exit_signal.connect(lambda: sys.exit(0))
     if kwargs['input_mode'] == "mic":

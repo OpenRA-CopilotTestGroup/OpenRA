@@ -9,6 +9,7 @@ import OpenRA_Copilot_Library as OpenRA
 from OpenRA_Copilot_Library import TargetsQueryParam
 import time
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
 
 # from openai import client
 from openai import OpenAI
@@ -22,6 +23,7 @@ os.makedirs(log_directory, exist_ok=True)
 current_time = datetime.now().strftime("%Y%m%d%H%M%S")
 log_filename = os.path.join(log_directory, f"{current_time}.log")
 
+
 def print_log(content):
     elapsed_time = time.perf_counter() - start_time
     formatted_elapsed_time = f"{elapsed_time:.2f}"
@@ -30,6 +32,7 @@ def print_log(content):
 
     with open(log_filename, "a") as log_file:
         log_file.write(log_entry)
+
 
 def get_chat_completion(
     messages: list[dict[str, str]],
@@ -58,7 +61,9 @@ def get_chat_completion(
         print(f'gpt completion fail with param: {params}')
         raise e
 
+
 MEMORY = "无"
+
 
 def make_promt():
 
@@ -81,7 +86,8 @@ def make_promt():
     ALL_MOVABLES = ALL_INFANTRIES + ALL_TANKS
     ALL_UNITS = ALL_BUILDINGS + ALL_DEFENSE_DEVICES + ALL_MOVABLES
 
-    gamelib_dir =  os.path.abspath(os.path.join(os.path.dirname(__file__), '../OpenRA_Copilot_Library'))
+    gamelib_dir = os.path.abspath(os.path.join(
+        os.path.dirname(__file__), '../OpenRA_Copilot_Library'))
     api_path = os.path.join(gamelib_dir, 'game_api.py')
     api_struct_path = os.path.join(gamelib_dir, 'models.py')
     with open(api_path, 'r', encoding='utf-8') as file:
@@ -89,7 +95,8 @@ def make_promt():
     with open(api_struct_path, 'r', encoding='utf-8') as file:
         api_struct_content = file.read()
 
-    sample_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '../Samples'))
+    sample_dir = os.path.abspath(os.path.join(
+        os.path.dirname(__file__), '../Samples'))
     sample_code = ""
     sample_index = 1
 
@@ -97,7 +104,6 @@ def make_promt():
         print(f"SampleFileName:{filename}")
         if filename.endswith('.py'):
             file_path = os.path.join(sample_dir, filename)
-
 
             with open(file_path, 'r', encoding='utf-8') as file:
                 first_line = file.readline().strip()
@@ -143,7 +149,7 @@ ALL_UNITS = {ALL_UNITS}
 
 接口如下所示： api_struct: <code> {api_struct_content} </code> api_define: <code> {api_content} </code>
 
-给定一个复合命令，尝试使用以上列出的基本 API 操作组合生成带有控制结构的 Python 代码。
+给定一个复合命令，尝试使用以上列出的基本 API 操作组合生成带有控制结构的 Python 代码，遇到意料外的情况，可以用raise报错
 
 对于给定的复合命令： 如果命令中存在拼写错误，请尝试修正。如果某个命令缺少生成正确基本 API 操作所需的信息，请尝试从先前的命令中补充这些信息。如果参数在 API 调用中有一些要求，但该参数不满足要求，请将参数转换为满足要求的格式。如果某些部分没有合理地反映某些基本 API 操作，或者没有实际意义，请忽略这些部分，不为它们生成 Python 代码。生成的代码应考虑先前的命令和在游戏中运行的代码。这意味着游戏状态可能会因先前的命令和代码的执行而改变。但我们不应该为先前的命令生成代码，只为当前命令生成代码。
 
@@ -165,11 +171,14 @@ promt part 6:当前的时间戳
     print_log(f"prompt:\n{prompt}\n")
     return prompt
 
+
 CACHED_PREVIOUS_PROMPTS = []
 MAX_CACHED_PROMPTS = 0
 
+
 def create_tag_regex(tag_name):
     return re.compile(rf'<{tag_name}>(.*?)</{tag_name}>', re.M | re.S)
+
 
 CODE_REGEX = create_tag_regex('code')
 CODE_REGEX2 = re.compile(r'```python(.*)```', re.M | re.S)
@@ -179,20 +188,10 @@ MEMORY_REGEX = create_tag_regex('memory')
 
 
 api = OpenRA.GameAPI("localhost")
-
-def execute(command):
-    try:
-        if callable(command):
-            command()
-        else:
-            exec(command)
-    except Exception as e:
-        traceback.print_tb(e.__traceback__)
-        traceback.print_exc()
-        print(f'failed to execute:\n`{command}\n`')
+executor = ThreadPoolExecutor(max_workers=10)
 
 
-def handle_strategy_command(prompt=None, model="gpt-4o", gui = None):
+def handle_strategy_command(prompt=None, model="gpt-4o", gui=None):
     global CACHED_PREVIOUS_PROMPTS
     global MAX_CACHED_PROMPTS
     global CODE_REGEX
@@ -209,7 +208,8 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui = None):
     messages.append({"role": "user", "content": prompt})
 
     print_log(f'Full Promt:\n{messages}\n')
-    completion = get_chat_completion(model=model, messages=messages, tools=None)
+    completion = get_chat_completion(
+        model=model, messages=messages, tools=None)
 
     print(f'Response:\n{completion.content}\n')
     print_log(f'Response:\n{completion.content}\n')
@@ -226,14 +226,15 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui = None):
         MEMORY = mermory_match.group(1)
         print_log(f'New Mermory:\n{MEMORY}\n')
 
-
+    plan = None
     if gui:
         title_match = TITLE_REGEX.search(completion.content)
         speech_match = SPEECH_REGEX.search(completion.content)
         if speech_match:
             gui.add_ai_dialog(speech_match.group(1))
         if title_match:
-            gui.add_plan_item(plan_name = title_match.group(1), status="进行中")
+            plan = gui.add_plan_item(
+                plan_name=title_match.group(1), status="进行中")
         if mermory_match:
             gui.set_memory_content(MEMORY)
 
@@ -241,8 +242,49 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui = None):
         executable = code_match.group(1)
         print(f'executable={executable}')
         print_log(f'executable={executable}')
-        thread = threading.Thread(target=execute, args=(executable,))
-        thread.start()
+
+        # def done_callback(future):
+        #     if gui and plan:
+        #         error = future.result()
+        #         if error:
+        #             gui.update_plan_item_status(plan, "失败")
+        #         else:
+        #             gui.update_plan_item_status(plan, "已完成")
+        #     if gui and plan:
+        #         try:
+        #             future.result()
+        #             print("Task completed successfully")
+        #             gui.update_plan_item_status(plan, "已完成")
+        #         except Exception as e:
+        #             print("Task failed with exception:")
+        #             traceback.print_exc()
+        #             gui.update_plan_item_status(plan, "失败")
+        #             gui.add_ai_dialog(e.__traceback__)
+
+        def execute(command):
+            try:
+                if callable(command):
+                    command()
+                else:
+                    exec(command)
+                if gui and plan:
+                    gui.update_plan_item_status(plan, "已完成")
+            except Exception as e:
+                traceback.print_tb(e.__traceback__)
+                traceback.print_exc()
+                print(f'failed to execute:\n`{command}\n`')
+                print_log(f'failed to execute:\n`{command}\n`')
+                if gui and plan:
+                    gui.update_plan_item_status(plan, "失败")
+                    error_message = traceback.format_exception_only(type(e), e)
+                    last_line = "".join(error_message).strip()
+                    gui.add_ai_dialog(f"错误信息：{last_line}", False)
+
+        future = executor.submit(execute, executable)
+        # future.add_done_callback(done_callback)
+        # threading太卡了，换一个
+        # thread = threading.Thread(target=execute, args=(executable,))
+        # thread.start()
     else:
         print(f'failed to find matched code\n{completion.content}\n')
     # if len(CACHED_PREVIOUS_PROMPTS) >= MAX_CACHED_PROMPTS:
