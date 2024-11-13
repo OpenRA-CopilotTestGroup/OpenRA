@@ -65,7 +65,7 @@ def get_chat_completion(
 MEMORY = "无"
 
 
-def make_promt():
+def make_prompt():
 
     config_path = os.path.join(os.path.dirname(__file__), 'config.yaml')
 
@@ -120,7 +120,7 @@ def make_promt():
     prompt = f"""
 你是 OpenRA（红色警戒）游戏的战略AI指挥副官。你需要根据玩家的指示来辅助玩家进行游戏，具体来说，你需要输出python代码，使用python的OpenRA库与游戏交互，我们会执行你输出的代码
 
-promt将分为6个部分：
+prompt将分为6个部分：
 1.python 库相关内容，包括数据结构，api以及一些sample code
 2.当前正在执行的内容，这些都是正在运行的，你之前的代码
 3.你和玩家之前的历史对话
@@ -136,7 +136,7 @@ promt将分为6个部分：
 
 注意，不同部分需要用不同的尖括号框起来
 
-promt part 1:python 库相关内容，包括数据结构，api以及一些sample code
+prompt part 1:python 库相关内容，包括数据结构，api以及一些sample code
 
 以下是参数列表：
 ALL_ACTORS = {ALL_ACTORS}
@@ -157,15 +157,15 @@ ALL_UNITS = {ALL_UNITS}
 
 以下是一些示例代码： {sample_code}
 
-promt part 2:当前正在执行的内容，这些都是正在运行的，你之前的代码
+prompt part 2:当前正在执行的内容，这些都是正在运行的，你之前的代码
 无
-promt part 3:你和玩家之前的历史对话
+prompt part 3:你和玩家之前的历史对话
 无
-promt part 4:你的记忆
+prompt part 4:你的记忆
 {MEMORY}
-promt part 5:目前游戏的基本信息
+prompt part 5:目前游戏的基本信息
 未知
-promt part 6:当前的时间戳
+prompt part 6:当前的时间戳
 当前是运行的第："{formatted_time}"秒
     """
     print_log(f"prompt:\n{prompt}\n")
@@ -202,7 +202,7 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui=None):
         print_log('prompt should not be None')
         return
     messages = []
-    messages.append({"role": "system", "content": make_promt()})
+    messages.append({"role": "system", "content": make_prompt()})
     # for previous_prompt in CACHED_PREVIOUS_PROMPTS:
     #     messages.append(previous_prompt)
     messages.append({"role": "user", "content": prompt})
