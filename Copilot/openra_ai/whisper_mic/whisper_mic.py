@@ -10,6 +10,7 @@ import json
 import tempfile
 import platform
 import pynput.keyboard
+from typing import AsyncGenerator
 from io import BytesIO
 from openai import OpenAI
 # from ctypes import *
@@ -141,7 +142,76 @@ class WhisperMic:
         if self.save_file:
             self.file = open("transcribed_text.txt", "w+", encoding="utf-8")
 
-        self.__setup_mic(self.mic_index)
+        self.is_audio_enabled = True  # GUI语音识别开关
+        self.device_check_thread = None
+        self.stop_flag = False  # 用于停止线程
+        self.is_device_available = False  # 当前设备状态
+        
+        self.__setup_mic(self.mic_index)  # 设置麦克风
+        self.__start_device_monitor()  # 启动设备检测进程
+    
+    def enable_audio(self):
+        self.is_audio_enabled = True
+        self.logger.info("Audio enabled")
+    
+    def disable_audio(self):
+        self.is_audio_enabled = False
+        self.logger.info("Audio disabled")
+    
+    def __start_device_monitor(self):
+        self.device_check_thread = threading.Thread(target=self.__monitor_devices, daemon=True)
+        self.device_check_thread.start()
+    
+    def __monitor_devices(self):
+        retry_count = 0  # 当前重试次数
+        max_retries = 2  # 最大重试次数
+        retry_delay = 0.2  # 重试间隔
+        low_freq_delay = 3  # 低频检测间隔
+
+        while not self.stop_flag:
+            try:
+                if not self.is_device_available:
+                    self.logger.info("Attempting to detect audio input device...")
+                    self.__setup_mic(self.mic_index)
+
+                    # 如果设备不可用，增加重试计数
+                    if not self.is_device_available:
+                        retry_count += 1
+                        self.logger.warning(f"Retry {retry_count}/{max_retries} failed. Waiting {retry_delay}s before retry.")
+                        time.sleep(retry_delay)
+
+                        # 如果达到最大重试次数，进入低频检测模式
+                        if retry_count >= max_retries:
+                            self.logger.error("Maximum retry limit reached. Switching to low-frequency detection.")
+                            time.sleep(low_freq_delay)  # 低频检测间隔
+                            retry_count = 0  # 重置重试计数，允许低频检测周期重试
+                    else:
+                        # 如果设备检测成功，重置计数器
+                        retry_count = 0
+                        retry_delay = 0.5
+                        self.logger.info("Audio input device detected and initialized.")
+                else:
+                    # 如果设备已可用，每隔一定时间确认设备是否仍然存在
+                    time.sleep(5)
+            except Exception as e:
+                self.logger.error(f"Error during device monitoring: {e}")
+
+    def __release_mic(self):
+        if self.source:
+            try:
+                if self.source.stream:
+                    self.source.stream.close()  # 确保流关闭安全
+            except AttributeError:
+                self.logger.warning("Attempted to close a non-existent stream.")
+        self.source = None
+        self.recorder = None
+        self.is_device_available = False
+        self.logger.info("Mic resources released")
+    
+    def stop_device_monitor(self):
+        self.stop_flag = True
+        if self.device_check_thread and self.device_check_thread.is_alive():
+            self.device_check_thread.join()
 
     def generate_corrected_transcript(self, transcribed_text):
         response = self.client.chat.completions.create(
@@ -162,6 +232,32 @@ class WhisperMic:
         return response.choices[0].message.content
 
     def __setup_mic(self, mic_index):
+        try:
+            if mic_index is None:
+                self.logger.info("No mic index provided, using default")
+            self.source = sr.Microphone(sample_rate=16000, device_index=mic_index)
+            self.recorder = sr.Recognizer()
+            self.recorder.energy_threshold = self.energy
+            self.recorder.pause_threshold = self.pause
+            self.recorder.dynamic_energy_threshold = self.dynamic_energy
+            if self.source and self.source.stream is not None:
+                with self.source:
+                    self.recorder.adjust_for_ambient_noise(self.source)
+                self.is_device_available = True
+                self.logger.info("Mic setup complete")
+            else:
+                raise AssertionError("Audio source stream is not available.")
+        except AssertionError as e:
+            self.is_device_available = False
+            self.source = None  # 确保 source 为 None
+            self.logger.warning(f"Mic setup failed: {e}")
+        except Exception as e:
+            self.is_device_available = False
+            self.source = None
+            self.logger.error(f"Failed to set up mic: {e}")
+            raise e
+    
+    """def __setup_mic(self, mic_index):
         if mic_index is None:
             self.logger.info("No mic index provided, using default")
         self.source = sr.Microphone(sample_rate=16000, device_index=mic_index)
@@ -174,7 +270,7 @@ class WhisperMic:
         with self.source:
             self.recorder.adjust_for_ambient_noise(self.source)
 
-        self.logger.info("Mic setup complete")
+        self.logger.info("Mic setup complete")"""
 
     # Whisper takes a Tensor while faster_whisper only wants an NDArray
     def __preprocess(self, data):
@@ -207,6 +303,9 @@ class WhisperMic:
 
     # Handles the task of getting the audio input via microphone. This method has been used for listen() method
     def __listen_handler(self, timeout):
+        if not self.is_device_available:
+            self.logger.warning("Audio input device is not available. Skipping listen operation.")
+            return
         try:
             with self.source as microphone:
                 audio = self.recorder.listen(source=microphone, timeout=timeout, phrase_time_limit=self.phrase_time_limit)
@@ -315,18 +414,28 @@ class WhisperMic:
         else:
             self.logger.debug('ignore audio because it is not loud enough')
 
-    async def listen_loop_async(self, dictate: bool = False) -> None:
+    async def listen_loop_async(self, dictate: bool = False) -> AsyncGenerator[str, None]:
         for result in self.listen_continuously():
             if dictate:
                 self.keyboard.type(result)
             else:
                 yield result
 
+    def listen_loop(self):
+        """主监听逻辑"""
+        while self.is_audio_enabled:  # 仅在语音功能开启时运行
+            if self.is_device_available:
+                for result in self.listen_continuously():
+                    if self.text_callback:
+                        self.text_callback(result)
+            else:
+                self.logger.warning("No audio device available.")
+                time.sleep(1)
 
-    def listen_loop(self) -> None:
+    """def listen_loop(self) -> None:
         for result in self.listen_continuously():
             if self.text_callback:
-                self.text_callback(result)
+                self.text_callback(result)"""
 
 
     def listen_continuously(self):
