@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -17,30 +18,10 @@ namespace OpenRA
 
 		public delegate string CommandHandler(JObject json, World world);
 
-		// 各种指令事件
-		public event QueryHandler OnStartProductionCommand;
-		public event CommandHandler OnMoveActorCommand;
-		public event CommandHandler OnMoveActorOnTilePathCommand;
-		public event CommandHandler OnCameraMoveCommand;
-		public event CommandHandler OnCameraFollowCommand;
-		public event CommandHandler OnSetRallyPointCommand;
-		public event CommandHandler OnSelectUnitCommand;
-		public event CommandHandler OnFormGroupCommand;
-		public event CommandHandler OnDeployCommand;
-		public event CommandHandler OnViewCommand;
-		public event CommandHandler OnOccupyCommand;
-		public event CommandHandler OnRepairCommand;
-		public event CommandHandler OnStopCommand;
-
 		public delegate JObject QueryHandler(JObject json, World world);
-		public event QueryHandler QueryActor;
-		public event QueryHandler QueryProduceInfo;
-		public event QueryHandler QueryTile;
-		public event QueryHandler QueryPath;
-		public event QueryHandler QueryWaitInfo;
-		public event QueryHandler OnFogQueryCommand;
-		public event QueryHandler OnUnitRangeQueryCommand;
-		public event QueryHandler OnUnitAttributeQueryCommand;
+
+		public Dictionary<string, CommandHandler> CommandHandlers = new();
+		public Dictionary<string, QueryHandler> QueryHandlers = new();
 
 		public CopilotCommandServer(int port, World world)
 		{
@@ -115,68 +96,17 @@ namespace OpenRA
 				string result = null;
 				JObject resultJson = null;
 
-				switch (command)
+				if (CommandHandlers.TryGetValue(command, out var commandHandler))
 				{
-					case "move_actor":
-						result = OnMoveActorCommand?.Invoke(json, world);
-						break;
-					case "move_actor_on_tile_path":
-						result = OnMoveActorOnTilePathCommand?.Invoke(json, world);
-						break;
-					case "query_actor":
-						resultJson = QueryActor?.Invoke(json, world);
-						break;
-					case "query_tile":
-						resultJson = QueryTile?.Invoke(json, world);
-						break;
-					case "query_path":
-						resultJson = QueryPath?.Invoke(json, world);
-						break;
-					case "query_waitInfo":
-						resultJson = QueryWaitInfo?.Invoke(json, world);
-						break;
-					case "query_produceInfo":
-						resultJson = QueryProduceInfo?.Invoke(json, world);
-						break;
-					case "start_production":
-						resultJson = OnStartProductionCommand?.Invoke(json, world);
-						break;
-					case "camera_move":
-						result = OnCameraMoveCommand?.Invoke(json, world);
-						break;
-					case "select_unit":
-						result = OnSelectUnitCommand?.Invoke(json, world);
-						break;
-					case "form_group":
-						result = OnFormGroupCommand?.Invoke(json, world);
-						break;
-					case "deploy":
-						result = OnDeployCommand?.Invoke(json, world);
-						break;
-					case "view":
-						result = OnViewCommand?.Invoke(json, world);
-						break;
-					case "occupy":
-						result = OnOccupyCommand?.Invoke(json, world);
-						break;
-					case "repair":
-						result = OnRepairCommand?.Invoke(json, world);
-						break;
-					case "stop":
-						result = OnStopCommand?.Invoke(json, world);
-						break;
-					case "fog_query":
-						resultJson = OnFogQueryCommand?.Invoke(json, world);
-						break;
-					case "unit_range_query":
-						resultJson = OnUnitRangeQueryCommand?.Invoke(json, world);
-						break;
-					case "unit_attribute_query":
-						resultJson = OnUnitAttributeQueryCommand?.Invoke(json, world);
-						break;
-					default:
-						SendResponse(clientSocket, "Unknown command");
-						return;
+					result = commandHandler?.Invoke(json, world);
+				}
+				else if (QueryHandlers.TryGetValue(command, out var queryHandler))
+				{
+					resultJson = queryHandler?.Invoke(json, world);
+				}
+				else
+				{
+					SendResponse(clientSocket, "Unknown command");
 				}
 
 				if (resultJson != null)

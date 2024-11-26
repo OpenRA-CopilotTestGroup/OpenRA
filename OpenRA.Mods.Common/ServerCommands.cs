@@ -969,6 +969,15 @@ namespace OpenRA.Mods.Common.Commands
 			return result;
 		}
 
+		public static JObject MapQueryCommand(JObject json, World world)
+		{
+			var result = new JObject
+			{
+				["To"] = "Todo..."
+			};
+			return result;
+		}
+
 		public static JObject UnitRangeQueryCommand(JObject json, World world)
 		{
 			var actors = GetTargetsFromJson(json, world);
@@ -1003,25 +1012,27 @@ namespace OpenRA.Mods.Common.Commands
 		{
 			if (w.Type == WorldType.Regular && w.CopilotServer != null)
 			{
-				w.CopilotServer.OnMoveActorCommand += MoveActorCommand;
-				w.CopilotServer.OnMoveActorOnTilePathCommand += MoveActorOnTilePathCommand;
-				w.CopilotServer.QueryActor += ActorQueryCommand;
-				w.CopilotServer.QueryWaitInfo += WaitQueryCommand;
-				w.CopilotServer.QueryTile += TileInfoQueryCommand;
-				w.CopilotServer.QueryPath += PathQueryCommand;
-				w.CopilotServer.QueryProduceInfo += QueryProduceInfoCommand;
-				w.CopilotServer.OnStartProductionCommand += StartProductionCommand;
-				w.CopilotServer.OnCameraMoveCommand += CameraMoveCommand;
-				w.CopilotServer.OnSelectUnitCommand += SelectUnitCommand;
-				w.CopilotServer.OnFormGroupCommand += FormGroupCommand;
-				w.CopilotServer.OnDeployCommand += DeployCommand;
-				w.CopilotServer.OnViewCommand += ViewCommand;
-				w.CopilotServer.OnOccupyCommand += OccupyCommand;
-				w.CopilotServer.OnRepairCommand += RepairCommand;
-				w.CopilotServer.OnStopCommand += StopCommand;
-				w.CopilotServer.OnFogQueryCommand += FogQueryCommand;
-				w.CopilotServer.OnUnitRangeQueryCommand += UnitRangeQueryCommand;
-				w.CopilotServer.OnUnitAttributeQueryCommand += UnitAttributeQueryCommand;
+				w.CopilotServer.CommandHandlers["move_actor"] = MoveActorCommand;
+				w.CopilotServer.CommandHandlers["move_actor_on_tile_path"] = MoveActorOnTilePathCommand;
+				w.CopilotServer.CommandHandlers["camera_move"] = CameraMoveCommand;
+				w.CopilotServer.CommandHandlers["select_unit"] = SelectUnitCommand;
+				w.CopilotServer.CommandHandlers["form_group"] = FormGroupCommand;
+				w.CopilotServer.CommandHandlers["deploy"] = DeployCommand;
+				w.CopilotServer.CommandHandlers["view"] = ViewCommand;
+				w.CopilotServer.CommandHandlers["occupy"] = OccupyCommand;
+				w.CopilotServer.CommandHandlers["repair"] = RepairCommand;
+				w.CopilotServer.CommandHandlers["stop"] = StopCommand;
+
+				w.CopilotServer.QueryHandlers["start_production"] = StartProductionCommand;
+				w.CopilotServer.QueryHandlers["query_actor"] = ActorQueryCommand;
+				w.CopilotServer.QueryHandlers["query_wait_info"] = WaitQueryCommand;
+				w.CopilotServer.QueryHandlers["query_tile"] = TileInfoQueryCommand;
+				w.CopilotServer.QueryHandlers["query_path"] = PathQueryCommand;
+				w.CopilotServer.QueryHandlers["query_produce_info"] = QueryProduceInfoCommand;
+				w.CopilotServer.QueryHandlers["fog_query"] = FogQueryCommand;
+				w.CopilotServer.QueryHandlers["unit_range_query"] = UnitRangeQueryCommand;
+				w.CopilotServer.QueryHandlers["unit_attribute_query"] = UnitAttributeQueryCommand;
+
 				CopilotsConfig.LoadConfig();
 				CopilotsUtils.WaitInit();
 			}
