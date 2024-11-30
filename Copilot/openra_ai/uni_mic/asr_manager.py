@@ -1,6 +1,7 @@
 # asr_manager.py
 import threading
 from queue import Queue, Empty
+import time
 
 class ASRManager:
     def __init__(self, asr_module, audio_queue: Queue, result_queue: Queue):
@@ -9,8 +10,7 @@ class ASRManager:
         self.result_queue = result_queue
         self.stop_event = threading.Event()
         self.trans_thread = None
-    
-        #self.is_listening = False
+        self.is_listening = True
 
     def start(self):
         self.trans_thread = threading.Thread(
@@ -19,13 +19,22 @@ class ASRManager:
         )
         self.trans_thread.start()
 
+    def enable_listen(self):
+        self.is_listening = True
+    
+    def disable_listen(self):
+        self.is_listening = False
+
     def __process_audio(self):
         while not self.stop_event.is_set():
+            if not self.is_listening:
+                time.sleep(0.1)
+                continue
             try:
                 audio_data = self.audio_queue.get(timeout=0.1)
-                # implement transcribe method in asr_module.py
                 result = self.asr_module.transcribe(audio_data)
-                self.result_queue.put(result)
+                if result:  # Only put non-empty results
+                    self.result_queue.put(result)
             except Empty:
                 continue
             except Exception as e:
