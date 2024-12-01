@@ -4,9 +4,10 @@ from queue import Queue, Empty
 import time
 
 class ASRManager:
-    def __init__(self, asr_module, audio_queue: Queue, result_queue: Queue):
+    def __init__(self, asr_module, audio_queue: Queue, data_queue: Queue, result_queue: Queue):
         self.asr_module = asr_module
         self.audio_queue = audio_queue
+        self.data_queue = data_queue
         self.result_queue = result_queue
         self.stop_event = threading.Event()
         self.trans_thread = None
@@ -31,7 +32,8 @@ class ASRManager:
                 time.sleep(0.1)
                 continue
             try:
-                audio_data = self.audio_queue.get(timeout=0.1)
+                #audio_data = self.audio_queue.get(timeout=0.1)
+                audio_data = self.data_queue.get(timeout=0.1)
                 result = self.asr_module.transcribe(audio_data)
                 if result:  # Only put non-empty results
                     self.result_queue.put(result)

@@ -4,6 +4,7 @@ from queue import Queue
 import time
 import pyaudio
 import webrtcvad
+import speech_recognition as sr
 
 class AudioListener:
     def __init__(self, asr_manager):
@@ -15,13 +16,29 @@ class AudioListener:
         self.listen_thread = None
         self.monitor_thread = None
         self.is_listening = True
+        #self.audio_queue = asr_manager.audio_queue
+        #self.data_queue = asr_manager.data_queue
+        #self.result_queue = asr_manager.result_queue
         
         self.stream = None
         self.stream_format = pyaudio.paInt16
         self.stream_channels = 1
         self.chunk_size = 1024
         self.sample_rate = 16000
-        self.__init_audio_device()
+        
+        # for sr
+        self.source = None
+        self.recorder = None
+        self.energy = 300
+        self.pause = 1.2
+        self.dynamic_energy = False
+        self.phrase_time_limit = 10
+        self.listen_bg_thread = None
+        self.lock = threading.Lock()
+        
+        self.__setup_mic(self.selected_device_index)
+        
+        #self.__init_audio_device()
     
     def enable_listen(self):
         self.is_listening = True
@@ -38,18 +55,25 @@ class AudioListener:
             target=self.__monitor_device,
             daemon=True
         )
+        self.listen_bg_thread = threading.Thread(
+            target=self.__listen_in_background,
+            daemon=True
+        )
+        print("Starting audio listener...")
         self.monitor_thread.start()
-        self.listen_thread.start()
+        #self.listen_thread.start()
+        self.listen_bg_thread.start()
     
     def __listen(self):
         while not self.stop_event.is_set():
             if not self.is_listening:
                 time.sleep(0.1)
                 continue
-            if not self.stream:
-                if not self.selected_device_index:
-                    self.__init_audio_device()
-                if self.selected_device_index:
+            if not self.source:
+                #if not self.selected_device_index:
+                #    #self.__init_audio_device()
+                self.__setup_mic()
+                """if self.selected_device_index:
                     check = self.__open_stream()
                     if check:
                         pass
@@ -58,19 +82,26 @@ class AudioListener:
                         continue
                 else:
                     time.sleep(1.0)  # Wait before retry
-                continue
+                continue"""
                 
             try:
-                audio_data = self.stream.read(
+                """audio_data = self.stream.read(
                     self.chunk_size,
                     exception_on_overflow=False
-                )
-                if self.__is_speech(audio_data):
-                    self.asr_manager.audio_queue.put(audio_data)
+                )"""
+                
+                print("Listening...")
+                #if self.__is_speech(audio_data):
+                #    self.asr_manager.audio_queue.put(audio_data)
             except Exception as e:
                 print(f"Error while reading audio: {e}")
                 #self.__close_stream()
-            finally:    
+            finally:
+                print("Stopped listening")
+                if self.source.stream is not None and not self.source.stream.is_stopped():
+                    self.source.stream.stop_stream()
+                    self.source.stream.close()
+                    self.source.stream = None    
                 time.sleep(5.0)  # Short delay before retry
     
     def __open_stream(self):
@@ -117,6 +148,7 @@ class AudioListener:
         time.sleep(1.0)  # Wait before retrying
     
     def __monitor_device(self):
+        print("start monitoring device")
         pre_devices = []
         while not self.stop_event.is_set():
             try:
@@ -155,3 +187,54 @@ class AudioListener:
         #if self.monitor_thread:
         self.monitor_thread.join()
         self.audio_interface.terminate()
+        
+    # implement sr from whisper_mic for testing
+    def __setup_mic(self, mic_index=None):
+        if mic_index is None:
+            print("No microphone selected")
+        with self.lock:
+            if self.source:
+                self.source.__exit__(None, None, None) 
+        self.source = sr.Microphone(sample_rate=self.sample_rate, device_index=mic_index)
+        #self.source.__enter__()
+        
+        self.recorder = sr.Recognizer()
+        self.recorder.energy_threshold = self.energy
+        self.recorder.pause_threshold = self.pause
+        self.recorder.dynamic_energy_threshold = self.dynamic_energy
+        
+        with self.source:
+            self.recorder.adjust_for_ambient_noise(self.source)
+        print("Audio device setup successful")
+    
+    def __record_load(self,_, audio: sr.AudioData):
+        data = audio.get_raw_data()
+        self.asr_manager.audio_queue.put_nowait(data)
+    
+    def __get_audio(self, min_time: float = -1.):
+        audio = bytes()
+        got_audio = False
+        time_start = time.time()
+        while not got_audio or time.time() - time_start < min_time:
+            while not self.asr_manager.audio_queue.empty():
+                audio += self.asr_manager.audio_queue.get()
+                got_audio = True
+        data = sr.AudioData(audio,16000,2)
+        return data
+    
+    def __yield_data(self):
+        while True:
+            try:
+                data = self.__get_audio()
+                self.asr_manager.data_queue.put(data)
+            except Exception as e:
+                print(f"Error getting audio data: {e}")
+        
+    def __listen_in_background(self):
+        self.recorder.listen_in_background(
+            self.source,
+            self.__record_load,
+            phrase_time_limit=self.phrase_time_limit
+        )
+        print("Listening in background...")
+        threading.Thread(target=self.__yield_data, daemon=True).start()
