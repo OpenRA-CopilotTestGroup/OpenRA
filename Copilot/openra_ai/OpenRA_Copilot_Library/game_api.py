@@ -8,9 +8,8 @@ from .models import Actor, Location, TargetsQueryParam
 class GameAPI:
     def __init__(self, host, port=7445, cache_duration=60):
         self.server_address = (host, port)
-        self.actor_cache = {}
-        self.cache_duration = cache_duration
 
+    #通过socket和Game交互，发送信息，返回值为json结构
     def _send_request(self, command, data):
         data['command'] = command
         json_data = json.dumps(data)
@@ -27,29 +26,17 @@ class GameAPI:
         except json.JSONDecodeError:
             print("Error:Response is Not Json.\nResponse:\n"+response)
             return None
-
-    def _cache_actor(self, actor):
-        self.actor_cache[actor.actor_id] = {
-            "actor": actor,
-            "timestamp": time.time()
-        }
-
-    def _is_cache_valid(self, actor_id):
-        if actor_id in self.actor_cache:
-            cached_time = self.actor_cache[actor_id]["timestamp"]
-            return (time.time() - cached_time) < self.cache_duration
-        return False
-
+        
     def move_camera_by_location(self, location):
         data = {"location": location.to_dict()}
         return self._send_request('camera_move', data)
 
-    # when we call this api, direction should be one of the {ALL_DIRECTIONS}, otherewise convert it to possible value.
-    def move_camera_by_direction(self, direction, distance):
+    # 向某个方向移动相机，必须满足 direction ∈ {ALL_DIRECTIONS}，如果不在范围内请转换到范围呢
+    def move_camera_by_direction(self, direction: str, distance):
         data = {"direction": direction, "distance": distance}
         return self._send_request('camera_move', data)
 
-    # when we call this api, unit_type should be one of the {ALL_UNITS}, otherwise convert it to possible value.
+    # 必须满足 unit_type ∈ {ALL_UNITS}，如果不在范围内请转换到范围呢
     def able_to_produce(self, unit_type: str):
         data = {"units": [{"unit_type": unit_type}]}
         response = self._send_request('query_produceInfo', data)
@@ -57,7 +44,9 @@ class GameAPI:
             return response["canProduce"]
         return False
 
-    def produce_units(self, unit_type, quantity):
+    # 必须满足 unit_type ∈ {ALL_UNITS}，如果不在范围内请转换到范围呢
+    # 返回值为waitId，可以通过waitId查询生产是否完成
+    def produce_units(self, unit_type: str, quantity: int):
         data = {"units": [{"unit_type": unit_type, "quantity": quantity}]}
         response = self._send_request('start_production', data)
         try:
@@ -67,6 +56,8 @@ class GameAPI:
             print("Error in produce_units ,Response:")
             print(response)
 
+    # 传入waitId，可以查询这个等待事件是否完成，返回值为bool
+    # 目前只有生产
     def is_ready(self, waitId: int):
         data = {"waitId": waitId}
         response = self._send_request('query_waitInfo', data)

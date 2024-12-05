@@ -962,19 +962,55 @@ namespace OpenRA.Mods.Common.Commands
 
 		public static JObject FogQueryCommand(JObject json, World world)
 		{
+			var jpos = json.TryGetFieldValue("pos");
+			if (jpos == null)
+			{
+				throw new NotImplementedException("Missing parameters pos for command");
+			}
+
+			var pos = GetLocation(jpos);
+
 			var result = new JObject
 			{
-				["To"] = "Todo..."
+				["IsVisible"] = world.FogObscures(pos),
+				["IsExplored"] = world.ShroudObscures(pos)
 			};
 			return result;
 		}
 
 		public static JObject MapQueryCommand(JObject json, World world)
 		{
+			var player = world.LocalPlayer;
+			var map = world.Map;
+
+			// var shroud = player.Shroud;
 			var result = new JObject
 			{
-				["To"] = "Todo..."
+				["MapWidth"] = map.MapSize.X,
+				["MapHeight"] = map.MapSize.Y,
+				["Height"] = new JArray(),
+				["IsVisible"] = new JArray(),
+				["IsExplored"] = new JArray(),
+				["Terrain"] = new JArray(),
+				["ResourcesType"] = new JArray(),
+				["Resources"] = new JArray(),
 			};
+
+			for (var x = 0; x < map.MapSize.X; x++)
+			{
+				for (var y = 0; y < map.MapSize.Y; y++)
+				{
+					var pos = new CPos(x, y);
+
+					result["Height"].ToObject<JArray>().Add(map.Height[pos]);
+					result["IsVisible"].ToObject<JArray>().Add(world.FogObscures(pos));
+					result["IsExplored"].ToObject<JArray>().Add(world.ShroudObscures(pos));
+					result["Terrain"].ToObject<JArray>().Add(map.Tiles[pos].Type);
+					result["ResourcesType"].ToObject<JArray>().Add(map.Resources[pos].Type);
+					result["Resources"].ToObject<JArray>().Add(map.Resources[pos].Index);
+				}
+			}
+
 			return result;
 		}
 
@@ -1008,6 +1044,25 @@ namespace OpenRA.Mods.Common.Commands
 			return result;
 		}
 
+		public static JObject PlayerBaseInfoQueryCommand(JObject json, World world)
+		{
+			var player = world.LocalPlayer;
+			var playerRes = player.PlayerActor.Trait<PlayerResources>();
+			var powerManager = player.PlayerActor.Trait<PowerManager>();
+			if (playerRes == null || powerManager == null)
+				throw new NotImplementedException("PlayerResources or PowerManager trait not found.");
+			var result = new JObject
+			{
+				["Cash"] = playerRes.Cash,
+				["Resources"] = playerRes.Resources,
+				["Power"] = powerManager.ExcessPower,
+				["PowerDrained"] = powerManager.PowerDrained,
+				["PowerProvided"] = powerManager.PowerProvided
+			};
+
+			return result;
+		}
+
 		public void WorldLoaded(World w, WorldRenderer wr)
 		{
 			if (w.Type == WorldType.Regular && w.CopilotServer != null)
@@ -1029,9 +1084,11 @@ namespace OpenRA.Mods.Common.Commands
 				w.CopilotServer.QueryHandlers["query_tile"] = TileInfoQueryCommand;
 				w.CopilotServer.QueryHandlers["query_path"] = PathQueryCommand;
 				w.CopilotServer.QueryHandlers["query_produce_info"] = QueryProduceInfoCommand;
+				w.CopilotServer.QueryHandlers["map_query"] = MapQueryCommand;
 				w.CopilotServer.QueryHandlers["fog_query"] = FogQueryCommand;
 				w.CopilotServer.QueryHandlers["unit_range_query"] = UnitRangeQueryCommand;
 				w.CopilotServer.QueryHandlers["unit_attribute_query"] = UnitAttributeQueryCommand;
+				w.CopilotServer.QueryHandlers["player_baseinfo_query"] = PlayerBaseInfoQueryCommand;
 
 				CopilotsConfig.LoadConfig();
 				CopilotsUtils.WaitInit();
