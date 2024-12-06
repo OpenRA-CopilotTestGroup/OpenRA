@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using OpenRA.Graphics;
@@ -8,6 +9,7 @@ using OpenRA.Mods.Common.Activities;
 using OpenRA.Mods.Common.Traits;
 using OpenRA.Mods.Common.Widgets;
 using OpenRA.Traits;
+using static OpenRA.GameInformation;
 namespace OpenRA.Mods.Common.Commands
 {
 	[TraitLocation(SystemActors.World)]
@@ -478,6 +480,8 @@ namespace OpenRA.Mods.Common.Commands
 			return result;
 		}
 
+
+
 		public static JObject QueryProduceInfoCommand(JObject json, World world)
 		{
 			var orders = json.TryGetFieldValue("units")?.ToObject<List<JToken>>();
@@ -833,6 +837,28 @@ namespace OpenRA.Mods.Common.Commands
 			return result;
 		}
 
+		public static string AttackCommand(JObject json, World world)
+		{
+			var player = world.LocalPlayer;
+			var attackers = GetTargets(json["attackers"], world, player);
+			var target = GetTargetsFromJson(json, world).FirstOrDefault();
+
+			if (target == null)
+			{
+				throw new NotImplementedException("No Attack Target");
+			}
+
+			// 是否是多点下令
+			const bool Queued = false;
+
+			foreach (var attacker in attackers)
+			{
+				world.IssueOrder(new Order("Attack", attacker, Target.FromActor(target), Queued));
+			}
+
+			return "Attack action executed.";
+		}
+
 		public static string DeployCommand(JObject json, World world)
 		{
 			var actors = GetTargetsFromJson(json, world);
@@ -1072,6 +1098,7 @@ namespace OpenRA.Mods.Common.Commands
 				w.CopilotServer.CommandHandlers["camera_move"] = CameraMoveCommand;
 				w.CopilotServer.CommandHandlers["select_unit"] = SelectUnitCommand;
 				w.CopilotServer.CommandHandlers["form_group"] = FormGroupCommand;
+				w.CopilotServer.CommandHandlers["attack"] = AttackCommand;
 				w.CopilotServer.CommandHandlers["deploy"] = DeployCommand;
 				w.CopilotServer.CommandHandlers["view"] = ViewCommand;
 				w.CopilotServer.CommandHandlers["occupy"] = OccupyCommand;

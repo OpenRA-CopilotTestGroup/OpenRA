@@ -26,7 +26,7 @@ class GameAPI:
         except json.JSONDecodeError:
             print("Error:Response is Not Json.\nResponse:\n"+response)
             return None
-        
+
     def move_camera_by_location(self, location):
         data = {"location": location.to_dict()}
         return self._send_request('camera_move', data)
@@ -131,7 +131,6 @@ class GameAPI:
             position = Location(data["position"]["x"], data["position"]["y"])
             actor.update_details(data["type"], data["faction"], position)
             actors.append(actor)
-            self._cache_actor(actor)
 
         return actors
 
@@ -180,6 +179,13 @@ class GameAPI:
             "targets": {"actorId": [target.actor_id for target in targets]}
         }
         return self._send_request('occupy', data)
+
+    def attack_target(self, attackers: List[Actor], target: Actor) -> dict:
+        data = {
+            "attackers": {"actorId": [actor.actor_id for actor in attackers]},
+            "targets": {"actorId": [target.actor_id] }
+        }
+        return self._send_request('attack', data)
 
     # 建筑和单位都可以使用这个修复
     def repair_units(self, actors: List[Actor]) -> Optional[int]:
