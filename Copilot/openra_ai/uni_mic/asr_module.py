@@ -26,8 +26,8 @@ class WhisperASR(ASRModule):
     def __init__(self, **kwargs):
         
         self.language = "zh"
-        self.model = "large-v3"
-        self.device = "mps"
+        self.model = "base"
+        self.device = "cpu"
         self.prompt = None
         self.prefix = None
         self.initial_prompt = "以下是普通话的句子。"

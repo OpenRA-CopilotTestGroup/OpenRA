@@ -3,7 +3,7 @@
         "initial_prompt": "普通话, 不清楚的声音不要输出",
 	"prefix": null,
         "logging_level": "debug",
-        "model": "large-v3",
+        "model": "base",
         "remote": true,
         "faster": true,
         "enable_post_processing": false,
