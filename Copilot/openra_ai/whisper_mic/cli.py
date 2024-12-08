@@ -64,47 +64,8 @@ def process_queue():
         except queue.Empty:
             break
 
+
 def handle_mic_input(**kwargs):
-    if kwargs.get('list_devices', False):
-        print("Possible devices: ", sr.Microphone.list_microphone_names())
-        return
-
-    try:
-        mic = WhisperMic(**kwargs, text_callback=text_callback_async)
-         # 根据命令行参数设置初始状态
-        if kwargs.get('disable_audio', False):
-            mic.disable_audio()
-        else:
-            mic.enable_audio()
-        if not mic.is_device_available:
-            raise Exception("No microphone device available")
-    except Exception as e:
-        print(f"Microphone initialization failed: {e}")
-        mic = None  # 设置 mic 为 None，以便后续逻辑处理
-    else:
-        try:
-            listen_thread = threading.Thread(target=mic.listen_loop)
-            listen_thread.daemon = True
-            listen_thread.start()
-        except KeyboardInterrupt:
-            print("Operation interrupted successfully")
-        finally:
-            if kwargs.get('save_file', False) and mic:
-                mic.file.close()
-            if mic:
-                mic.stop_device_monitor()  # 停止设备检测线程
-
-    if GUI_WINDOW:
-        GUI_WINDOW.qt_tick_signal.connect(lambda: process_queue())
-        GUI_APP.exec_()
-        while True:
-            input()
-    else:
-        while True:
-            process_queue()
-            time.sleep(0.1)
-
-def pre_handle_mic_input(**kwargs):
     if kwargs.get('list_devices', False):
         print("Possible devices: ", sr.Microphone.list_microphone_names())
         return
@@ -115,17 +76,12 @@ def pre_handle_mic_input(**kwargs):
         listen_thread = threading.Thread(target=mic.listen_loop)
         listen_thread.daemon = True
         listen_thread.start()
-        
-        while True:
-            process_queue()
-            time.sleep(0.1)
 
     except KeyboardInterrupt:
         print("Operation interrupted successfully")
     finally:
         if kwargs.get('save_file', False):
             mic.file.close()
-        mic.stop_device_monitor()  # 停止设备检测线程
 
     if GUI_WINDOW:
         GUI_WINDOW.qt_tick_signal.connect(lambda: process_queue())
