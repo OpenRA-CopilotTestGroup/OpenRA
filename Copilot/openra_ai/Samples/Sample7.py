@@ -6,6 +6,13 @@ from OpenRA_Copilot_Library import TargetsQueryParam
 api = OpenRA.GameAPI("localhost")
 
 tanks = api.query_actor(TargetsQueryParam(type=['防空车'], faction='己方'))
+enger =  api.query_actor(TargetsQueryParam(type=['工程师'], faction='己方'))
+
 armored_car = api.query_actor(TargetsQueryParam(type=['装甲车'], faction='己方'))[0]
-enemy_base = api.query_actor(TargetsQueryParam(type=['基地'], faction='敌方'))[0]
-api.attack_target(tanks,enemy_base)
+# enemy_base = api.query_actor(TargetsQueryParam(type=['基地'], faction='敌方'))[0]
+# api.attack_target(tanks,enemy_base)
+playerinfo = api.player_base_info_query()
+mapinfo = api.map_query()
+
+print(playerinfo)
+print(mapinfo)

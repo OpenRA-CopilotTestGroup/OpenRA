@@ -1,3 +1,6 @@
+from typing import List
+from dataclasses import dataclass
+
 class Location:
     def __init__(self, x, y):
         # x is the horion offset in the map.
@@ -62,3 +65,32 @@ class Actor:
         self.type = type
         self.faction = faction
         self.position = position
+
+@dataclass
+class MapQueryResult:
+    MapWidth: int
+    MapHeight: int
+    Height: List[List[int]]
+    IsVisible: List[List[bool]]
+    IsExplored: List[List[bool]]
+    Terrain: List[List[str]]
+    ResourcesType: List[List[str]]
+    Resources: List[List[int]]
+
+    def get_value_at_location(self, grid_name: str, location: 'Location'):
+        grid = getattr(self, grid_name, None)
+        if grid is None:
+            raise AttributeError(f"Grid '{grid_name}' does not exist in MapQueryResult.")
+        if 0 <= location.x < len(grid) and 0 <= location.y < len(grid[0]):
+            return grid[location.x][location.y]
+        else:
+            raise ValueError("Location out of bounds")
+
+@dataclass
+class PlayerBaseInfo:
+    Cash: int
+    Resources: int
+    Power: int
+    PowerDrained: int
+    PowerProvided: int
+

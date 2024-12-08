@@ -1006,36 +1006,57 @@ namespace OpenRA.Mods.Common.Commands
 
 		public static JObject MapQueryCommand(JObject json, World world)
 		{
-			var player = world.LocalPlayer;
 			var map = world.Map;
+			var width = map.MapSize.X;
+			var height = map.MapSize.Y;
 
-			// var shroud = player.Shroud;
-			var result = new JObject
-			{
-				["MapWidth"] = map.MapSize.X,
-				["MapHeight"] = map.MapSize.Y,
-				["Height"] = new JArray(),
-				["IsVisible"] = new JArray(),
-				["IsExplored"] = new JArray(),
-				["Terrain"] = new JArray(),
-				["ResourcesType"] = new JArray(),
-				["Resources"] = new JArray(),
-			};
+			// 初始化二维数组
+			var heightArray = new JArray();
+			var isVisibleArray = new JArray();
+			var isExploredArray = new JArray();
+			var terrainArray = new JArray();
+			var resourcesTypeArray = new JArray();
+			var resourcesArray = new JArray();
 
-			for (var x = 0; x < map.MapSize.X; x++)
+			for (var x = 0; x < width; x++)
 			{
-				for (var y = 0; y < map.MapSize.Y; y++)
+				var heightRow = new JArray();
+				var isVisibleRow = new JArray();
+				var isExploredRow = new JArray();
+				var terrainRow = new JArray();
+				var resourcesTypeRow = new JArray();
+				var resourcesRow = new JArray();
+
+				for (var y = 0; y < height; y++)
 				{
 					var pos = new CPos(x, y);
-
-					result["Height"].ToObject<JArray>().Add(map.Height[pos]);
-					result["IsVisible"].ToObject<JArray>().Add(world.FogObscures(pos));
-					result["IsExplored"].ToObject<JArray>().Add(world.ShroudObscures(pos));
-					result["Terrain"].ToObject<JArray>().Add(map.Tiles[pos].Type);
-					result["ResourcesType"].ToObject<JArray>().Add(map.Resources[pos].Type);
-					result["Resources"].ToObject<JArray>().Add(map.Resources[pos].Index);
+					heightRow.Add(map.Height[pos]);
+					isVisibleRow.Add(world.FogObscures(pos));
+					isExploredRow.Add(world.ShroudObscures(pos));
+					terrainRow.Add(map.Tiles[pos].Type);
+					resourcesTypeRow.Add(map.Resources[pos].Type);
+					resourcesRow.Add(map.Resources[pos].Index);
 				}
+
+				heightArray.Add(heightRow);
+				isVisibleArray.Add(isVisibleRow);
+				isExploredArray.Add(isExploredRow);
+				terrainArray.Add(terrainRow);
+				resourcesTypeArray.Add(resourcesTypeRow);
+				resourcesArray.Add(resourcesRow);
 			}
+
+			var result = new JObject
+			{
+				["MapWidth"] = width,
+				["MapHeight"] = height,
+				["Height"] = heightArray,
+				["IsVisible"] = isVisibleArray,
+				["IsExplored"] = isExploredArray,
+				["Terrain"] = terrainArray,
+				["ResourcesType"] = resourcesTypeArray,
+				["Resources"] = resourcesArray
+			};
 
 			return result;
 		}

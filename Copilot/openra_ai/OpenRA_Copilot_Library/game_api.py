@@ -2,7 +2,7 @@ import socket
 import json
 import time
 from typing import List, Optional
-from .models import Actor, Location, TargetsQueryParam
+from .models import *
 
 
 class GameAPI:
@@ -11,12 +11,22 @@ class GameAPI:
 
     #通过socket和Game交互，发送信息，返回值为json结构
     def _send_request(self, command, data):
+
+        def receive_data(sock):
+            chunks = []
+            while True:
+                chunk = sock.recv(4096)
+                if not chunk:
+                    break
+                chunks.append(chunk)
+            return b''.join(chunks).decode('utf-8')
+
         data['command'] = command
         json_data = json.dumps(data)
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.connect(self.server_address)
             sock.sendall(json_data.encode('utf-8'))
-            response = sock.recv(16384).decode('utf-8')
+            response = receive_data(sock)
         try:
             res_json = json.loads(response)
             if res_json["status"] < 0:
@@ -198,10 +208,16 @@ class GameAPI:
         return self._send_request('stop', data)
 
 
-    def fog_query(self, location: Location) -> bool:
+    def visible_query(self, location: Location) -> bool:
         data = {"location": location.to_dict()}
         response = self._send_request('fog_query', data)
-        return response.get('isVisible', False) if response else False
+        return response.get('IsVisible', False) if response else False
+
+
+    def explorer_query(self, location: Location) -> bool:
+        data = {"location": location.to_dict()}
+        response = self._send_request('fog_query', data)
+        return response.get('IsExplored', False) if response else False
 
     # 获取这些传入Actor攻击范围内的所有Target
     def unit_range_query(self, actors: List[Actor]) -> List[int]:
@@ -213,3 +229,33 @@ class GameAPI:
     def unit_attribute_query(self, actors: List[Actor]) -> dict:
         data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
         return self._send_request('unit_attribute_query', data)
+
+
+    def map_query(self) -> MapQueryResult:
+        response = self._send_request('map_query', {})
+        if not response:
+            raise ValueError("Failed to retrieve map data.")
+
+        return MapQueryResult(
+            MapWidth=response.get('MapWidth', 0),
+            MapHeight=response.get('MapHeight', 0),
+            Height=response.get('Height', [[]]),
+            IsVisible=response.get('IsVisible', [[]]),
+            IsExplored=response.get('IsExplored', [[]]),
+            Terrain=response.get('Terrain', [[]]),
+            ResourcesType=response.get('ResourcesType', [[]]),
+            Resources=response.get('Resources', [[]])
+        )
+
+    def player_base_info_query(self) -> PlayerBaseInfo:
+        response = self._send_request('player_baseinfo_query', {})
+        if not response:
+            raise ValueError("Failed to retrieve player base information.")
+
+        return PlayerBaseInfo(
+            Cash=response.get('Cash', 0),
+            Resources=response.get('Resources', 0),
+            Power=response.get('Power', 0),
+            PowerDrained=response.get('PowerDrained', 0),
+            PowerProvided=response.get('PowerProvided', 0)
+        )
