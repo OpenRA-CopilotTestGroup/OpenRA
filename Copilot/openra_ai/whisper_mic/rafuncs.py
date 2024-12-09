@@ -6,7 +6,7 @@ from typing import Optional, List, Dict, Any
 import threading
 import traceback
 import OpenRA_Copilot_Library as OpenRA
-from OpenRA_Copilot_Library import TargetsQueryParam
+from OpenRA_Copilot_Library import *
 import time
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
@@ -64,6 +64,7 @@ def get_chat_completion(
 
 MEMORY = "无"
 
+api = OpenRA.GameAPI("localhost")
 
 def make_prompt():
 
@@ -117,6 +118,8 @@ def make_prompt():
     current_time = time.perf_counter() - start_time
     formatted_time = f"{current_time:.2f}"
 
+    playerbaseinfo = api.player_base_info_query()
+
     prompt = f"""
 你是 OpenRA（红色警戒）游戏的战略AI指挥副官。你需要根据玩家的指示来辅助玩家进行游戏，具体来说，你需要输出python代码，使用python的OpenRA库与游戏交互，我们会执行你输出的代码
 
@@ -164,7 +167,8 @@ prompt part 3:你和玩家之前的历史对话
 prompt part 4:你的记忆
 {MEMORY}
 prompt part 5:目前游戏的基本信息
-未知
+玩家持有资源：{playerbaseinfo.Cash + playerbaseinfo.Resources}
+玩家当前剩余电力：{playerbaseinfo.Power}
 prompt part 6:当前的时间戳
 当前是运行的第："{formatted_time}"秒
     """
@@ -187,7 +191,6 @@ TITLE_REGEX = create_tag_regex('title')
 MEMORY_REGEX = create_tag_regex('memory')
 
 
-api = OpenRA.GameAPI("localhost")
 executor = ThreadPoolExecutor(max_workers=10)
 
 

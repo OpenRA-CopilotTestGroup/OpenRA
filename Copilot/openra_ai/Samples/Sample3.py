@@ -1,6 +1,6 @@
 # 该代码对应指令为：第一组士兵和坦克两路夹击敌方基地
 import OpenRA_Copilot_Library as OpenRA
-from OpenRA_Copilot_Library import TargetsQueryParam
+from OpenRA_Copilot_Library import *
 
 api = OpenRA.GameAPI("localhost")
 soldiers = api.query_actor(TargetsQueryParam(type=['士兵', '坦克'], group_id=[1]))

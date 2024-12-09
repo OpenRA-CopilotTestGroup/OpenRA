@@ -1,7 +1,7 @@
 # 该代码对应指令为：先让吉普去敌方基地勾引一下，然后士兵和坦克一起迎上去打敌方基地
 
 import OpenRA_Copilot_Library as OpenRA
-from OpenRA_Copilot_Library import TargetsQueryParam
+from OpenRA_Copilot_Library import *
 import time
 
 api = OpenRA.GameAPI("localhost")

@@ -49,7 +49,7 @@ class GameAPI:
     # 必须满足 unit_type ∈ {ALL_UNITS}，如果不在范围内请转换到范围呢
     def able_to_produce(self, unit_type: str):
         data = {"units": [{"unit_type": unit_type}]}
-        response = self._send_request('query_produceInfo', data)
+        response = self._send_request('query_produce_info', data)
         if response is not None and "canProduce" in response:
             return response["canProduce"]
         return False
@@ -70,20 +70,25 @@ class GameAPI:
     # 目前只有生产
     def is_ready(self, waitId: int):
         data = {"waitId": waitId}
-        response = self._send_request('query_waitInfo', data)
+        response = self._send_request('query_wait_info', data)
         return response["status"]
 
     def wait(self, waitId: int, maxWaitTime: float = 20.0):
         data = {"waitId": waitId}
-        response = self._send_request('query_waitInfo', data)
+        response = self._send_request('query_wait_info', data)
         waitTime = .0
         stepTime = 0.1
-        while response["waitStatus"] != "success":
-            time.sleep(stepTime)
-            waitTime += stepTime
-            response = self._send_request('query_waitInfo', data)
-            if waitTime > maxWaitTime:
-                return False
+        try:
+            while response["waitStatus"] != "success":
+                time.sleep(stepTime)
+                waitTime += stepTime
+                response = self._send_request('query_wait_info', data)
+                if waitTime > maxWaitTime:
+                    return False
+        except:
+            print("Error in wait ,Response:")
+            print(response)
+            return True
         return True
 
     def move_units_by_location(self, actors, location, attackmove=False):
@@ -122,9 +127,9 @@ class GameAPI:
         }
         return self._send_request('form_group', data)
 
-    def form_group(self, query_params: TargetsQueryParam, group_id):
+    def form_group(self, actors, group_id):
         data = {
-            "targets": query_params.to_dict(),
+            "targets": {"actorId": [actor.actor_id for actor in actors]},
             "groupId": group_id
         }
         return self._send_request('form_group', data)
@@ -168,7 +173,6 @@ class GameAPI:
             response["actors"][0]["position"]["x"], response["actors"][0]["position"]["y"])
         actor.update_details(
             response["actors"][0]["type"], response["actors"][0]["faction"], position)
-        self._cache_actor(actor)
         return True
 
 
@@ -259,3 +263,16 @@ class GameAPI:
             PowerDrained=response.get('PowerDrained', 0),
             PowerProvided=response.get('PowerProvided', 0)
         )
+
+    def screen_info_query(self) -> ScreenInfoResult:
+        response = self._send_request('screen_info_query', {})
+        if not response:
+            raise ValueError("Failed to retrieve screen info data.")
+
+        return ScreenInfoResult(
+            ScreenMin=Location(response['ScreenMin']['X'], response['ScreenMin']['Y']),
+            ScreenMax=Location(response['ScreenMax']['X'], response['ScreenMax']['Y']),
+            IsMouseOnScreen=response.get('IsMouseOnScreen', False),
+            MousePosition=Location(response['MousePosition']['X'], response['MousePosition']['Y'])
+        )
+

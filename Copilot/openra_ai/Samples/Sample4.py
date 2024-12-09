@@ -1,6 +1,6 @@
 # 该代码对应指令为：尝试建造一个猛犸坦克
 import OpenRA_Copilot_Library as OpenRA
-from OpenRA_Copilot_Library import TargetsQueryParam
+from OpenRA_Copilot_Library import *
 
 api = OpenRA.GameAPI("localhost")
 

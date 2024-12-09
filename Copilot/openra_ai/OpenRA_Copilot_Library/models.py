@@ -1,5 +1,6 @@
-from typing import List
+from typing import List, Dict
 from dataclasses import dataclass
+
 
 class Location:
     def __init__(self, x, y):
@@ -7,6 +8,11 @@ class Location:
         # y is the vertical offset in the map.
         self.x = x
         self.y = y
+
+    def __eq__(self, other):
+        if isinstance(other, Location):
+            return self.x == other.x and self.y == other.y
+        return False
 
     def to_dict(self):
         return {"x": self.x, "y": self.y}
@@ -16,12 +22,14 @@ class Location:
 
     def euclidean_distance(self, other):
         return ((self.x - other.x) ** 2 + (self.y - other.y) ** 2) ** 0.5
+
+
 class TargetsQueryParam:
     # when construct the TargetQueryParam, The type should be a list or None. each element in the list is one of {ALL_UNITS}. otherwise, convert it to elements in the possible list.
     # The faction should be None or one of {ALL_ACTORS}, otherwise convert it to the possible value.
     # The group_id should be a list and each element in the list is one of  {ALL_GROUPS}, otherwise convert it to possible value.
     # The direction should be None or one of {ALL_DIRECTIONS}, otherwise convert it to possible value.
-    def __init__(self, type: str = None, faction: str = None, group_id: list[int] = None, restrain = None, location: Location = None, direction: str = None, distance: int = None):
+    def __init__(self, type: str = None, faction: str = None, group_id: list[int] = None, restrain=None, location: Location = None, direction: str = None, distance: int = None):
         # type is the list of {ALL_UNITS}, or None.
         # faction is one of the {ALL_ACTORS}, or None
         # group_id is  the list of {ALL_GROUPS}, or None
@@ -52,6 +60,7 @@ class TargetsQueryParam:
             query["distance"] = self.distance
         return query
 
+
 class Actor:
     def __init__(self, actor_id: int):
         self.actor_id: int = actor_id
@@ -66,6 +75,7 @@ class Actor:
         self.faction = faction
         self.position = position
 
+#地图信息查询返回结构体，IsVisible是当前视野可见的部分为true，IsExplored是探索过的格子就是true
 @dataclass
 class MapQueryResult:
     MapWidth: int
@@ -80,12 +90,14 @@ class MapQueryResult:
     def get_value_at_location(self, grid_name: str, location: 'Location'):
         grid = getattr(self, grid_name, None)
         if grid is None:
-            raise AttributeError(f"Grid '{grid_name}' does not exist in MapQueryResult.")
+            raise AttributeError(
+                f"Grid '{grid_name}' does not exist in MapQueryResult.")
         if 0 <= location.x < len(grid) and 0 <= location.y < len(grid[0]):
             return grid[location.x][location.y]
         else:
             raise ValueError("Location out of bounds")
 
+#玩家基础信息查询返回结构体，Cash和Resources的和是玩家持有的金钱，Power是剩余电力
 @dataclass
 class PlayerBaseInfo:
     Cash: int
@@ -94,3 +106,18 @@ class PlayerBaseInfo:
     PowerDrained: int
     PowerProvided: int
 
+#屏幕信息查询的返回结果，Min是屏幕左上角，Max是右下角，MousePosition是当前鼠标所在位置，Location都是整数坐标
+@dataclass
+class ScreenInfoResult:
+    ScreenMin: Location
+    ScreenMax: Location
+    IsMouseOnScreen: bool
+    MousePosition: Location
+
+    def to_dict(self) -> Dict:
+        return {
+            "ScreenMin": self.ScreenMin.to_dict() if isinstance(self.ScreenMin, Location) else self.ScreenMin,
+            "ScreenMax": self.ScreenMax.to_dict() if isinstance(self.ScreenMax, Location) else self.ScreenMax,
+            "IsMouseOnScreen": self.IsMouseOnScreen,
+            "MousePosition": self.MousePosition.to_dict() if isinstance(self.MousePosition, Location) else self.MousePosition,
+        }

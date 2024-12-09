@@ -1031,8 +1031,8 @@ namespace OpenRA.Mods.Common.Commands
 				{
 					var pos = new CPos(x, y);
 					heightRow.Add(map.Height[pos]);
-					isVisibleRow.Add(world.FogObscures(pos));
-					isExploredRow.Add(world.ShroudObscures(pos));
+					isVisibleRow.Add(!world.FogObscures(pos));
+					isExploredRow.Add(!world.ShroudObscures(pos));
 					terrainRow.Add(map.Tiles[pos].Type);
 					resourcesTypeRow.Add(map.Resources[pos].Type);
 					resourcesRow.Add(map.Resources[pos].Index);
@@ -1110,6 +1110,43 @@ namespace OpenRA.Mods.Common.Commands
 			return result;
 		}
 
+		public static JObject ScreenInfoQueryCommand(JObject json, World world)
+		{
+			var wr = Game.worldRenderer;
+			var viewport = wr.Viewport;
+
+			var screenMin = ((MPos)viewport.VisibleCellsInsideBounds.TopLeft).ToCPos(world.Map);
+			var screenMax = ((MPos)viewport.VisibleCellsInsideBounds.BottomRight).ToCPos(world.Map);
+
+			var mousePos = world.Map.CellContaining(wr.ProjectedPosition(viewport.ViewToWorldPx(Game.Cursor.GetMousePos())));
+
+			var isMouseOnScreen = mousePos.X >= screenMin.X && mousePos.X <= screenMax.X &&
+								   mousePos.Y >= screenMin.Y && mousePos.Y <= screenMax.Y;
+
+			// 返回结果
+			var result = new JObject
+			{
+				["ScreenMin"] = new JObject
+				{
+					["X"] = screenMin.X,
+					["Y"] = screenMin.Y
+				},
+				["ScreenMax"] = new JObject
+				{
+					["X"] = screenMax.X,
+					["Y"] = screenMax.Y
+				},
+				["IsMouseOnScreen"] = isMouseOnScreen,
+				["MousePosition"] = new JObject
+				{
+					["X"] = mousePos.X,
+					["Y"] = mousePos.Y
+				}
+			};
+
+			return result;
+		}
+
 		public void WorldLoaded(World w, WorldRenderer wr)
 		{
 			if (w.Type == WorldType.Regular && w.CopilotServer != null)
@@ -1137,6 +1174,8 @@ namespace OpenRA.Mods.Common.Commands
 				w.CopilotServer.QueryHandlers["unit_range_query"] = UnitRangeQueryCommand;
 				w.CopilotServer.QueryHandlers["unit_attribute_query"] = UnitAttributeQueryCommand;
 				w.CopilotServer.QueryHandlers["player_baseinfo_query"] = PlayerBaseInfoQueryCommand;
+				w.CopilotServer.QueryHandlers["screen_info_query"] = ScreenInfoQueryCommand;
+
 
 				CopilotsConfig.LoadConfig();
 				CopilotsUtils.WaitInit();

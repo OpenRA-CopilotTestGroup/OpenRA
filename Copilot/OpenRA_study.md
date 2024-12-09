@@ -40,17 +40,27 @@ Order是指令，会被解析为Activity
 
 Actor会执行一个(?)Activity，会有Tick
 
-## 四种位置 CPos MPos WPos PPos
+## Game
+
+Game是全局变量，可以直接获取，里面有渲染相关WorldRenderer，鼠标的CursorManager，音频等等
+
+## 若干位置 CPos MPos WPos PPos
 
 CPos：Cell Pos 整数坐标
 
 WPos：World Pos 一般是CPos 的 X Y 分别乘CellSize（RA是80），不一定是CellSize的整数倍
 
-MPos：Map Pos，在矩形Map时，和CPos是一样的，在等距网格（暂不清楚，斜方形吧）有个转换公式
+​	map里有CellContaining可以转成CPos，下面也有转成别的pos的
+
+MPos：Map Pos，在矩形Map时，和CPos是一样的，在等距网格（暂不清楚，斜方形吧）有个转换公式，在MPos里有和CPos互转的接口
 
 PPos：Projected Pos，就是MPos
 
+int2（screenPx）：屏幕像素，WorldRenderer里ProjectedPosition可以把screenPx转成WPos
 
+
+
+var mousePos = world.Map.CellContaining(wr.ProjectedPosition(viewport.ViewToWorldPx(Game.Cursor.GetMousePos())));
 
 ## 迷雾系统
 
@@ -62,7 +72,7 @@ Shroud是探没探索过地图
 
 在每个Player下的Shroud中存了信息的，world里也有玩家的相关接口，但world仅处理了玩家，因为是处理渲染用的
 
-# Tick
+## Tick
 
 Actor的Tick在World.cs 中分发，继承了ITick的Actor的Trait会收到Tick
 
@@ -72,11 +82,11 @@ Actor的Tick在World.cs 中分发，继承了ITick的Actor的Trait会收到Tick
 
 Bot的Tick在Bot的ModularBot里分发，继承了IBotTick的Trait会被分配到，Bot本身是一个Player Actor
 
-# Bot相关随笔
+## Bot相关随笔
 
 INotifyDamage会对Actor通知伤害，在bot这边还会额外来到IBotRespondToAttack
 
-# Map
+## Map
 
 在map.cs里
 
