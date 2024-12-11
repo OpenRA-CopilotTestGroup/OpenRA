@@ -4,6 +4,7 @@ from queue import Queue, Empty
 import time
 import speech_recognition as sr
 import numpy as np
+from .utils import get_logger
 
 class ASRManager:
     def __init__(self, asr_module, audio_queue: Queue, result_queue: Queue, stop_event: threading.Event):
@@ -14,6 +15,7 @@ class ASRManager:
         self.stop_event = stop_event
         self.trans_thread = None
         self.is_listening = True
+        self.logger = get_logger(__name__, 'info')
 
     def start(self):
         self.trans_thread = threading.Thread(
@@ -42,13 +44,16 @@ class ASRManager:
                 #audio_data = self.audio_queue.get(timeout=0.1)
                 audio_data = self.audio_queue.get(timeout=0.1)
                 numpy_data = self.__trans_to_numpy(audio_data)
+                self.logger.info(f"ASR_Manager -> Transcribing audio...")
                 result = self.asr_module.transcribe(numpy_data)
                 if result:  # Only put non-empty results
-                    self.result_queue.put(result)
+                    self.result_queue.put_nowait(result)
+                    self.logger.info(f"ASR_Manager -> put the result:{result}")
+                    
             except Empty:
                 continue
             except Exception as e:
-                print(f"Error processing audio: {e}")
+                self.logger.error(f"ASR_Manager -> Error: {e}")
                 continue
     
     def stop(self):

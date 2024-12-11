@@ -41,7 +41,7 @@ class WhisperASR(ASRModule):
     
     def transcribe(self, audio_data):
         predicted_text = ''
-        self.logger.debug("Transcribing audio...")
+        self.logger.info(f"Transcribing audio with {self.device} and {self.model}...")
         if self.remote:
             pass
         elif self.faster:
@@ -55,6 +55,7 @@ class WhisperASR(ASRModule):
                 self.model,
                 download_root=model_root,
                 device=self.device,
+                in_memory=True
                 #compute_type = "int8"
             )
             result = self.audio_model.transcribe(
@@ -65,7 +66,7 @@ class WhisperASR(ASRModule):
                 initial_prompt=self.initial_prompt,
                 prompt=self.prompt
             )
-            self.logger.debug(f"Transcription result: {result}")
+            self.logger.info(f"Transcription result: {result}")
             predicted_text = result["text"]
         predicted_text = predicted_text.strip()
         if predicted_text:

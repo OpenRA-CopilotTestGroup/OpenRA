@@ -29,7 +29,7 @@ text_callback_queue = queue.Queue()
 
 
 def text_callback(text: str, is_from_ui: bool = False):
-    logger.debug(f"Received text input: {repr(text)}")
+    logger.info(f"Received text input: {repr(text)}")
     #print(repr(text))
     global CACHED_PROMPTS
     global CACHED_TIME
@@ -42,7 +42,7 @@ def text_callback(text: str, is_from_ui: bool = False):
     #print("The strategy command is: ", full_text)
     logger.info(f"Processing strategy command: {full_text}")
     handle_strategy_command(prompt=full_text, model=GPTMODEL, gui=GUI_WINDOW)
-    logger.debug("Strategy command processed, clearing cache")
+    logger.info("Strategy command processed, clearing cache")
     CACHED_PROMPTS.clear()
 
 

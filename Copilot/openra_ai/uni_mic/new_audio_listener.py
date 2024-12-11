@@ -5,6 +5,8 @@ import pyaudio
 import webrtcvad
 import speech_recognition as sr
 import struct
+import numpy as np
+import traceback
 from .utils import get_logger
 
 class AudioListener:
@@ -34,6 +36,8 @@ class AudioListener:
         self.energy = 300
         self.dynamic_energy = False
         self.phrase_time_limit = 10
+        self.energy_threshold = 300
+        self.hallucinate_threshold = 400
         
         # for vad
         self.vad = webrtcvad.Vad(1)
@@ -41,9 +45,10 @@ class AudioListener:
     def __setup_mic(self):
         while not self.stop_event.is_set():
             try:
-                self.mic = sr.Microphone(device_index=self.device_index)
+                self.mic = sr.Microphone(sample_rate=self.sample_rate,device_index=self.device_index)
                 with self.mic as source:
-                    self.recognizer.adjust_for_ambient_noise(source, duration=0.5)
+                    self.recognizer.energy_threshold = self.energy_threshold
+                    self.recognizer.adjust_for_ambient_noise(source, duration=2)
                 break
             except Exception as e:
                 print(f"setup_mic -> No microphone available:{e}")
@@ -59,6 +64,36 @@ class AudioListener:
             except Exception as e:
                 pass"""
         self.mic = None
+    
+    def __is_loud_enough(self, audio_data: sr.AudioData):
+        raw_data = audio_data.get_raw_data()
+        audio_frame = np.frombuffer(raw_data, dtype=np.int16)
+        amplitude = np.mean(np.abs(audio_frame))
+        return amplitude > self.energy_threshold
+    
+    def __get_all_audio(self, min_time: float = -1.):
+        audio = bytes()
+        got_audio = False
+        time_start = time.time()
+        while not got_audio or time.time() - time_start < min_time:
+            while not self.audio_queue.empty():
+                audio += self.audio_queue.get()
+                got_audio = True
+        data = sr.AudioData(audio,16000,2)
+        return data
+    
+    def __preprocess(self, audio_data: sr.AudioData):
+        """try:
+            raw_data = audio_data.get_raw_data()
+            audio_loud_enough = self.__is_loud_enough(raw_data)
+            if not audio_loud_enough:
+                self.logger.info("preprocess -> Audio not loud enough")
+                return None
+            return np.frombuffer(raw_data, dtype=np.int16).astype(np.float32) / 32768.0
+        except Exception as e:
+            self.logger.error(f"preprocess -> Error: {e}")
+            return None"""
+        return self.__is_loud_enough(audio_data)
     
     @staticmethod
     def __calc_volume(audio_frame):
@@ -84,7 +119,7 @@ class AudioListener:
         voice_frames = [f for f in frames if self.__is_speech(f)]
         return len(voice_frames) > 3
     
-    def __listen_loop(self):
+    def pre__listen_loop(self):
         self.__setup_mic()
         threshold = self.recognizer.energy_threshold
         start_talking = threshold * 1.5
@@ -132,6 +167,27 @@ class AudioListener:
                 #self.__restart()
                 time.sleep(1)
             
+    def __listen_loop(self):
+        self.__setup_mic()
+        while not self.stop_event.is_set():
+            try:
+                with self.mic as source:
+                    self.logger.info("listen_loop -> Listening for audio")
+                    audio_data = self.recognizer.listen(source, phrase_time_limit=self.phrase_time_limit)
+                    loud = self.__preprocess(audio_data)
+                    if loud:
+                        self.asr_manager.audio_queue.put_nowait(audio_data)
+                        self.logger.info("listen_loop -> Audio data sent to queue")
+                    else:
+                        self.logger.info("listen_loop -> Audio not loud enough")
+            except (sr.WaitTimeoutError, sr.UnknownValueError) as e:
+                self.logger.error(f"listen_loop -> SR error: {e}")
+                self.__restart()
+            except Exception as e:
+                self.logger.error(f"listen_loop -> Unkown error: {e}:\n {traceback.format_exc()}")
+                #self.__restart()
+                time.sleep(1)
+    
     def __restart(self):
         #self.logger.warning(f"handle_device_error -> Error with device: {error}")
         self.__close_mic()
@@ -140,10 +196,12 @@ class AudioListener:
     def start(self):
         self.listen_thread = threading.Thread(target=self.__listen_loop, daemon=True)
         self.listen_thread.start()
+        self.logger.info("start -> Listen thread started")
     
     def stop(self):
         self.stop_event.set()
-        if self.listen_thread.is_alive():
+        if self.listen_thread and self.listen_thread.is_alive():
             self.listen_thread.join()
+        self.logger.info("stop -> Listen thread stopped")
 
 
