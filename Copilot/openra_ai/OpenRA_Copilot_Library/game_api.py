@@ -169,11 +169,16 @@ class GameAPI:
         response = self._send_request('query_actor', data)
         if response is None:
             return False
-        position = Location(
-            response["actors"][0]["position"]["x"], response["actors"][0]["position"]["y"])
-        actor.update_details(
-            response["actors"][0]["type"], response["actors"][0]["faction"], position)
-        return True
+        try:
+            position = Location(
+                response["actors"][0]["position"]["x"], response["actors"][0]["position"]["y"])
+            actor.update_details(
+                response["actors"][0]["type"], response["actors"][0]["faction"], position)
+            return True
+        except:
+            print("Error in Update Actor ,Response:")
+            print(response)
+            return False
 
 
     def deploy_units(self, actors: List[Actor]) -> Optional[int]:

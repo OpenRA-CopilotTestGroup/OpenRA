@@ -1,6 +1,6 @@
 # 该代码对应指令为：电不够的时候帮我补一下电
 import OpenRA_Copilot_Library as OpenRA
-from OpenRA_Copilot_Library import TargetsQueryParam
+from OpenRA_Copilot_Library import *
 import time
 api = OpenRA.GameAPI("localhost")
 

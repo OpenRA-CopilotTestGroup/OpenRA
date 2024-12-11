@@ -4,7 +4,52 @@ from PyQt5.QtCore import Qt, pyqtSignal, QTimer
 from PyQt5.QtGui import QTextCursor, QTextCharFormat, QColor
 import pyttsx3
 import threading
+import pyaudio
+import dashscope
+from dashscope.audio.tts_v2 import *
+import os
 
+usenormalTTS = False
+
+dashscope.api_key = os.getenv("DASHSCOPE_API_KEY")
+
+if not dashscope.api_key:
+     print("Environment variable 'DASHSCOPE_API_KEY' is not set!")
+     usenormalTTS = True
+model = "cosyvoice-v1"
+voice = "longxiaoxia"
+
+class Callback(ResultCallback):
+    _player = None
+    _stream = None
+
+    def on_open(self):
+        self._player = pyaudio.PyAudio()
+        self._stream = self._player.open(
+            format=pyaudio.paInt16, channels=1, rate=22050, output=True, frames_per_buffer=22050
+        )
+
+    def on_close(self):
+        self._stream.stop_stream()
+        self._stream.close()
+        self._player.terminate()
+
+    def on_data(self, data: bytes) -> None:
+        print("audio result length:", len(data))
+        self._stream.write(data)
+
+def synthesizer_with_llm(text):
+    callback = Callback()
+    synthesizer = SpeechSynthesizer(
+        model=model,
+        voice=voice,
+        format=AudioFormat.PCM_22050HZ_MONO_16BIT,
+        callback=callback,
+    )
+
+    synthesizer.streaming_call(text)
+    synthesizer.streaming_complete()
+    print('requestId: ', synthesizer.get_last_request_id())
 
 class AIAssistantUI(QWidget):
     player_dialog_signal = pyqtSignal(object, str)
@@ -131,9 +176,12 @@ class AIAssistantUI(QWidget):
         thread.start()
 
     def _speak(self, text):
-        with self.tts_lock:
-            self.tts_engine.say(text)
-            self.tts_engine.runAndWait()
+        if usenormalTTS:
+            with self.tts_lock:
+                self.tts_engine.say(text)
+                self.tts_engine.runAndWait()
+        else:
+            synthesizer_with_llm(text)
 
     def add_plan_item(self, plan_name: str, status: str = "未开始"):
         widget = QWidget()
@@ -195,6 +243,7 @@ if __name__ == "__main__":
 
     def example_callback(this, player_input):
         print(f"Player said: {player_input} from instance: {this}")
+        this.add_ai_dialog(player_input)
 
     window.player_dialog_signal.connect(example_callback)
 
