@@ -10,6 +10,7 @@ class AIAssistantUI(QWidget):
     player_dialog_signal = pyqtSignal(object, str)
     ui_exit_signal = pyqtSignal(object)
     qt_tick_signal = pyqtSignal(object)
+    mic_state_signal = pyqtSignal(bool)  # New signal for mic state
 
     def closeEvent(self, event):
         self.ui_exit_signal.emit(self)
@@ -64,6 +65,13 @@ class AIAssistantUI(QWidget):
         self.send_button.clicked.connect(self.handle_send)
         input_layout.addWidget(self.input_field)
         input_layout.addWidget(self.send_button)
+
+        # Add mic toggle button
+        self.mic_button = QPushButton("麦克风: 开启")
+        self.mic_button.setCheckable(True)
+        self.mic_button.setChecked(True)
+        self.mic_button.clicked.connect(self.toggle_mic)
+        input_layout.addWidget(self.mic_button)
 
         right_layout.addLayout(input_layout)
 
@@ -181,6 +189,17 @@ class AIAssistantUI(QWidget):
 
     def get_memory_content(self):
         return self.memory_text.toPlainText()
+
+    def toggle_mic(self):
+        is_mic_on = self.mic_button.isChecked()
+        self.update_mic_button_state(is_mic_on)
+        self.mic_state_signal.emit(is_mic_on)
+
+    def update_mic_button_state(self, is_on: bool):
+        self.mic_button.setText("麦克风: 开启" if is_on else "麦克风: 关闭")
+        self.mic_button.setStyleSheet(
+            "background-color: #90EE90;" if is_on else "background-color: #FFB6C1;"
+        )
 
 
 def create_ai_assistant_ui_instance():

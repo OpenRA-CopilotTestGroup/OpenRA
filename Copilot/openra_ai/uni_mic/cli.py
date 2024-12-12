@@ -17,6 +17,7 @@ from .new_audio_listener import AudioListener
 from .utils import get_logger
 from .asr_manager import ASRManager
 from .asr_module import WhisperASR
+from .asr_module import FunASRRemoteASR
 logger = get_logger("cli", 'info')
 
 CACHED_PROMPTS = []
@@ -90,7 +91,8 @@ def handle_mic_input(**kwargs):
     stop_event = threading.Event()
     
     try:
-        asr_module = WhisperASR(**kwargs)  # Pass CLI arguments to WhisperASR
+        #asr_module = WhisperASR(**kwargs)  # Pass CLI arguments to WhisperASR
+        asr_module = FunASRRemoteASR()
         asr_manager = ASRManager(asr_module, audio_queue, result_queue, stop_event)
         audio_listener = AudioListener(asr_manager, stop_event)
         
@@ -113,6 +115,7 @@ def handle_mic_input(**kwargs):
         try:
             if GUI_WINDOW:
                 GUI_WINDOW.qt_tick_signal.connect(lambda: process_queue())
+                GUI_WINDOW.mic_state_signal.connect(lambda is_on: audio_listener.resume_listening() if is_on else audio_listener.pause_listening())
                 GUI_APP.exec_()
             else:
                 while True:

@@ -2,6 +2,9 @@
 from abc import ABC, abstractmethod
 from typing import Union, Dict, Any
 import os
+import requests
+import base64
+import numpy as np
 from .utils import get_logger
 
 class ASRModule(ABC):
@@ -39,7 +42,7 @@ class WhisperASR(ASRModule):
         self.faster = False
         self.logger = get_logger("whisper_asr","info")
     
-    def transcribe(self, audio_data):
+    def transcribe(self, audio_data: np.ndarray):
         predicted_text = ''
         self.logger.info(f"Transcribing audio with {self.device} and {self.model}...")
         if self.remote:
@@ -73,11 +76,25 @@ class WhisperASR(ASRModule):
             return predicted_text
 
 # asr_funasr.py
-class FunASR(ASRModule):
+class FunASRRemoteASR(ASRModule):
     
-    def __init__(self):
-        pass
+    def __init__(self, server_url: str = "http://localhost:5000/transcribe"):
+        self.server_url = server_url
+        self.logger = get_logger("fun_asr", "info")
     
-    def transcribe(self, audio_data):
-        result = ...
-        return result
+    def transcribe(self, audio_data: np.ndarray):
+        try:
+            audio_bytes = audio_data.tobytes()
+            audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
+            payload = {"audio": audio_b64, "language": "zh"}
+            response = requests.post(self.server_url, json=payload, timeout=10)
+            self.logger.info(f"Transcribing audio with FunASR...")
+            if response.status_code == 200:
+                result = response.json()
+                return result.get("text", "")
+            else:
+                self.logger.error(f"Error: Server returned status code {response.status_code}")
+                self.logger.error(f"Failed to transcribe audio: {response.text}")
+        except Exception as e:
+            self.logger.error(f"Error: {e}")
+            return ""
