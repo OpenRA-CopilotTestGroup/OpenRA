@@ -86,13 +86,12 @@ def handle_mic_input(**kwargs):
 
     logger.info("Initializing microphone input mode")
     audio_queue = queue.Queue()
-    #data_queue = queue.Queue()
     result_queue = queue.Queue()
     stop_event = threading.Event()
     
     try:
-        #asr_module = WhisperASR(**kwargs)  # Pass CLI arguments to WhisperASR
-        asr_module = FunASRRemoteASR()
+        asr_module = WhisperASR(**kwargs)
+        #asr_module = FunASRRemoteASR()
         asr_manager = ASRManager(asr_module, audio_queue, result_queue, stop_event)
         audio_listener = AudioListener(asr_manager, stop_event)
         

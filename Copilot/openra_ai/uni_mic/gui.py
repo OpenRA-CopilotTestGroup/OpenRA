@@ -10,7 +10,7 @@ class AIAssistantUI(QWidget):
     player_dialog_signal = pyqtSignal(object, str)
     ui_exit_signal = pyqtSignal(object)
     qt_tick_signal = pyqtSignal(object)
-    mic_state_signal = pyqtSignal(bool)  # New signal for mic state
+    mic_state_signal = pyqtSignal(bool)
 
     def closeEvent(self, event):
         self.ui_exit_signal.emit(self)
@@ -57,6 +57,10 @@ class AIAssistantUI(QWidget):
         right_layout.addWidget(self.dialog_label)
         right_layout.addWidget(self.dialog_text)
 
+        self.mic_button = QPushButton("当前麦克风状态: 开启")
+        self.mic_button.clicked.connect(self.toggle_mic)
+        right_layout.addWidget(self.mic_button)
+
         input_layout = QHBoxLayout()
         self.input_field = QLineEdit()
         self.input_field.setPlaceholderText("输入您的指令...")
@@ -65,13 +69,6 @@ class AIAssistantUI(QWidget):
         self.send_button.clicked.connect(self.handle_send)
         input_layout.addWidget(self.input_field)
         input_layout.addWidget(self.send_button)
-
-        # Add mic toggle button
-        self.mic_button = QPushButton("麦克风: 开启")
-        self.mic_button.setCheckable(True)
-        self.mic_button.setChecked(True)
-        self.mic_button.clicked.connect(self.toggle_mic)
-        input_layout.addWidget(self.mic_button)
 
         right_layout.addLayout(input_layout)
 
@@ -86,6 +83,8 @@ class AIAssistantUI(QWidget):
         self.tts_engine.setProperty('volume', 0.9)
 
         self.tts_lock = threading.Lock()
+
+        self.mic_enabled = True  # Initial mic state
 
         tick_timer = QTimer(self)
         tick_timer.timeout.connect(lambda: self.qt_tick_signal.emit(self))
@@ -191,15 +190,10 @@ class AIAssistantUI(QWidget):
         return self.memory_text.toPlainText()
 
     def toggle_mic(self):
-        is_mic_on = self.mic_button.isChecked()
-        self.update_mic_button_state(is_mic_on)
-        self.mic_state_signal.emit(is_mic_on)
-
-    def update_mic_button_state(self, is_on: bool):
-        self.mic_button.setText("麦克风: 开启" if is_on else "麦克风: 关闭")
-        self.mic_button.setStyleSheet(
-            "background-color: #90EE90;" if is_on else "background-color: #FFB6C1;"
-        )
+        self.mic_enabled = not self.mic_enabled
+        self.mic_button.setText("当前麦克风状态: 开启" if self.mic_enabled else "当前麦克风状态: 关闭")
+        self.mic_state_signal.emit(self.mic_enabled)  # Emit signal for state change
+        self.add_ai_dialog("麦克风已{}。".format("开启" if self.mic_enabled else "关闭"))
 
 
 def create_ai_assistant_ui_instance():
