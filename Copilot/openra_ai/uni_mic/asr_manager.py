@@ -10,7 +10,6 @@ class ASRManager:
     def __init__(self, asr_module, audio_queue: Queue, result_queue: Queue, stop_event: threading.Event):
         self.asr_module = asr_module
         self.audio_queue = audio_queue
-        #self.data_queue = data_queue
         self.result_queue = result_queue
         self.stop_event = stop_event
         self.trans_thread = None
@@ -41,7 +40,6 @@ class ASRManager:
                 time.sleep(0.1)
                 continue
             try:
-                #audio_data = self.audio_queue.get(timeout=0.1)
                 audio_data = self.audio_queue.get(timeout=0.1)
                 numpy_data = self.__trans_to_numpy(audio_data)
                 self.logger.info(f"ASR_Manager -> Transcribing audio...")

@@ -12,8 +12,7 @@ import threading
 
 from .rafuncs import handle_strategy_command
 from .gui import create_ai_assistant_ui_instance
-from .new_audio_listener import AudioListener
-#from .sr_listener import AudioListener
+from .audio_listener import AudioListener
 from .utils import get_logger
 from .asr_manager import ASRManager
 from .asr_module import WhisperASR
@@ -90,6 +89,7 @@ def handle_mic_input(**kwargs):
     stop_event = threading.Event()
     
     try:
+        # choose one of the following ASR modules manually
         asr_module = WhisperASR(**kwargs)
         #asr_module = FunASRRemoteASR()
         asr_manager = ASRManager(asr_module, audio_queue, result_queue, stop_event)

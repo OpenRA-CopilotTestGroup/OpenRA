@@ -3,7 +3,6 @@ from abc import ABC, abstractmethod
 from typing import Union, Dict, Any
 import os
 import requests
-import base64
 import numpy as np
 from .utils import get_logger
 
@@ -59,7 +58,6 @@ class WhisperASR(ASRModule):
                 download_root=model_root,
                 device=self.device,
                 in_memory=True
-                #compute_type = "int8"
             )
             result = self.audio_model.transcribe(
                 audio_data,
@@ -79,22 +77,22 @@ class WhisperASR(ASRModule):
 class FunASRRemoteASR(ASRModule):
     
     def __init__(self, server_url: str = "http://localhost:5000/transcribe"):
+        # mainly for test in local
         self.server_url = server_url
         self.logger = get_logger("fun_asr", "info")
     
     def transcribe(self, audio_data: np.ndarray):
         try:
             audio_bytes = audio_data.tobytes()
-            audio_b64 = base64.b64encode(audio_bytes).decode('utf-8')
-            payload = {"audio": audio_b64, "language": "zh"}
-            response = requests.post(self.server_url, json=payload, timeout=10)
-            self.logger.info(f"Transcribing audio with FunASR...")
+            self.logger.info(f"FunASRRemoteASR -> Sent audio data: {len(audio_bytes)} bytes")
+            response = requests.post(self.server_url, data=audio_bytes, timeout=10)
+            self.logger.info(f"FunASRRemoteASR -> Transcribing audio with FunASR...")
             if response.status_code == 200:
                 result = response.json()
                 return result.get("text", "")
             else:
-                self.logger.error(f"Error: Server returned status code {response.status_code}")
-                self.logger.error(f"Failed to transcribe audio: {response.text}")
+                self.logger.error(f"FunASRRemoteASR -> Error: Server returned status code {response.status_code}")
+                self.logger.error(f"FunASRRemoteASR -> Failed to transcribe audio: {response.text}")
         except Exception as e:
-            self.logger.error(f"Error: {e}")
+            self.logger.error(f"FunASRRemoteASR -> Error: {e}")
             return ""
