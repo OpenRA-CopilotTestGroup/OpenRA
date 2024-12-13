@@ -191,7 +191,7 @@ class GameAPI:
         data = {"actorId": actor.actor_id}
         return self._send_request('view', data)
 
-
+    #占领
     def occupy_units(self, occupiers: List[Actor], targets: List[Actor]) -> dict:
         data = {
             "occupiers": {"actorId": [actor.actor_id for actor in occupiers]},
@@ -199,6 +199,7 @@ class GameAPI:
         }
         return self._send_request('occupy', data)
 
+    #攻击指令，攻击移动，只会攻击路径旁的战斗单位，不会攻击建筑，因此攻击建筑，或者具体指定攻击某个人，需要用这个，但目标必须是我当前可见的Actor
     def attack_target(self, attackers: List[Actor], target: Actor) -> dict:
         data = {
             "attackers": {"actorId": [actor.actor_id for actor in attackers]},
@@ -206,7 +207,7 @@ class GameAPI:
         }
         return self._send_request('attack', data)
 
-    # 建筑和单位都可以使用这个修复
+    # 修复车辆或建筑，都可以使用这个修复
     def repair_units(self, actors: List[Actor]) -> Optional[int]:
         data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
         return self._send_request('repair', data)

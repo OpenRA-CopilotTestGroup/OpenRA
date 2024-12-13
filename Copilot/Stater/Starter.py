@@ -15,7 +15,7 @@ import pygetwindow as gw
 import ctypes
 
 CONFIG_FILE = "settings.ini"
-VERSION = "0.1.0"
+VERSION = "0.1.2"
 
 
 def load_settings():
@@ -25,6 +25,8 @@ def load_settings():
         if "Settings" in config:
             openai_key_entry.insert(0, config.get(
                 "Settings", "OPENAI_KEY", fallback=""))
+            cozy_voice_key_entry.insert(0, config.get(
+                "Settings", "DASHSCOPE_KEY", fallback=""))
             proxy_port_entry.insert(0, config.get(
                 "Settings", "PROXY_PORT", fallback=""))
 
@@ -33,6 +35,7 @@ def save_settings():
     config = configparser.ConfigParser()
     config["Settings"] = {
         "OPENAI_KEY": openai_key_entry.get(),
+        "DASHSCOPE_KEY": cozy_voice_key_entry.get(),
         "PROXY_PORT": proxy_port_entry.get()
     }
     with open(CONFIG_FILE, "w") as configfile:
@@ -178,6 +181,8 @@ def start_python_script(Alert=True):
             messagebox.showinfo("信息", "Copilot_Whisper_Mic 已经在运行")
         return
     openai_key = openai_key_entry.get()
+    cozyvoice_key = cozy_voice_key_entry.get()
+
     proxy_port = proxy_port_entry.get()
 
     if not openai_key:
@@ -189,6 +194,8 @@ def start_python_script(Alert=True):
         return False
 
     os.environ['OPENAI_API_KEY'] = openai_key
+    if cozyvoice_key:
+        os.environ['DASHSCOPE_API_KEY'] = cozyvoice_key
     set_proxy_env(proxy_port)
     mic_mode = selected_mic_version.get()
     command = [os.path.join("openra_ai", "start.bat")]
@@ -496,22 +503,35 @@ class GridConfig:
         self.index = index
         self.weight = weight
 
+counter = 0
+def ni():
+    global counter
+    idx = counter
+    counter += 1
+    return idx
 
 class GridRows:
-    HEADER = GridConfig(0, 1)
-    OPENAI_KEY = GridConfig(1, 2)
-    PROXY_PORT = GridConfig(2, 2)
-    DROPDOWNS = GridConfig(3, 3)
-    BUTTONS = GridConfig(4, 3)
-    ONE_CLICK = GridConfig(5, 6)
-    FOOTER = GridConfig(6, 1)
+    global counter
+    counter = 0
+
+    HEADER = GridConfig(ni(), 1)
+    OPENAI_KEY = GridConfig(ni(), 2)
+    DASHSCOPE_KEY = GridConfig(ni(), 2)
+    PROXY_PORT = GridConfig(ni(), 2)
+    DROPDOWNS = GridConfig(ni(), 3)
+    BUTTONS = GridConfig(ni(), 3)
+    ONE_CLICK = GridConfig(ni(), 6)
+    FOOTER = GridConfig(ni(), 1)
 
 
 class GridColumns:
-    LEFT_PADDING = GridConfig(0, 1)
-    CONTENT_LEFT = GridConfig(1, 8)
-    CONTENT_RIGHT = GridConfig(2, 8)
-    RIGHT_PADDING = GridConfig(3, 1)
+    global counter
+    counter = 0
+
+    LEFT_PADDING = GridConfig(ni(), 1)
+    CONTENT_LEFT = GridConfig(ni(), 8)
+    CONTENT_RIGHT = GridConfig(ni(), 8)
+    RIGHT_PADDING = GridConfig(ni(), 1)
 
 
 # Configuring rows and columns dynamically using enumerations
@@ -531,6 +551,14 @@ openai_key_label.grid(row=GridRows.OPENAI_KEY.index, column=GridColumns.LEFT_PAD
 
 openai_key_entry = tk.Entry(root)
 openai_key_entry.grid(row=GridRows.OPENAI_KEY.index, column=GridColumns.LEFT_PADDING.index,
+                      columnspan=3, padx=(120, 10), pady=5, sticky="we")
+
+cozy_voice_key_label = tk.Label(root, text="CozyVoice-KEY:", bg="#f0f0f0")
+cozy_voice_key_label.grid(row=GridRows.DASHSCOPE_KEY.index, column=GridColumns.LEFT_PADDING.index,
+                      columnspan=2, padx=(20, 0), pady=5, sticky="w")
+
+cozy_voice_key_entry = tk.Entry(root)
+cozy_voice_key_entry.grid(row=GridRows.DASHSCOPE_KEY.index, column=GridColumns.LEFT_PADDING.index,
                       columnspan=3, padx=(120, 10), pady=5, sticky="we")
 
 proxy_port_label = tk.Label(root, text="设置代理端口:", bg="#f0f0f0")

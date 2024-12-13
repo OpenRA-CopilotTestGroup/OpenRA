@@ -13,7 +13,7 @@ class AudioListener:
         self.is_recording = True
         self.audio_queue = asr_manager.audio_queue
         self.logger = get_logger(__name__, 'info')
-        
+
         # for sr
         self.mic = None
         self.energy = 300
@@ -26,9 +26,9 @@ class AudioListener:
         self.hallucinate_threshold = 400  # not used for now
         self.is_listening = True  # mic status for gui
         # these two parameters may need to be adjusted
-        self.pause_threshold = 1.2
+        self.pause_threshold = 2.0
         self.non_speaking_duration = 1.8
-        
+
     def __setup_mic(self):
         while not self.stop_event.is_set():
             try:
@@ -41,13 +41,16 @@ class AudioListener:
                 break
             except Exception as e:
                 print(f"setup_mic -> No microphone available:{e}")
+                print(f"setup_mic -> Exception type: {type(e).__name__}")
+                print(f"setup_mic -> Error message: {str(e)}")
+                traceback.print_exc()
                 if self.stop_event.is_set():
                     break
                 time.sleep(1)
-    
+
     def __close_mic(self):
         self.mic = None
-    
+
     def __is_loud_enough(self, audio_data: sr.AudioData):
         raw_data = audio_data.get_raw_data()
         audio_frame = np.frombuffer(raw_data, dtype=np.int16)
@@ -61,11 +64,11 @@ class AudioListener:
                 if not self.is_listening:
                     time.sleep(0.1)
                     continue
-                    
+
                 with self.mic as source:
                     self.logger.info("listen_loop -> Listening for audio")
                     audio_data = self.recognizer.listen(
-                        source, 
+                        source,
                         phrase_time_limit=self.phrase_time_limit,
                         timeout=None
                     )
@@ -85,29 +88,29 @@ class AudioListener:
                 self.logger.error(f"listen_loop -> Unkown error: {e}:\n {traceback.format_exc()}")
                 #self.__restart()
                 time.sleep(1)
-    
+
     def __restart(self):
         self.__close_mic()
         self.__setup_mic()
-    
+
     def start(self):
         self.listen_thread = threading.Thread(target=self.__listen_loop, daemon=True)
         self.listen_thread.start()
         self.logger.info("start -> Listen thread started")
-    
+
     def stop(self):
         self.stop_event.set()
         if self.listen_thread and self.listen_thread.is_alive():
             self.listen_thread.join()
         self.logger.info("Audio_listener -> Listen thread stopped")
-    
+
     def pause_listening(self):
         self.is_listening = False
         self.logger.info("Audio_listener -> Microphone paused")
-        
+
     def resume_listening(self):
-        self.is_listening = True 
+        self.is_listening = True
         self.logger.info("Audio_listener -> Microphone resumed")
-        
+
     def get_listening_status(self):
         return self.is_listening
