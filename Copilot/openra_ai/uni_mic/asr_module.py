@@ -1,0 +1,98 @@
+# asr_module.py
+from abc import ABC, abstractmethod
+from typing import Union, Dict, Any
+import os
+import requests
+import numpy as np
+from .utils import get_logger
+
+class ASRModule(ABC):
+    @abstractmethod
+    def transcribe(self, audio_data: bytes) -> Union[str, Dict[str, Any]]:
+        """
+        Transcribe the given audio data to text.
+        
+        Args:
+            audio_data (bytes): Raw audio data in bytes format
+            
+        Returns:
+            Union[str, Dict[str, Any]]: Transcription result either as plain text
+                                      or structured data
+        """
+        pass
+
+
+# asr_whisper.py
+class WhisperASR(ASRModule):
+    
+    def __init__(self, **kwargs):
+        
+        self.language = "zh"
+        self.model = "base"
+        self.device = "cpu"
+        self.prompt = None
+        self.prefix = None
+        self.initial_prompt = "以下是普通话的句子。"
+        if self.prefix:
+            self.initial_prompt += self.prefix
+        
+        self.audio_model = None
+        self.remote = False
+        self.faster = False
+        self.logger = get_logger("whisper_asr","info")
+    
+    def transcribe(self, audio_data: np.ndarray):
+        predicted_text = ''
+        self.logger.info(f"Transcribing audio with {self.device} and {self.model}...")
+        if self.remote:
+            pass
+        elif self.faster:
+            pass
+        else:
+            import whisper
+            # current path
+            #model_root = os.path.join(os.path.dirname(__file__), "models")
+            model_root = os.path.expanduser("~/.cache/whisper")
+            self.audio_model = whisper.load_model(
+                self.model,
+                download_root=model_root,
+                device=self.device,
+                in_memory=True
+            )
+            result = self.audio_model.transcribe(
+                audio_data,
+                language=self.language,
+                suppress_tokens="",
+                prefix=self.prefix,
+                initial_prompt=self.initial_prompt,
+                prompt=self.prompt
+            )
+            self.logger.info(f"Transcription result: {result}")
+            predicted_text = result["text"]
+        predicted_text = predicted_text.strip()
+        if predicted_text:
+            return predicted_text
+
+# asr_funasr.py
+class FunASRRemoteASR(ASRModule):
+    
+    def __init__(self, server_url: str = "http://localhost:5000/transcribe"):
+        # mainly for test in local
+        self.server_url = server_url
+        self.logger = get_logger("fun_asr", "info")
+    
+    def transcribe(self, audio_data: np.ndarray):
+        try:
+            audio_bytes = audio_data.tobytes()
+            self.logger.info(f"FunASRRemoteASR -> Sent audio data: {len(audio_bytes)} bytes")
+            response = requests.post(self.server_url, data=audio_bytes, timeout=10)
+            self.logger.info(f"FunASRRemoteASR -> Transcribing audio with FunASR...")
+            if response.status_code == 200:
+                result = response.json()
+                return result.get("text", "")
+            else:
+                self.logger.error(f"FunASRRemoteASR -> Error: Server returned status code {response.status_code}")
+                self.logger.error(f"FunASRRemoteASR -> Failed to transcribe audio: {response.text}")
+        except Exception as e:
+            self.logger.error(f"FunASRRemoteASR -> Error: {e}")
+            return ""

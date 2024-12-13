@@ -1,0 +1,13 @@
+{
+    "prompt": "",
+        "initial_prompt": "普通话, 不清楚的声音不要输出",
+	"prefix": null,
+        "logging_level": "debug",
+        "model": "base",
+        "remote": true,
+        "faster": true,
+        "enable_post_processing": false,
+    "post_prompt": "你是OpenRA (红警)游戏助理，文本内容应该是与OpenRA 相关的指令, 任务是纠正在语音转换的文本中的拼写错误，只输出纠正后的文本, 如果无法很好判断, 不要输出任何文本",
+        "ignore_text_without_prefix": true,
+        "remove_prefix": true
+}
