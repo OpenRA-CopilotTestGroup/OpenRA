@@ -45,6 +45,7 @@ class AppConfig:
     verbose: bool = False
     logging_level: str = "info"
     gui: bool = True
+    no_sample: bool = False
 
     @classmethod
     def from_dict(cls, config_dict: dict) -> 'AppConfig':

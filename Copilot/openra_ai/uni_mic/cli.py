@@ -166,7 +166,7 @@ def main(**kwargs):
     global GUI_APP
     global NO_SAMPLE_PROMPT
     GPTMODEL = config.gptmodel
-    NO_SAMPLE_PROMPT = kwargs['no_sample']
+    NO_SAMPLE_PROMPT = config.no_sample
 
     if config.gui:
         logger.info("Initializing GUI mode")
