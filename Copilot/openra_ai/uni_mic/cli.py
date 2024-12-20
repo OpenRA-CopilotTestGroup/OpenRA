@@ -25,6 +25,7 @@ LAST_TIME = 0.0
 GPTMODEL = "gpt-4o"
 GUI_WINDOW = None
 GUI_APP = None
+NO_SAMPLE_PROMPT = False
 text_callback_queue = queue.Queue()
 
 
@@ -39,7 +40,8 @@ def text_callback(text: str, is_from_ui: bool = False):
     full_text = ",".join(CACHED_PROMPTS)
     full_text = full_text.removesuffix("\u6267\u884c\u547d\u4ee4")
     logger.info(f"Processing strategy command: {full_text}")
-    handle_strategy_command(prompt=full_text, model=GPTMODEL, gui=GUI_WINDOW)
+    handle_strategy_command(prompt=full_text, model=GPTMODEL,
+                            gui=GUI_WINDOW, no_sample_prompt=NO_SAMPLE_PROMPT)
     logger.info("Strategy command processed, clearing cache")
     CACHED_PROMPTS.clear()
 
@@ -81,7 +83,7 @@ def handle_mic_input(config: AppConfig):
     audio_queue = queue.Queue()
     result_queue = queue.Queue()
     stop_event = threading.Event()
-    
+
     try:
         asr_module = FunASRRemoteASR() if config.asr.remote else WhisperASR(config.asr)
         asr_manager = ASRManager(asr_module, audio_queue, result_queue, stop_event)
@@ -90,7 +92,7 @@ def handle_mic_input(config: AppConfig):
         logger.info(f"Starting ASR system: {asr_module.__class__.__name__}")
         asr_manager.start()
         audio_listener.start()
-        
+
         def process_results():
             while not asr_manager.stop_event.is_set():
                 try:
@@ -99,14 +101,15 @@ def handle_mic_input(config: AppConfig):
                         text_callback_async(result)
                 except queue.Empty:
                     continue
-        
+
         result_thread = threading.Thread(target=process_results, daemon=True)
         result_thread.start()
-        
+
         try:
             if GUI_WINDOW:
                 GUI_WINDOW.qt_tick_signal.connect(lambda: process_queue())
-                GUI_WINDOW.mic_state_signal.connect(lambda is_on: audio_listener.resume_listening() if is_on else audio_listener.pause_listening())
+                GUI_WINDOW.mic_state_signal.connect(lambda is_on: audio_listener.resume_listening(
+                ) if is_on else audio_listener.pause_listening())
                 GUI_APP.exec_()
             else:
                 while True:
@@ -152,6 +155,7 @@ def handle_mic_input(config: AppConfig):
 @click.option("--hallucinate_threshold", default=400, help="Raise this to reduce hallucinations. Lower this to activate more often.", type=int)
 @click.option("--phrase_time_limit", default=10, help="Phrase time limit", type=int)
 @click.option("--logging_level", default="info", help="Logging level", type=click.Choice(["fatal", "error", "warning", "info", "debug"]))
+@click.option("--no_sample", is_flag=True, help="Remove Sample code in Prompt")
 def main(**kwargs):
     config = AppConfig.from_json(kwargs['config']) if kwargs.get('config') else AppConfig.from_dict(kwargs)
     logger.info(f"Starting application with input mode: {config.input.input_mode}")
@@ -160,10 +164,13 @@ def main(**kwargs):
     global GPTMODEL
     global GUI_WINDOW
     global GUI_APP
+    global NO_SAMPLE_PROMPT
     GPTMODEL = config.gptmodel
+    NO_SAMPLE_PROMPT = kwargs['no_sample']
 
     if config.gui:
         logger.info("Initializing GUI mode")
+
         def gui_input_callback(gui, player_input):
             text_callback(player_input, True)
         GUI_APP, GUI_WINDOW = create_ai_assistant_ui_instance()
