@@ -22,6 +22,7 @@ class AudioListener:
         self.dynamic_energy = config.input.dynamic_energy if config else False
         self.phrase_time_limit = config.asr.phrase_time_limit if config else 10
         
+        self.energy_threshold = 300
         self.min_energy_threshold = 200
         self.max_energy_threshold = 800
         self.energy_adjustment_ratio = 1.2
@@ -83,7 +84,7 @@ class AudioListener:
     def __is_loud_enough(self, audio_data: sr.AudioData):
         raw_data = audio_data.get_raw_data()
         audio_frame = np.frombuffer(raw_data, dtype=np.int16)
-        self.__adjust_energy_threshold(audio_frame)
+        #self.__adjust_energy_threshold(audio_frame)
         amplitude = np.mean(np.abs(audio_frame))
         return amplitude > self.energy_threshold
 
