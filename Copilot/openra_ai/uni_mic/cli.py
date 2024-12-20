@@ -25,12 +25,13 @@ LAST_TIME = 0.0
 GPTMODEL = "gpt-4o"
 GUI_WINDOW = None
 GUI_APP = None
+NO_SAMPLE_PROMPT = False
 text_callback_queue = queue.Queue()
 
 
 def text_callback(text: str, is_from_ui: bool = False):
     logger.info(f"Received text input: {repr(text)}")
-    #print(repr(text))
+    # print(repr(text))
     global CACHED_PROMPTS
     global CACHED_TIME
     global GPTMODEL
@@ -39,9 +40,10 @@ def text_callback(text: str, is_from_ui: bool = False):
     CACHED_PROMPTS.append(text)
     full_text = ",".join(CACHED_PROMPTS)
     full_text = full_text.removesuffix("\u6267\u884c\u547d\u4ee4")
-    #print("The strategy command is: ", full_text)
+    # print("The strategy command is: ", full_text)
     logger.info(f"Processing strategy command: {full_text}")
-    handle_strategy_command(prompt=full_text, model=GPTMODEL, gui=GUI_WINDOW)
+    handle_strategy_command(prompt=full_text, model=GPTMODEL,
+                            gui=GUI_WINDOW, no_sample_prompt=NO_SAMPLE_PROMPT)
     logger.info("Strategy command processed, clearing cache")
     CACHED_PROMPTS.clear()
 
@@ -52,18 +54,18 @@ def text_callback_async(text: str, is_from_ui: bool = False):
 
 def handle_keyboard_input():
     logger.info("Starting keyboard input mode")
-    #print("Keyboard input mode. Type your command and press 'Enter':")
+    # print("Keyboard input mode. Type your command and press 'Enter':")
     while True:
         try:
             user_input = input("Enter command: ").strip()
             if user_input.lower() == "exit":
                 logger.info("Exiting keyboard input mode")
-                #print("Exiting keyboard input mode.")
+                # print("Exiting keyboard input mode.")
                 break
             text_callback(user_input)
         except KeyboardInterrupt:
             logger.info("Keyboard input interrupted by user")
-            #print("Operation interrupted successfully")
+            # print("Operation interrupted successfully")
             break
 
 
@@ -80,25 +82,26 @@ def handle_mic_input(**kwargs):
     if kwargs.get('list_devices', False):
         devices = sr.Microphone.list_microphone_names()
         logger.info(f"Available microphone devices: {devices}")
-        #print("Possible devices: ", devices)
+        # print("Possible devices: ", devices)
         return
 
     logger.info("Initializing microphone input mode")
     audio_queue = queue.Queue()
     result_queue = queue.Queue()
     stop_event = threading.Event()
-    
+
     try:
         # choose one of the following ASR modules manually
         asr_module = WhisperASR(**kwargs)
-        #asr_module = FunASRRemoteASR()
-        asr_manager = ASRManager(asr_module, audio_queue, result_queue, stop_event)
+        # asr_module = FunASRRemoteASR()
+        asr_manager = ASRManager(
+            asr_module, audio_queue, result_queue, stop_event)
         audio_listener = AudioListener(asr_manager, stop_event)
-        
+
         logger.info("Starting ASR system")
         asr_manager.start()
         audio_listener.start()
-        
+
         def process_results():
             while not asr_manager.stop_event.is_set():
                 try:
@@ -107,14 +110,15 @@ def handle_mic_input(**kwargs):
                         text_callback_async(result)
                 except queue.Empty:
                     continue
-        
+
         result_thread = threading.Thread(target=process_results, daemon=True)
         result_thread.start()
-        
+
         try:
             if GUI_WINDOW:
                 GUI_WINDOW.qt_tick_signal.connect(lambda: process_queue())
-                GUI_WINDOW.mic_state_signal.connect(lambda is_on: audio_listener.resume_listening() if is_on else audio_listener.pause_listening())
+                GUI_WINDOW.mic_state_signal.connect(lambda is_on: audio_listener.resume_listening(
+                ) if is_on else audio_listener.pause_listening())
                 GUI_APP.exec_()
             else:
                 while True:
@@ -162,16 +166,22 @@ def handle_mic_input(**kwargs):
 @click.option("--logging_level", default="info", help="Logging level", type=click.Choice(["fatal", "error", "warning", "info", "debug"]))
 @click.option("--config", default=None, help="JSON filename that contains config", type=str)
 @click.option("--gui", is_flag=True, help="Is need a GUI page")
+@click.option("--no_sample", is_flag=True, help="Remove Sample code in Prompt")
 def main(**kwargs):
-    logger.info(f"Starting application with input mode: {kwargs['input_mode']}")
+    logger.info(f"Starting application with input mode: {
+                kwargs['input_mode']}")
     logger.debug(f"Configuration: {kwargs}")
     global GPTMODEL
     global GUI_WINDOW
     global GUI_APP
+    global NO_SAMPLE_PROMPT
     GPTMODEL = kwargs['gptmodel']
+    NO_SAMPLE_PROMPT = kwargs['no_sample']
 
+    # print (NO_SAMPLE_PROMPT)
     if kwargs['gui']:
         logger.info("Initializing GUI mode")
+
         def gui_input_callback(gui, player_input):
             text_callback(player_input, True)
         GUI_APP, GUI_WINDOW = create_ai_assistant_ui_instance()

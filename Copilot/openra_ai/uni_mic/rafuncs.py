@@ -66,7 +66,7 @@ MEMORY = "无"
 
 api = OpenRA.GameAPI("localhost")
 
-def make_prompt():
+def make_prompt(no_sample_prompt = False):
 
     config_path = os.path.join(os.path.dirname(__file__), 'config.yaml')
 
@@ -96,24 +96,26 @@ def make_prompt():
     with open(api_struct_path, 'r', encoding='utf-8') as file:
         api_struct_content = file.read()
 
-    sample_dir = os.path.abspath(os.path.join(
-        os.path.dirname(__file__), '../Samples'))
+
     sample_code = ""
-    sample_index = 1
+    if not no_sample_prompt:
+        sample_dir = os.path.abspath(os.path.join(
+            os.path.dirname(__file__), '../Samples'))
+        sample_index = 1
 
-    for filename in os.listdir(sample_dir):
-        print(f"SampleFileName:{filename}")
-        if filename.endswith('.py'):
-            file_path = os.path.join(sample_dir, filename)
+        for filename in os.listdir(sample_dir):
+            print(f"SampleFileName:{filename}")
+            if filename.endswith('.py'):
+                file_path = os.path.join(sample_dir, filename)
 
-            with open(file_path, 'r', encoding='utf-8') as file:
-                first_line = file.readline().strip()
-                if first_line == "# COPILOT_PROMPT_IGNORE":
-                    print(f"Skipping {filename} due to ignore mark.")
-                code_content = file.read()
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    first_line = file.readline().strip()
+                    if first_line == "# COPILOT_PROMPT_IGNORE":
+                        print(f"Skipping {filename} due to ignore mark.")
+                    code_content = file.read()
 
-            sample_code += f"{sample_index}. {filename}\n<code>{code_content}</code>\n\n"
-            sample_index += 1
+                sample_code += f"{sample_index}. {filename}\n<code>{code_content}</code>\n\n"
+                sample_index += 1
 
     current_time = time.perf_counter() - start_time
     formatted_time = f"{current_time:.2f}"
@@ -158,7 +160,7 @@ ALL_UNITS = {ALL_UNITS}
 
 生成的代码必须封装在 <code> 和 </code> 标签对中。生成的代码应当是可执行的。API 可以从 <code> 标签中提取代码并执行。尝试使代码逻辑尽可能简单，并尽量避免使用 time.sleep 来等待某些操作完成。
 
-以下是一些示例代码： {sample_code}
+{' ' if no_sample_prompt else '以下是一些示例代码：' + sample_code}
 
 prompt part 2:当前正在执行的内容，这些都是正在运行的，你之前的代码
 无
@@ -194,7 +196,7 @@ MEMORY_REGEX = create_tag_regex('memory')
 executor = ThreadPoolExecutor(max_workers=10)
 
 
-def handle_strategy_command(prompt=None, model="gpt-4o", gui=None):
+def handle_strategy_command(prompt=None, model="gpt-4o", gui=None, no_sample_prompt = False):
     global CACHED_PREVIOUS_PROMPTS
     global MAX_CACHED_PROMPTS
     global CODE_REGEX
@@ -205,7 +207,7 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui=None):
         print_log('prompt should not be None')
         return
     messages = []
-    messages.append({"role": "system", "content": make_prompt()})
+    messages.append({"role": "system", "content": make_prompt(no_sample_prompt)})
     # for previous_prompt in CACHED_PREVIOUS_PROMPTS:
     #     messages.append(previous_prompt)
     messages.append({"role": "user", "content": prompt})
