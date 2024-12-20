@@ -4,7 +4,9 @@ from typing import Union, Dict, Any
 import os
 import requests
 import numpy as np
+import time
 from .utils import get_logger
+from .config import ASRConfig
 
 class ASRModule(ABC):
     @abstractmethod
@@ -25,21 +27,20 @@ class ASRModule(ABC):
 # asr_whisper.py
 class WhisperASR(ASRModule):
     
-    def __init__(self, **kwargs):
-        
-        self.language = "zh"
-        self.model = "base"
-        self.device = "cpu"
+    def __init__(self, config: ASRConfig = ASRConfig()):
+        self.language = config.language
+        self.model = config.model
+        self.device = config.device
         self.prompt = None
         self.prefix = None
-        self.initial_prompt = "以下是普通话的句子。"
+        self.initial_prompt = config.initial_prompt
         if self.prefix:
             self.initial_prompt += self.prefix
         
         self.audio_model = None
-        self.remote = False
-        self.faster = False
-        self.logger = get_logger("whisper_asr","info")
+        self.remote = config.remote
+        self.faster = config.faster
+        self.logger = get_logger("whisper_asr", "info")
     
     def transcribe(self, audio_data: np.ndarray):
         predicted_text = ''
@@ -77,18 +78,22 @@ class WhisperASR(ASRModule):
 class FunASRRemoteASR(ASRModule):
     
     def __init__(self, server_url: str = "http://localhost:5000/transcribe"):
-        # mainly for test in local
-        self.server_url = server_url
+        # modify the server_url to server IP
+        #self.server_url = server_url
+        self.server_url = "server_url_here"
         self.logger = get_logger("fun_asr", "info")
     
     def transcribe(self, audio_data: np.ndarray):
         try:
+            start_time = time.time()
             audio_bytes = audio_data.tobytes()
             self.logger.info(f"FunASRRemoteASR -> Sent audio data: {len(audio_bytes)} bytes")
             response = requests.post(self.server_url, data=audio_bytes, timeout=10)
             self.logger.info(f"FunASRRemoteASR -> Transcribing audio with FunASR...")
             if response.status_code == 200:
                 result = response.json()
+                elapsed_time = time.time() - start_time
+                self.logger.info(f"FunaASRRemoteASR -> Total time taken: {elapsed_time:.2f} seconds")
                 return result.get("text", "")
             else:
                 self.logger.error(f"FunASRRemoteASR -> Error: Server returned status code {response.status_code}")

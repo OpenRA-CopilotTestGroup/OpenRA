@@ -6,28 +6,31 @@ import traceback
 from .utils import get_logger
 
 class AudioListener:
-    def __init__(self, asr_manager, stop_event):
+    def __init__(self, asr_manager, stop_event, config=None):
         self.asr_manager = asr_manager
-        self.stop_event = stop_event  # ensure synchronized stopping
+        self.stop_event = stop_event
         self.listen_thread = None
         self.is_recording = True
         self.audio_queue = asr_manager.audio_queue
         self.logger = get_logger(__name__, 'info')
 
-        # for sr
         self.mic = None
-        self.energy = 300
+        self.energy_threshold = config.input.energy if config else 300
         self.sample_rate = 16000
         self.recognizer = sr.Recognizer()
-        self.device_index = None
-        self.dynamic_energy = False
-        self.phrase_time_limit = 10
-        self.energy_threshold = 300  # adjust this value if needed
-        self.hallucinate_threshold = 400  # not used for now
-        self.is_listening = True  # mic status for gui
-        # these two parameters may need to be adjusted
-        self.pause_threshold = 2.0
-        self.non_speaking_duration = 1.8
+        self.device_index = config.input.mic_index if config else None
+        self.dynamic_energy = config.input.dynamic_energy if config else False
+        self.phrase_time_limit = config.asr.phrase_time_limit if config else 10
+        
+        self.min_energy_threshold = 200
+        self.max_energy_threshold = 800
+        self.energy_adjustment_ratio = 1.2
+        self.noise_floor = None
+        self.is_listening = True
+
+        # adjust manually
+        self.pause_threshold = config.input.pause if config else 1.6
+        self.non_speaking_duration = config.input.pause if config else 1.2
 
     def __setup_mic(self):
         while not self.stop_event.is_set():
@@ -51,9 +54,36 @@ class AudioListener:
     def __close_mic(self):
         self.mic = None
 
+    def __adjust_energy_threshold(self, audio_frame):
+        if not self.dynamic_energy:
+            return
+
+        amplitude = np.mean(np.abs(audio_frame))
+        
+        if self.noise_floor is None:
+            self.noise_floor = amplitude
+            self.energy_threshold = max(self.min_energy_threshold, 
+                                     min(amplitude * 1.2, self.max_energy_threshold))
+            return
+
+        if amplitude > self.energy_threshold:
+            self.logger.info(f"Energy threshold adjusted: {self.energy_threshold} -> {amplitude * self.energy_adjustment_ratio}")
+            self.energy_threshold = min(
+                amplitude * self.energy_adjustment_ratio,
+                self.max_energy_threshold
+            )
+        elif amplitude < self.noise_floor:
+            self.logger.info(f"Noise floor adjusted: {self.noise_floor} -> {amplitude * 0.9}")
+            self.noise_floor = amplitude * 0.9 + self.noise_floor * 0.1
+            self.energy_threshold = max(
+                self.noise_floor * 1.2,
+                self.min_energy_threshold
+            )
+
     def __is_loud_enough(self, audio_data: sr.AudioData):
         raw_data = audio_data.get_raw_data()
         audio_frame = np.frombuffer(raw_data, dtype=np.int16)
+        self.__adjust_energy_threshold(audio_frame)
         amplitude = np.mean(np.abs(audio_frame))
         return amplitude > self.energy_threshold
 

@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import click
-# import torch
 import speech_recognition as sr
 from typing import Optional
 import time
@@ -15,8 +14,9 @@ from .gui import create_ai_assistant_ui_instance
 from .audio_listener import AudioListener
 from .utils import get_logger
 from .asr_manager import ASRManager
-from .asr_module import WhisperASR
-from .asr_module import FunASRRemoteASR
+from .asr_module import WhisperASR, FunASRRemoteASR
+from .config import AppConfig, ASRConfig, InputConfig, TextProcessingConfig
+
 logger = get_logger("cli", 'info')
 
 CACHED_PROMPTS = []
@@ -30,7 +30,6 @@ text_callback_queue = queue.Queue()
 
 def text_callback(text: str, is_from_ui: bool = False):
     logger.info(f"Received text input: {repr(text)}")
-    #print(repr(text))
     global CACHED_PROMPTS
     global CACHED_TIME
     global GPTMODEL
@@ -39,7 +38,6 @@ def text_callback(text: str, is_from_ui: bool = False):
     CACHED_PROMPTS.append(text)
     full_text = ",".join(CACHED_PROMPTS)
     full_text = full_text.removesuffix("\u6267\u884c\u547d\u4ee4")
-    #print("The strategy command is: ", full_text)
     logger.info(f"Processing strategy command: {full_text}")
     handle_strategy_command(prompt=full_text, model=GPTMODEL, gui=GUI_WINDOW)
     logger.info("Strategy command processed, clearing cache")
@@ -52,18 +50,15 @@ def text_callback_async(text: str, is_from_ui: bool = False):
 
 def handle_keyboard_input():
     logger.info("Starting keyboard input mode")
-    #print("Keyboard input mode. Type your command and press 'Enter':")
     while True:
         try:
             user_input = input("Enter command: ").strip()
             if user_input.lower() == "exit":
                 logger.info("Exiting keyboard input mode")
-                #print("Exiting keyboard input mode.")
                 break
             text_callback(user_input)
         except KeyboardInterrupt:
             logger.info("Keyboard input interrupted by user")
-            #print("Operation interrupted successfully")
             break
 
 
@@ -76,11 +71,10 @@ def process_queue():
             break
 
 
-def handle_mic_input(**kwargs):
-    if kwargs.get('list_devices', False):
+def handle_mic_input(config: AppConfig):
+    if config.input.mic_index is None and config.input.list_devices:
         devices = sr.Microphone.list_microphone_names()
         logger.info(f"Available microphone devices: {devices}")
-        #print("Possible devices: ", devices)
         return
 
     logger.info("Initializing microphone input mode")
@@ -89,13 +83,11 @@ def handle_mic_input(**kwargs):
     stop_event = threading.Event()
     
     try:
-        # choose one of the following ASR modules manually
-        asr_module = WhisperASR(**kwargs)
-        #asr_module = FunASRRemoteASR()
+        asr_module = FunASRRemoteASR() if config.asr.remote else WhisperASR(config.asr)
         asr_manager = ASRManager(asr_module, audio_queue, result_queue, stop_event)
         audio_listener = AudioListener(asr_manager, stop_event)
         
-        logger.info("Starting ASR system")
+        logger.info(f"Starting ASR system: {asr_module.__class__.__name__}")
         asr_manager.start()
         audio_listener.start()
         
@@ -127,16 +119,16 @@ def handle_mic_input(**kwargs):
             logger.info("Shutting down ASR system")
             asr_manager.stop()
             audio_listener.stop()
-            if kwargs.get('save_file', False):
+            if config.input.save_file:
                 logger.info("Saving audio file")
-                # Handle file saving if needed
                 pass
     except Exception as e:
         logger.error(f"Error in microphone input: {str(e)}")
 
 
 @click.command()
-@click.option("--input_mode", default="mic", help="Input mode: 'mic' for microphone, 'keyboard' for keyboard input", type=click.Choice(["mic", "keyboard"]))
+@click.option("--config", default=None, help="JSON filename that contains config", type=str)
+@click.option("--input_mode", default="mic", help="Input mode: 'mic' for microphone, 'keyboard' for keyboard input")
 @click.option("--model", default="large", help="Model to use", type=click.Choice(["tiny", "base", "small", "medium", "large", "large-v2", "large-v3"]))
 @click.option("--gptmodel", default="gpt-4o", help="AI Gen GPT Model to use", type=str)
 @click.option("--device", default="mps", help="Device to use", type=click.Choice(["mps"]))
@@ -156,32 +148,32 @@ def handle_mic_input(**kwargs):
 @click.option("--mic_index", default=None, help="Mic index to use", type=int)
 @click.option("--list_devices", default=False, help="Flag to list devices", is_flag=True, type=bool)
 @click.option("--faster", default=False, help="Use faster_whisper implementation", is_flag=True, type=bool)
-@click.option("--remote", default=False, help="Use OpenAI whisper client", is_flag=True, type=bool)
+@click.option("--remote", default=True, help="Use OpenAI whisper client", is_flag=True, type=bool)
 @click.option("--hallucinate_threshold", default=400, help="Raise this to reduce hallucinations. Lower this to activate more often.", type=int)
 @click.option("--phrase_time_limit", default=10, help="Phrase time limit", type=int)
 @click.option("--logging_level", default="info", help="Logging level", type=click.Choice(["fatal", "error", "warning", "info", "debug"]))
-@click.option("--config", default=None, help="JSON filename that contains config", type=str)
-@click.option("--gui", is_flag=True, help="Is need a GUI page")
 def main(**kwargs):
-    logger.info(f"Starting application with input mode: {kwargs['input_mode']}")
-    logger.debug(f"Configuration: {kwargs}")
+    config = AppConfig.from_json(kwargs['config']) if kwargs.get('config') else AppConfig.from_dict(kwargs)
+    logger.info(f"Starting application with input mode: {config.input.input_mode}")
+    logger.debug(f"Configuration: {config.to_dict()}")
+    
     global GPTMODEL
     global GUI_WINDOW
     global GUI_APP
-    GPTMODEL = kwargs['gptmodel']
+    GPTMODEL = config.gptmodel
 
-    if kwargs['gui']:
+    if config.gui:
         logger.info("Initializing GUI mode")
         def gui_input_callback(gui, player_input):
             text_callback(player_input, True)
         GUI_APP, GUI_WINDOW = create_ai_assistant_ui_instance()
         GUI_WINDOW.player_dialog_signal.connect(gui_input_callback)
         GUI_WINDOW.ui_exit_signal.connect(lambda: sys.exit(0))
-    if kwargs['input_mode'] == "mic":
-        handle_mic_input(**kwargs)
-    elif kwargs['input_mode'] == "keyboard":
+        
+    if config.input.input_mode == "mic":
+        handle_mic_input(config)
+    elif config.input.input_mode == "keyboard":
         handle_keyboard_input()
-
 
 if __name__ == "__main__":
     logger.info("Application starting")
