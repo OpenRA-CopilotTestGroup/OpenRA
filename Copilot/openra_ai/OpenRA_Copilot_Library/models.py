@@ -13,7 +13,17 @@ class Location:
         if isinstance(other, Location):
             return self.x == other.x and self.y == other.y
         return False
-
+    
+    def __add__(self, other):
+        if isinstance(other, Location):
+            return Location(self.x + other.x, self.y + other.y)
+        return NotImplemented
+    
+    def __floordiv__(self, other):
+        if isinstance(other, int):
+            return Location(self.x // other, self.y // other)
+        return NotImplemented
+    
     def to_dict(self):
         return {"x": self.x, "y": self.y}
 
@@ -22,6 +32,7 @@ class Location:
 
     def euclidean_distance(self, other):
         return ((self.x - other.x) ** 2 + (self.y - other.y) ** 2) ** 0.5
+    
 
 
 class TargetsQueryParam:

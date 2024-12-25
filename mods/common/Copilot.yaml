@@ -145,13 +145,13 @@ units:
     yak:
          雅克
          雅克攻击机
-    heli：
+    heli:
          长弓
          长弓直升机
-    mig：
+    mig:
          米格
          米格战机
-    oilb：
+    oilb:
          油田
          油井
 

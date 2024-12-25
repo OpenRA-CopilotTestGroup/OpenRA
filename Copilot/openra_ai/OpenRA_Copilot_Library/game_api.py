@@ -141,11 +141,17 @@ class GameAPI:
         if response is None:
             return actors
         actors_data = response.get("actors")
-        for data in actors_data:
-            actor = Actor(data["id"])
-            position = Location(data["position"]["x"], data["position"]["y"])
-            actor.update_details(data["type"], data["faction"], position)
-            actors.append(actor)
+        if actors_data is None:
+            return actors
+        try:
+            for data in actors_data:
+                actor = Actor(data["id"])
+                position = Location(data["position"]["x"], data["position"]["y"])
+                actor.update_details(data["type"], data["faction"], position)
+                actors.append(actor)
+        except:
+            print("Error in Query Actor ,Response:")
+            print(response)
 
         return actors
 
@@ -160,9 +166,12 @@ class GameAPI:
             path = [Location(step["x"], step["y"])
                     for step in response["path"]]
             return path
-        except:
+        except Exception as e:
             print("Error in Find Path ,Response:")
             print(response)
+            print(e)
+            return []
+
 
     def update_actor(self, actor):
         data = {"targets": {"actorId":  [actor.actor_id]}}
@@ -270,6 +279,7 @@ class GameAPI:
             PowerProvided=response.get('PowerProvided', 0)
         )
 
+    # 查询当前玩家看到的屏幕信息，非常关键的一个接口，可以用来判断屏幕上的Actor是否在屏幕上，以及鼠标位置
     def screen_info_query(self) -> ScreenInfoResult:
         response = self._send_request('screen_info_query', {})
         if not response:

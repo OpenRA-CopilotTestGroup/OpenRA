@@ -53,7 +53,8 @@ namespace OpenRA.Mods.Common.Commands
 			else if (faction == "敌方" || faction == "敌人" || faction == "对面" || faction == "他的" || faction == "他")
 				actors = world.Actors.Where(a => a.Owner != player && a.Owner.IsBot && a.OccupiesSpace != null);
 			else
-				throw new ArgumentException($"Invalid faction: {faction}");
+				//  throw new ArgumentException($"Invalid faction: {faction}");
+				actors = world.Actors.Where(a => a.OccupiesSpace != null);
 
 			// 根据范围筛选
 			switch (range)
