@@ -26,11 +26,15 @@ GPTMODEL = "gpt-4o"
 GUI_WINDOW = None
 GUI_APP = None
 NO_SAMPLE_PROMPT = False
+NO_TEXT_CALLBACK = False
 text_callback_queue = queue.Queue()
 
 
 def text_callback(text: str, is_from_ui: bool = False):
     logger.info(f"Received text input: {repr(text)}")
+    print(f"Received text input: {repr(text)}")
+    if NO_TEXT_CALLBACK:
+        return
     global CACHED_PROMPTS
     global CACHED_TIME
     global GPTMODEL
@@ -88,7 +92,7 @@ def handle_mic_input(config: AppConfig):
         asr_module = FunASRRemoteASR() if config.asr.remote else WhisperASR(config.asr)
         asr_manager = ASRManager(asr_module, audio_queue, result_queue, stop_event)
         audio_listener = AudioListener(asr_manager, stop_event)
-        
+
         logger.info(f"Starting ASR system: {asr_module.__class__.__name__}")
         asr_manager.start()
         audio_listener.start()
@@ -156,17 +160,20 @@ def handle_mic_input(config: AppConfig):
 @click.option("--phrase_time_limit", default=10, help="Phrase time limit", type=int)
 @click.option("--logging_level", default="info", help="Logging level", type=click.Choice(["fatal", "error", "warning", "info", "debug"]))
 @click.option("--no_sample", is_flag=True, help="Remove Sample code in Prompt")
+@click.option("--no_text_callback", is_flag=True, help="Remove Text Callback")
 def main(**kwargs):
     config = AppConfig.from_json(kwargs['config']) if kwargs.get('config') else AppConfig.from_dict(kwargs)
     logger.info(f"Starting application with input mode: {config.input.input_mode}")
     logger.debug(f"Configuration: {config.to_dict()}")
-    
+
     global GPTMODEL
     global GUI_WINDOW
     global GUI_APP
     global NO_SAMPLE_PROMPT
+    global NO_TEXT_CALLBACK
     GPTMODEL = config.gptmodel
     NO_SAMPLE_PROMPT = config.no_sample
+    NO_TEXT_CALLBACK = kwargs['no_text_callback']
 
     if config.gui:
         logger.info("Initializing GUI mode")
@@ -176,7 +183,7 @@ def main(**kwargs):
         GUI_APP, GUI_WINDOW = create_ai_assistant_ui_instance()
         GUI_WINDOW.player_dialog_signal.connect(gui_input_callback)
         GUI_WINDOW.ui_exit_signal.connect(lambda: sys.exit(0))
-        
+
     if config.input.input_mode == "mic":
         handle_mic_input(config)
     elif config.input.input_mode == "keyboard":
