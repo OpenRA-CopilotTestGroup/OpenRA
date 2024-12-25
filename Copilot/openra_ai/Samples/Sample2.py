@@ -7,7 +7,7 @@ import time
 api = OpenRA.GameAPI("localhost")
 jeeps = api.query_actor(OpenRA.TargetsQueryParam(type=["吉普"], faction="自己"))
 rocket_soldiers = api.query_actor(OpenRA.TargetsQueryParam(type=["火箭筒"], faction="自己"))
-tanks = api.query_actor(OpenRA.TargetsQueryParam(type=["v2"], faction="自己"))
+tanks = api.query_actor(OpenRA.TargetsQueryParam(type=["重坦"], faction="自己"))
 jeep = jeeps[0]
 initial_position = jeep.position
 while True:
