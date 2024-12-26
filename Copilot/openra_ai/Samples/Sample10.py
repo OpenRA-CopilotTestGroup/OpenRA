@@ -1,4 +1,4 @@
-# 该代码对应指令为：防空车分成两队进攻地方基地
+# 该代码对应指令为：防空车分成两队攻击敌方基地
 import OpenRA_Copilot_Library as OpenRA
 from OpenRA_Copilot_Library import TargetsQueryParam
 import time
@@ -23,8 +23,6 @@ team_2 = ftrks[midpoint:]
 
 path1 = api.find_path(team_1, base_position, '左侧路径')
 path2 = api.find_path(team_2, base_position, '右侧路径')
-api.move_units_by_path(team_1, path1)
-api.move_units_by_path(team_2, path2)
 
 print("队伍1开始沿路径移动")
 api.move_units_by_path(team_1, path1)
@@ -47,7 +45,7 @@ while active_units:
             if api.attack_target(unit, enemy_base):
                 active_units.remove(unit)  # 攻击成功后移除队伍
             else:
-                api.move_units_by_location(unit,base_position)
+                api.move_units_by_location([unit],base_position)
     time.sleep(0.5)
 
 print("任务完成")

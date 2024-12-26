@@ -98,6 +98,7 @@ namespace OpenRA.Mods.Common.Commands
 					var direction = restrain["relativeDirection"]?.ToString();
 					var maxNum = restrain["maxNum"]?.ToObject<int>();
 					var dis = restrain["distance"]?.ToObject<int>();
+					var visible = restrain["visible"]?.ToObject<bool>();
 
 					if (direction != null && maxNum.HasValue)
 					{
@@ -113,6 +114,10 @@ namespace OpenRA.Mods.Common.Commands
 					{
 						var loc = GetLocation(targets["location"]);
 						actors = actors.Where(a => Math.Abs(a.Location.X - loc.X) + Math.Abs(a.Location.Y - loc.Y) <= dis.Value);
+					}
+					else if (visible.HasValue && visible.Value)
+					{
+						actors = actors.Where(a => a.IsTargetableBy(player.PlayerActor, true));
 					}
 				}
 			}
@@ -841,9 +846,13 @@ namespace OpenRA.Mods.Common.Commands
 		public static string AttackCommand(JObject json, World world)
 		{
 			var player = world.LocalPlayer;
-			var attackers = GetTargets(json["attackers"], world, player);
+			var attacker = GetTargets(json["attackers"], world, player).First();
 			var target = GetTargetsFromJson(json, world).FirstOrDefault();
 
+			if (attacker == null)
+			{
+				throw new NotImplementedException("No Attacker");
+			}
 			if (target == null)
 			{
 				throw new NotImplementedException("No Attack Target");
@@ -851,11 +860,10 @@ namespace OpenRA.Mods.Common.Commands
 
 			// 是否是多点下令
 			const bool Queued = false;
-
-			foreach (var attacker in attackers)
-			{
-				world.IssueOrder(new Order("Attack", attacker, Target.FromActor(target), Queued));
-			}
+			var tar = Target.FromActor(target);
+			if (!tar.IsValidFor(attacker))
+				throw new NotImplementedException("Target is not valid now");
+			world.IssueOrder(new Order("Attack", attacker, tar, Queued));
 
 			return "Attack action executed.";
 		}

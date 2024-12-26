@@ -133,9 +133,9 @@ units:
         基地
         主基地
         家
-    tran：
+    tran:
         运输机
-    hind：
+    hind:
          雌鹿攻击直升机
          雌鹿
          雌鹿直升机
@@ -156,10 +156,6 @@ units:
          油井
 
 
-
-
-
-
 nickname:
     士兵:
         e1
@@ -168,6 +164,7 @@ nickname:
         e4
         e5
         e6
+        thf
     载具:
         1tnk
         2tnk
@@ -184,5 +181,23 @@ nickname:
         2tnk
         3tnk
         4tnk
+        ttnk
+        qtnk
+    战斗单位:
+        e1
+        e2
+        e3
+        e4
+        e5
+        e6
+        thf
+        dog
+        1tnk
+        2tnk
+        3tnk
+        4tnk
+        jeep
+        ftrk
+        apc
         ttnk
         qtnk
