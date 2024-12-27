@@ -115,9 +115,15 @@ namespace OpenRA.Mods.Common.Commands
 						var loc = GetLocation(targets["location"]);
 						actors = actors.Where(a => Math.Abs(a.Location.X - loc.X) + Math.Abs(a.Location.Y - loc.Y) <= dis.Value);
 					}
-					else if (visible.HasValue && visible.Value)
+					else if (visible == true)
 					{
-						actors = actors.Where(a => a.IsTargetableBy(player.PlayerActor, true));
+						actors = actors.Where(a =>
+						{
+							var tar = Target.FromActor(a);
+							tar.Recalculate(player.PlayerActor.Owner, out var targetIsHiddenActor);
+							return !targetIsHiddenActor;
+						}
+						);
 					}
 				}
 			}
@@ -861,8 +867,9 @@ namespace OpenRA.Mods.Common.Commands
 			// 是否是多点下令
 			const bool Queued = false;
 			var tar = Target.FromActor(target);
-			if (!tar.IsValidFor(attacker))
-				throw new NotImplementedException("Target is not valid now");
+			tar.Recalculate(attacker.Owner, out var targetIsHiddenActor);
+			if (targetIsHiddenActor)
+				throw new NotImplementedException("Target is hidden now");
 			world.IssueOrder(new Order("Attack", attacker, tar, Queued));
 
 			return "Attack action executed.";

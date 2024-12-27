@@ -173,7 +173,7 @@ class GameAPI:
             return []
 
 
-    def update_actor(self, actor):
+    def update_actor(self, actor) -> False:
         data = {"targets": {"actorId":  [actor.actor_id]}}
         response = self._send_request('query_actor', data)
         if response is None:
@@ -209,12 +209,16 @@ class GameAPI:
         return self._send_request('occupy', data)
 
     #攻击指令，攻击移动，只会攻击路径旁的战斗单位，不会攻击建筑，因此攻击建筑，或者具体指定攻击某个人，需要用这个，但目标必须是我当前可见的Actor
-    def attack_target(self, attackers: List[Actor], target: Actor) -> dict:
+    def attack_target(self, attacker: Actor, target: Actor) -> bool:
         data = {
-            "attackers": {"actorId": [actor.actor_id for actor in attackers]},
+            "attackers": {"actorId": [attacker.actor_id]},
             "targets": {"actorId": [target.actor_id] }
         }
-        return self._send_request('attack', data)
+        try:
+            self._send_request('attack', data)
+            return True
+        except:
+            return False
 
     # 修复车辆或建筑，都可以使用这个修复
     def repair_units(self, actors: List[Actor]) -> Optional[int]:
