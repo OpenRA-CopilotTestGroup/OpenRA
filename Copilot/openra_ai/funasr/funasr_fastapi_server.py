@@ -69,6 +69,11 @@ async def transcribe(request: Request):
             mode='online'
         )
 
+        # 删除文件以清理
+        # 暂时屏蔽删除逻辑，方便调试
+        # if os.path.exists(temp_wav_path):
+        #     os.remove(temp_wav_path)
+
         if isinstance(result, (list, tuple)):
             if len(result) > 0 and isinstance(result[0], dict):
                 text = result[0].get('text', '')
