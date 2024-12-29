@@ -77,10 +77,9 @@ class WhisperASR(ASRModule):
 # asr_funasr.py
 class FunASRRemoteASR(ASRModule):
     
-    def __init__(self, server_url: str = "http://localhost:5000/transcribe"):
-        # modify the server_url to server IP
-        #self.server_url = server_url
-        self.server_url = "server_url_here"
+    def __init__(self, server_url: str = "server_url_here"):
+        # modify the server_url to server IP and port
+        self.server_url = server_url
         self.logger = get_logger("fun_asr", "info")
     
     def transcribe(self, audio_data: np.ndarray):

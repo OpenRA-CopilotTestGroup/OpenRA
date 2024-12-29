@@ -3,15 +3,18 @@ import time
 import speech_recognition as sr
 import numpy as np
 import traceback
+from queue import Queue
 from .utils import get_logger
+from .config import AppConfig
+from .asr_manager import ASRManager
 
 class AudioListener:
-    def __init__(self, asr_manager, stop_event, config=None):
+    def __init__(self, asr_manager:ASRManager, stop_event, config:AppConfig = None):
         self.asr_manager = asr_manager
         self.stop_event = stop_event
         self.listen_thread = None
         self.is_recording = True
-        self.audio_queue = asr_manager.audio_queue
+        self.audio_queue:Queue = asr_manager.audio_queue
         self.logger = get_logger(__name__, 'info')
 
         self.mic = None
@@ -30,8 +33,8 @@ class AudioListener:
         self.is_listening = True
 
         # adjust manually
-        self.pause_threshold = config.input.pause if config else 1.6
-        self.non_speaking_duration = config.input.pause if config else 1.2
+        self.pause_threshold = config.input.pause if config else 1.2
+        self.non_speaking_duration = config.input.pause if config else 0.3
 
     def __setup_mic(self):
         while not self.stop_event.is_set():
@@ -55,6 +58,7 @@ class AudioListener:
     def __close_mic(self):
         self.mic = None
 
+    # not used now
     def __adjust_energy_threshold(self, audio_frame):
         if not self.dynamic_energy:
             return

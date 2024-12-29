@@ -45,7 +45,7 @@ class AppConfig:
     verbose: bool = False
     logging_level: str = "info"
     gui: bool = True
-    no_sample: bool = False
+    no_sample: bool = True
 
     @classmethod
     def from_dict(cls, config_dict: dict) -> 'AppConfig':
@@ -81,5 +81,6 @@ class AppConfig:
             'gptmodel': self.gptmodel,
             'verbose': self.verbose,
             'logging_level': self.logging_level,
-            'gui': self.gui
+            'gui': self.gui,
+            'no_sample': self.no_sample
         }
