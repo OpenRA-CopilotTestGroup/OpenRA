@@ -1,5 +1,5 @@
 # COPILOT_PROMPT_IGNORE
-# 该代码对应指令为：装甲车去对面基地勾引一下，遇到敌人就回来点，然后把步兵和防空车压上去，等都到了就两路夹击地方基地
+# 这个是可见性（迷雾和探索区域）的测试代码
 import OpenRA_Copilot_Library as OpenRA
 from OpenRA_Copilot_Library import TargetsQueryParam
 import time

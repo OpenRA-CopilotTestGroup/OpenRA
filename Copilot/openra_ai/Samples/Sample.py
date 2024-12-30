@@ -1,4 +1,5 @@
 # COPILOT_PROMPT_IGNORE
+# 这个是临时测试代码
 import OpenRA_Copilot_Library as OpenRA
 from OpenRA_Copilot_Library import TargetsQueryParam
 from OpenRA_Copilot_Library import Location
