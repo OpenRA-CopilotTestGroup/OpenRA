@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using ICSharpCode.SharpZipLib.Core;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using OpenRA.Graphics;
@@ -400,7 +401,36 @@ namespace OpenRA.Mods.Common.Commands
 				var cposPath = new List<CPos>();
 				foreach (var c in path)
 					cposPath.Add(GetLocation(c));
-				cposPath.Add(actor.Location);
+				if (cposPath[^1] != actor.Location)
+				{
+					static int ChebyshevDistance(CPos a, CPos b) => Math.Max(Math.Abs(a.X - b.X), Math.Abs(a.Y - b.Y));
+
+					var nearestIdx = -1;
+					var shortestDist = int.MaxValue;
+					for (var i = 0; i < cposPath.Count; i++)
+					{
+						var dist = ChebyshevDistance(actor.Location, cposPath[i]);
+						if (dist < shortestDist)
+						{
+							shortestDist = dist;
+							nearestIdx = i;
+						}
+					}
+
+					if (nearestIdx >= 0)
+					{
+						var pathFinder = actor.World.WorldActor.Trait<PathFinder>();
+						var pathToNearest = pathFinder.FindPathToTargetCell(
+							actor,
+							new[] { actor.Location },
+							cposPath[nearestIdx],
+							BlockedByActor.Immovable);
+
+						cposPath.RemoveRange(nearestIdx, cposPath.Count - nearestIdx);
+						cposPath.InsertRange(nearestIdx, pathToNearest);
+					}
+				}
+
 				actor.CancelActivity();
 
 				if (isAttackMove || isAssaultMove)
