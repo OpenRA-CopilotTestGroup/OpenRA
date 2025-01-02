@@ -300,3 +300,8 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui=None, no_sample_pro
     # if len(CACHED_PREVIOUS_PROMPTS) < MAX_CACHED_PROMPTS:
     #     CACHED_PREVIOUS_PROMPTS.append({"role": "user", "content": prompt})
     #     CACHED_PREVIOUS_PROMPTS.append({"role": "assistant", "content": completion.content})
+
+#直接运行这个文件，这个文件会输出一个prompt，你可以直接复制到openai的playground里面进行测试
+if __name__ == "__main__":
+    prompt = make_prompt()
+    print(prompt)
