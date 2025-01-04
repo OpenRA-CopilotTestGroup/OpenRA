@@ -14,10 +14,11 @@ usenormalTTS = False
 dashscope.api_key = os.getenv("DASHSCOPE_API_KEY")
 
 if not dashscope.api_key:
-     print("Environment variable 'DASHSCOPE_API_KEY' is not set!")
-     usenormalTTS = True
+    print("Environment variable 'DASHSCOPE_API_KEY' is not set!")
+    usenormalTTS = True
 model = "cosyvoice-v1"
 voice = "longxiaoxia"
+
 
 class Callback(ResultCallback):
     _player = None
@@ -38,6 +39,7 @@ class Callback(ResultCallback):
         print("audio result length:", len(data))
         self._stream.write(data)
 
+
 def synthesizer_with_llm(text):
     callback = Callback()
     synthesizer = SpeechSynthesizer(
@@ -50,6 +52,7 @@ def synthesizer_with_llm(text):
     synthesizer.streaming_call(text)
     synthesizer.streaming_complete()
     print('requestId: ', synthesizer.get_last_request_id())
+
 
 class AIAssistantUI(QWidget):
     player_dialog_signal = pyqtSignal(object, str)
@@ -172,7 +175,7 @@ class AIAssistantUI(QWidget):
         self.append_dialog(text + " :玩家", align_right=True,
                            color=QColor("blue"))
 
-    def add_ai_dialog(self, text, NeedTTS : bool = True):
+    def add_ai_dialog(self, text, NeedTTS: bool = True):
         self.append_dialog("AI副官: " + text, align_right=False,
                            color=QColor("green"))
         if NeedTTS:
@@ -214,7 +217,7 @@ class AIAssistantUI(QWidget):
         item.setSizeHint(widget.sizeHint())
         self.plan_list.insertItem(0, item)
         self.plan_list.setItemWidget(item, widget)
-
+        self.plan_list.scrollToBottom()
         return status_label
 
     def update_plan_item_status(self, status_label, status):
@@ -239,9 +242,12 @@ class AIAssistantUI(QWidget):
 
     def toggle_mic(self):
         self.mic_enabled = not self.mic_enabled
-        self.mic_button.setText("当前麦克风状态: 开启" if self.mic_enabled else "当前麦克风状态: 关闭")
-        self.mic_state_signal.emit(self.mic_enabled)  # Emit signal for state change
-        self.add_ai_dialog("麦克风已{}。".format("开启" if self.mic_enabled else "关闭"))
+        self.mic_button.setText(
+            "当前麦克风状态: 开启" if self.mic_enabled else "当前麦克风状态: 关闭")
+        # Emit signal for state change
+        self.mic_state_signal.emit(self.mic_enabled)
+        self.add_ai_dialog("麦克风已{}。".format(
+            "开启" if self.mic_enabled else "关闭"), False)
 
 
 def create_ai_assistant_ui_instance():
@@ -260,8 +266,12 @@ if __name__ == "__main__":
 
     window.player_dialog_signal.connect(example_callback)
 
+    window.add_plan_item("长度测试长度测试长度测试长度测试长度测试长度测试长度测试长度测试", "未开始")
     window.add_plan_item("优先攻击火箭兵", "进行中")
     window.add_plan_item("建造三个步兵，两个坦克", "失败")
     window.add_plan_item("工程师占领油田", "已完成")
     window.add_plan_item("两路夹击地方基地，如果打不过就折返", "未开始")
+
+    b = window.add_plan_item("长度测试长度测试长度测试长度测试长度测试长度测试长度测试长度测试", "未开始")
+    window.update_plan_item_status(b, "已完成")
     sys.exit(app.exec_())

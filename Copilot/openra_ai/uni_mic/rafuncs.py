@@ -1,5 +1,6 @@
 
 import os
+import sys
 import yaml
 import re
 from typing import Optional, List, Dict, Any
@@ -280,7 +281,23 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui=None, no_sample_pro
         #             gui.update_plan_item_status(plan, "失败")
         #             gui.add_ai_dialog(e.__traceback__)
 
+        class GuiOutput:
+            def __init__(self, gui):
+                self.gui = gui
+
+            def write(self, message):
+                if message.strip():  # 忽略空行
+                    self.gui.add_ai_dialog(message.strip(), False)
+
+            def flush(self):
+                pass  # 保留方法以符合 `file-like` 对象的接口
+
         def execute(command):
+            old_stdout = sys.stdout
+            old_stderr = sys.stderr
+            sys.stdout = GuiOutput(gui)
+            sys.stderr = GuiOutput(gui)
+
             try:
                 if callable(command):
                     command()
@@ -298,6 +315,9 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui=None, no_sample_pro
                     error_message = traceback.format_exception_only(type(e), e)
                     last_line = "".join(error_message).strip()
                     gui.add_ai_dialog(f"错误信息：{last_line}", False)
+            finally:
+                sys.stdout = old_stdout
+                sys.stderr = old_stderr
 
         future = executor.submit(execute, executable)
         # future.add_done_callback(done_callback)

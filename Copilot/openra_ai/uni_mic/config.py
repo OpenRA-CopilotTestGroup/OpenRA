@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 import json
 
@@ -38,28 +38,26 @@ class TextProcessingConfig:
 
 @dataclass
 class AppConfig:
-    asr: ASRConfig = ASRConfig()
-    input: InputConfig = InputConfig()
-    text_processing: TextProcessingConfig = TextProcessingConfig()
-    gptmodel: str = "gpt-4o"
+    asr: 'ASRConfig' = field(default_factory=lambda: ASRConfig())
+    input: 'InputConfig' = field(default_factory=lambda: InputConfig())
+    text_processing: 'TextProcessingConfig' = field(default_factory=lambda: TextProcessingConfig())
     verbose: bool = False
     logging_level: str = "info"
     gui: bool = True
-    no_sample: bool = True
 
     @classmethod
     def from_dict(cls, config_dict: dict) -> 'AppConfig':
-        asr_config = ASRConfig(**{k: v for k, v in config_dict.items() 
+        asr_config = ASRConfig(**{k: v for k, v in config_dict.items()
                                 if hasattr(ASRConfig, k)})
-        input_config = InputConfig(**{k: v for k, v in config_dict.items() 
+        input_config = InputConfig(**{k: v for k, v in config_dict.items()
                                     if hasattr(InputConfig, k)})
-        text_processing_config = TextProcessingConfig(**{k: v for k, v in config_dict.items() 
+        text_processing_config = TextProcessingConfig(**{k: v for k, v in config_dict.items()
                                                        if hasattr(TextProcessingConfig, k)})
-        
-        main_config_keys = {'gptmodel', 'verbose', 'logging_level', 'gui'}
-        main_config = {k: config_dict[k] for k in main_config_keys 
+
+        main_config_keys = {'verbose', 'logging_level', 'gui'}
+        main_config = {k: config_dict[k] for k in main_config_keys
                       if k in config_dict}
-        
+
         return cls(
             asr=asr_config,
             input=input_config,
@@ -69,7 +67,7 @@ class AppConfig:
 
     @classmethod
     def from_json(cls, json_file: str) -> 'AppConfig':
-        with open(json_file, 'r') as f:
+        with open(json_file, 'r', encoding='utf-8') as f:
             config_dict = json.load(f)
         return cls.from_dict(config_dict)
 
@@ -78,9 +76,7 @@ class AppConfig:
             **vars(self.asr),
             **vars(self.input),
             **vars(self.text_processing),
-            'gptmodel': self.gptmodel,
             'verbose': self.verbose,
             'logging_level': self.logging_level,
             'gui': self.gui,
-            'no_sample': self.no_sample
         }
