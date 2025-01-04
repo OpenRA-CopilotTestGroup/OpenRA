@@ -9,7 +9,7 @@ screen_units = set()
 
 print("开始监控屏幕内单位的进入和离开事件")
 while True:
-    
+
     # screen_info = api.screen_info_query()
     # screen_min = screen_info.ScreenMin
     # screen_max = screen_info.ScreenMax
@@ -18,6 +18,7 @@ while True:
     visible_units = api.query_actor(
         TargetsQueryParam(
             type=[],  # 查询所有类型的单位
+            faction=["任意"],  # 查询所有阵营的单位
             range="screen",  # 查询屏幕范围内的单位
             restrain=[{"visible": True}]  # 必须可见
         )
@@ -36,7 +37,7 @@ while True:
     for unit_id in new_units:
         unit = next(unit for unit in visible_units if unit.actor_id == unit_id)
         print(
-            f"单位进入屏幕：ID={unit.actor_id}, 类型={unit.type}, 位置=({unit.position.x}, {unit.position.y})")
+            f"单位进入屏幕：ID={unit.actor_id}, 阵营= {unit.faction}, 类型={unit.type}, 位置=({unit.position.x}, {unit.position.y})")
 
     removed_units = screen_units - current_screen_units
     for unit_id in removed_units:

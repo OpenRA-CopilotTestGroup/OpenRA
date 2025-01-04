@@ -13,17 +13,17 @@ class Location:
         if isinstance(other, Location):
             return self.x == other.x and self.y == other.y
         return False
-    
+
     def __add__(self, other):
         if isinstance(other, Location):
             return Location(self.x + other.x, self.y + other.y)
         return NotImplemented
-    
+
     def __floordiv__(self, other):
         if isinstance(other, int):
             return Location(self.x // other, self.y // other)
         return NotImplemented
-    
+
     def to_dict(self):
         return {"x": self.x, "y": self.y}
 
@@ -32,7 +32,6 @@ class Location:
 
     def euclidean_distance(self, other):
         return ((self.x - other.x) ** 2 + (self.y - other.y) ** 2) ** 0.5
-    
 
 
 class TargetsQueryParam:
@@ -40,7 +39,7 @@ class TargetsQueryParam:
     # The faction should be None or one of {ALL_ACTORS}, otherwise convert it to the possible value.
     # The group_id should be a list and each element in the list is one of  {ALL_GROUPS}, otherwise convert it to possible value.
     # The direction should be None or one of {ALL_DIRECTIONS}, otherwise convert it to possible value.
-    def __init__(self, type: str = None, faction: str = None, group_id: list[int] = None, restrain=None, location: Location = None, direction: str = None, distance: int = None):
+    def __init__(self, type: str = None, faction: str = None, group_id: list[int] = None, restrain=None, location: Location = None, direction: str = None, distance: int = None, range: str = None):
         # type is the list of {ALL_UNITS}, or None.
         # faction is one of the {ALL_ACTORS}, or None
         # group_id is  the list of {ALL_GROUPS}, or None
@@ -52,6 +51,7 @@ class TargetsQueryParam:
         self.location = location
         self.direction = direction
         self.distance = distance
+        self.range = range
 
     def to_dict(self):
         query = {}
@@ -69,6 +69,8 @@ class TargetsQueryParam:
             query["direction"] = self.direction
         if self.distance:
             query["distance"] = self.distance
+        if self.range:
+            query["range"] = self.range
         return query
 
 
@@ -86,7 +88,9 @@ class Actor:
         self.faction = faction
         self.position = position
 
-#地图信息查询返回结构体，IsVisible是当前视野可见的部分为true，IsExplored是探索过的格子就是true
+# 地图信息查询返回结构体，IsVisible是当前视野可见的部分为true，IsExplored是探索过的格子就是true
+
+
 @dataclass
 class MapQueryResult:
     MapWidth: int
@@ -108,7 +112,9 @@ class MapQueryResult:
         else:
             raise ValueError("Location out of bounds")
 
-#玩家基础信息查询返回结构体，Cash和Resources的和是玩家持有的金钱，Power是剩余电力
+# 玩家基础信息查询返回结构体，Cash和Resources的和是玩家持有的金钱，Power是剩余电力
+
+
 @dataclass
 class PlayerBaseInfo:
     Cash: int
@@ -117,7 +123,9 @@ class PlayerBaseInfo:
     PowerDrained: int
     PowerProvided: int
 
-#屏幕信息查询的返回结果，Min是屏幕左上角，Max是右下角，MousePosition是当前鼠标所在位置，Location都是整数坐标
+# 屏幕信息查询的返回结果，Min是屏幕左上角，Max是右下角，MousePosition是当前鼠标所在位置，Location都是整数坐标
+
+
 @dataclass
 class ScreenInfoResult:
     ScreenMin: Location

@@ -172,8 +172,13 @@ class GameAPI:
             print(e)
             return []
 
+    def get_actor(self, actor_id):
+        a = Actor(actor_id)
+        if self.update_actor(a):
+            return a
+        return None
 
-    def update_actor(self, actor) -> False:
+    def update_actor(self, actor) -> bool:
         data = {"targets": {"actorId":  [actor.actor_id]}}
         response = self._send_request('query_actor', data)
         if response is None:

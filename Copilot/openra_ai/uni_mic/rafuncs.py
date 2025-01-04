@@ -66,7 +66,8 @@ MEMORY = "无"
 
 api = OpenRA.GameAPI("localhost")
 
-def make_prompt(no_sample_prompt = False):
+
+def make_prompt(no_sample_prompt=False):
 
     config_path = os.path.join(os.path.dirname(__file__), 'config.yaml')
 
@@ -96,7 +97,6 @@ def make_prompt(no_sample_prompt = False):
     with open(api_struct_path, 'r', encoding='utf-8') as file:
         api_struct_content = file.read()
 
-
     sample_code = ""
     if not no_sample_prompt:
         sample_dir = os.path.abspath(os.path.join(
@@ -121,6 +121,18 @@ def make_prompt(no_sample_prompt = False):
     formatted_time = f"{current_time:.2f}"
 
     playerbaseinfo = api.player_base_info_query()
+
+    visible_units = api.query_actor(
+        TargetsQueryParam(
+            type=[],  # 查询所有类型的单位
+            faction=["任意"],  # 查询所有阵营的单位
+            range="screen",  # 查询屏幕范围内的单位
+            restrain=[{"visible": True}]  # 必须可见
+        )
+    )
+    screen_units_str = ""
+    for unit in visible_units:
+        screen_units_str += f"单位ID={unit.actor_id}, 阵营= {unit.faction}, 类型={unit.type}, 位置=({unit.position.x}, {unit.position.y})\n"
 
     prompt = f"""
 你是 OpenRA（红色警戒）游戏的战略AI指挥副官。你需要根据玩家的指示来辅助玩家进行游戏，具体来说，你需要输出python代码，使用python的OpenRA库与游戏交互，我们会执行你输出的代码
@@ -171,6 +183,7 @@ prompt part 4:你的记忆
 prompt part 5:目前游戏的基本信息
 玩家持有资源：{playerbaseinfo.Cash + playerbaseinfo.Resources}
 玩家当前剩余电力：{playerbaseinfo.Power}
+屏幕内单位：\n{screen_units_str}
 prompt part 6:当前的时间戳
 当前是运行的第："{formatted_time}"秒
     """
@@ -196,7 +209,7 @@ MEMORY_REGEX = create_tag_regex('memory')
 executor = ThreadPoolExecutor(max_workers=10)
 
 
-def handle_strategy_command(prompt=None, model="gpt-4o", gui=None, no_sample_prompt = False):
+def handle_strategy_command(prompt=None, model="gpt-4o", gui=None, no_sample_prompt=False):
     global CACHED_PREVIOUS_PROMPTS
     global MAX_CACHED_PROMPTS
     global CODE_REGEX
@@ -207,7 +220,8 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui=None, no_sample_pro
         print_log('prompt should not be None')
         return
     messages = []
-    messages.append({"role": "system", "content": make_prompt(no_sample_prompt)})
+    messages.append(
+        {"role": "system", "content": make_prompt(no_sample_prompt)})
     # for previous_prompt in CACHED_PREVIOUS_PROMPTS:
     #     messages.append(previous_prompt)
     messages.append({"role": "user", "content": prompt})
@@ -301,7 +315,8 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui=None, no_sample_pro
     #     CACHED_PREVIOUS_PROMPTS.append({"role": "user", "content": prompt})
     #     CACHED_PREVIOUS_PROMPTS.append({"role": "assistant", "content": completion.content})
 
-#直接运行这个文件，这个文件会输出一个prompt，你可以直接复制到openai的playground里面进行测试
+
+# 直接运行这个文件，这个文件会输出一个prompt，你可以直接复制到openai的playground里面进行测试
 if __name__ == "__main__":
     prompt = make_prompt()
     print(prompt)
