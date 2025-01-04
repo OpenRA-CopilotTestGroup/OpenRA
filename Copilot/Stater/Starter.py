@@ -15,7 +15,7 @@ import pygetwindow as gw
 import ctypes
 
 CONFIG_FILE = "settings.ini"
-VERSION = "0.1.2"
+VERSION = "0.1.5"
 
 
 def load_settings():
@@ -27,6 +27,8 @@ def load_settings():
                 "Settings", "OPENAI_KEY", fallback=""))
             cozy_voice_key_entry.insert(0, config.get(
                 "Settings", "DASHSCOPE_KEY", fallback=""))
+            asr_server_entry.insert(0, config.get(
+                "Settings", "ASR_SERVER", fallback=""))
             proxy_port_entry.insert(0, config.get(
                 "Settings", "PROXY_PORT", fallback=""))
 
@@ -36,6 +38,7 @@ def save_settings():
     config["Settings"] = {
         "OPENAI_KEY": openai_key_entry.get(),
         "DASHSCOPE_KEY": cozy_voice_key_entry.get(),
+        "ASR_SERVER": asr_server_entry.get(),
         "PROXY_PORT": proxy_port_entry.get()
     }
     with open(CONFIG_FILE, "w") as configfile:
@@ -204,8 +207,14 @@ def start_python_script(Alert=True):
         command.append("--input_mode")
         command.append("keyboard")
 
-    # command.append("--gptmodel")
-    # command.append(selected_version.get())
+    if not prompt_with_sample.get():
+        command.append("--no_sample")
+
+    if srtest_only.get():
+        command.append("--no_text_callback")
+
+    command.append("--gptmodel")
+    command.append(selected_version.get())
 
     command.append("--gui")
 
@@ -503,12 +512,16 @@ class GridConfig:
         self.index = index
         self.weight = weight
 
+
 counter = 0
+
+
 def ni():
     global counter
     idx = counter
     counter += 1
     return idx
+
 
 class GridRows:
     global counter
@@ -517,7 +530,9 @@ class GridRows:
     HEADER = GridConfig(ni(), 1)
     OPENAI_KEY = GridConfig(ni(), 2)
     DASHSCOPE_KEY = GridConfig(ni(), 2)
+    ASR_SERVER = GridConfig(ni(), 2)
     PROXY_PORT = GridConfig(ni(), 2)
+    CHECKS = GridConfig(ni(), 3)
     DROPDOWNS = GridConfig(ni(), 3)
     BUTTONS = GridConfig(ni(), 3)
     ONE_CLICK = GridConfig(ni(), 6)
@@ -555,11 +570,19 @@ openai_key_entry.grid(row=GridRows.OPENAI_KEY.index, column=GridColumns.LEFT_PAD
 
 cozy_voice_key_label = tk.Label(root, text="CozyVoice-KEY:", bg="#f0f0f0")
 cozy_voice_key_label.grid(row=GridRows.DASHSCOPE_KEY.index, column=GridColumns.LEFT_PADDING.index,
-                      columnspan=2, padx=(20, 0), pady=5, sticky="w")
+                          columnspan=2, padx=(20, 0), pady=5, sticky="w")
 
 cozy_voice_key_entry = tk.Entry(root)
 cozy_voice_key_entry.grid(row=GridRows.DASHSCOPE_KEY.index, column=GridColumns.LEFT_PADDING.index,
-                      columnspan=3, padx=(120, 10), pady=5, sticky="we")
+                          columnspan=3, padx=(120, 10), pady=5, sticky="we")
+
+asr_server_label = tk.Label(root, text="ASR SERVER:", bg="#f0f0f0")
+asr_server_label.grid(row=GridRows.ASR_SERVER.index, column=GridColumns.LEFT_PADDING.index,
+                          columnspan=2, padx=(20, 0), pady=5, sticky="w")
+
+asr_server_entry = tk.Entry(root)
+asr_server_entry.grid(row=GridRows.ASR_SERVER.index, column=GridColumns.LEFT_PADDING.index,
+                          columnspan=3, padx=(120, 10), pady=5, sticky="we")
 
 proxy_port_label = tk.Label(root, text="设置代理端口:", bg="#f0f0f0")
 proxy_port_label.grid(row=GridRows.PROXY_PORT.index, column=GridColumns.LEFT_PADDING.index,
@@ -571,20 +594,34 @@ proxy_port_entry.grid(row=GridRows.PROXY_PORT.index, column=GridColumns.LEFT_PAD
 
 button_font = ("Microsoft YaHei", 10)
 
-gpt_versions = ["GPT-3.5", "GPT-4", "GPT-4o",
-                "GPT-4o mini", "GPT-o1", "目前仅测试用，无实际效果"]
+gpt_versions = ["gpt-4o",
+                "gpt-4o mini", "gpt-o1", "ft:gpt-4o-2024-08-06:edaijia:openra-v1219:Ag4lT9jx"]
+
+prompt_with_sample = tk.BooleanVar(value=True)
+
+checkbox_sample = tk.Checkbutton(
+    root, text="包含Sample(更贵)", variable=prompt_with_sample, compound="right")
+checkbox_sample.grid(row=GridRows.CHECKS.index,
+              column=GridColumns.CONTENT_LEFT.index, sticky="we", padx=(15, 15), pady=5)
+
+srtest_only = tk.BooleanVar()
+
+checkbox_sample = tk.Checkbutton(
+    root, text="只测试语音识别", variable=srtest_only, compound="right")
+checkbox_sample.grid(row=GridRows.CHECKS.index,
+              column=GridColumns.CONTENT_RIGHT.index, sticky="we", padx=(15, 15), pady=5)
 
 selected_version = StringVar(root)
-selected_version.set("GPT-4o")
+selected_version.set("gpt-4o")
 
 dropdown = tk.OptionMenu(root, selected_version, *gpt_versions)
 dropdown.grid(row=GridRows.DROPDOWNS.index,
               column=GridColumns.CONTENT_LEFT.index, padx=(15, 15), pady=5, sticky="we")
 
 selected_mic_version = StringVar(root)
-selected_mic_version.set("openai")
+selected_mic_version.set("whisper")
 
-mic_versions = ["openai语音识别", "手动输入"]
+mic_versions = ["whisper", "手动输入", "fun_asr"]
 
 dropdown_mic = tk.OptionMenu(root, selected_mic_version, *mic_versions)
 dropdown_mic.grid(row=GridRows.DROPDOWNS.index,
@@ -603,7 +640,7 @@ start_openra_button.grid(row=GridRows.BUTTONS.index,
 auto_proxy_button = tk.Button(
     root, text="自动设置代理端口", command=auto_detect_proxy, font=button_font)
 auto_proxy_button.grid(row=GridRows.PROXY_PORT.index,
-                       column=GridColumns.CONTENT_RIGHT.index, padx=(15, 15), pady=5, sticky="we")
+                       column=GridColumns.CONTENT_RIGHT.index, padx=(15, 15), pady=2, sticky="we")
 
 one_click_button = tk.Button(
     root, text="一键启动！", command=one_click_start, font=("Microsoft YaHei", 18))

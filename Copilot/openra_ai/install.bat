@@ -25,11 +25,5 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-pip install -e .
-if %errorlevel% neq 0 (
-    echo 安装可编辑模式的包失败
-    exit /b 1
-)
-
 echo 所有依赖安装成功
 exit /b 0
