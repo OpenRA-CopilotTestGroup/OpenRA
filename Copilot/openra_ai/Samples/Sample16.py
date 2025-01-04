@@ -10,10 +10,6 @@ screen_units = set()
 print("开始监控屏幕内单位的进入和离开事件")
 while True:
 
-    # screen_info = api.screen_info_query()
-    # screen_min = screen_info.ScreenMin
-    # screen_max = screen_info.ScreenMax
-
     # 查询屏幕范围内的所有单位
     visible_units = api.query_actor(
         TargetsQueryParam(
@@ -24,13 +20,6 @@ while True:
         )
     )
 
-    # 筛选出在屏幕范围内的单位
-    # current_screen_units = {
-    #     unit.actor_id
-    #     for unit in visible_units
-    #     if screen_min.x <= unit.position.x <= screen_max.x and
-    #        screen_min.y <= unit.position.y <= screen_max.y
-    # }
     current_screen_units = {unit.actor_id for unit in visible_units}
 
     new_units = current_screen_units - screen_units

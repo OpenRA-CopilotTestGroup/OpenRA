@@ -1,4 +1,5 @@
 
+import contextlib
 import os
 import sys
 import yaml
@@ -293,18 +294,15 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui=None, no_sample_pro
                 pass  # 保留方法以符合 `file-like` 对象的接口
 
         def execute(command):
-            old_stdout = sys.stdout
-            old_stderr = sys.stderr
-            sys.stdout = GuiOutput(gui)
-            sys.stderr = GuiOutput(gui)
-
             try:
-                if callable(command):
-                    command()
-                else:
-                    exec(command)
-                if gui and plan:
-                    gui.update_plan_item_status(plan, "已完成")
+                captured_output = GuiOutput(gui)
+                with contextlib.redirect_stdout(captured_output), contextlib.redirect_stderr(captured_output):
+                    if callable(command):
+                        command()
+                    else:
+                        exec(command)
+                    if gui and plan:
+                        gui.update_plan_item_status(plan, "已完成")
             except Exception as e:
                 traceback.print_tb(e.__traceback__)
                 traceback.print_exc()
