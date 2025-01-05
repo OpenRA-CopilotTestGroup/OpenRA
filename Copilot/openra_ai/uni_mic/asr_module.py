@@ -32,64 +32,45 @@ class WhisperASR(ASRModule):
         self.language = config.language
         self.model = config.model
         self.device = config.device
-        self.prompt = None
-        self.prefix = None
         self.initial_prompt = config.initial_prompt
-        if self.prefix:
-            self.initial_prompt += self.prefix
-
         self.audio_model = None
-        self.remote = config.remote
-        self.faster = config.faster
         self.logger = get_logger("whisper_asr", "info")
 
     def transcribe(self, audio_data: np.ndarray):
         predicted_text = ''
-        self.logger.info(f"Transcribing audio with {
-                         self.device} and {self.model}...")
-        if self.remote:
-            pass
-        elif self.faster:
-            pass
-        else:
-            import whisper
-            # current path
-            # model_root = os.path.join(os.path.dirname(__file__), "models")
-            model_root = os.path.expanduser("~/.cache/whisper")
-            self.audio_model = whisper.load_model(
-                self.model,
-                download_root=model_root,
-                device=self.device,
-                in_memory=True
-            )
-            result = self.audio_model.transcribe(
-                audio_data,
-                language=self.language,
-                suppress_tokens="",
-                prefix=self.prefix,
-                initial_prompt=self.initial_prompt,
-                prompt=self.prompt
-            )
-            self.logger.info(f"Transcription result: {result}")
-            predicted_text = result["text"]
+        self.logger.info(f"Transcribing audio with {self.device} and {self.model}...")
+        import whisper
+        # current path
+        # model_root = os.path.join(os.path.dirname(__file__), "models")
+        model_root = os.path.expanduser("~/.cache/whisper")
+        self.audio_model = whisper.load_model(
+            self.model,
+            download_root=model_root,
+            device=self.device,
+            in_memory=True
+        )
+        result = self.audio_model.transcribe(
+            audio_data,
+            language=self.language,
+            initial_prompt=self.initial_prompt
+        )
+        self.logger.info(f"Transcription result: {result}")
+        predicted_text = result["text"]
         predicted_text = predicted_text.strip()
         if predicted_text:
             return predicted_text
 
 # asr_funasr.py
-
-
 class FunASRRemoteASR(ASRModule):
 
-    def __init__(self, server_url: str = "http://digisky.ananthe.party:5286/transcribe"):
-        self.server_url = server_url
+    def __init__(self, config: ASRConfig = ASRConfig()):
+        self.server_url = config.remote_asr_url
         # self.server_url = "http://localhost:5000/transcribe"
         self.logger = get_logger("fun_asr", "info")
         self.logger.info("FunASR Init with url: " + self.server_url)
 
     def transcribe(self, audio_data: np.ndarray):
         try:
-
             start_time = time.time()
             audio_bytes = audio_data.tobytes()
             self.logger.info(

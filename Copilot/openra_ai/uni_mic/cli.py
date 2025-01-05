@@ -15,7 +15,9 @@ from .audio_listener import AudioListener
 from .utils import get_logger
 from .asr_manager import ASRManager
 from .asr_module import WhisperASR, FunASRRemoteASR
-from .config import AppConfig, ASRConfig, InputConfig, TextProcessingConfig
+from .config import AppConfig, ASRConfig, InputConfig, StarterConfig
+from .config import add_options
+from dataclasses import asdict
 
 logger = get_logger("cli", 'info')
 
@@ -78,10 +80,11 @@ def process_queue():
 
 
 def handle_mic_input(config: AppConfig):
-    if config.input.mic_index is None and config.input.list_devices:
-        devices = sr.Microphone.list_microphone_names()
-        logger.info(f"Available microphone devices: {devices}")
-        return
+    # i think it's no use
+    # if config.input.mic_index is None and config.input.list_devices:
+    #     devices = sr.Microphone.list_microphone_names()
+    #     logger.info(f"Available microphone devices: {devices}")
+    #     return
 
     logger.info("Initializing microphone input mode")
     audio_queue = queue.Queue()
@@ -89,7 +92,7 @@ def handle_mic_input(config: AppConfig):
     stop_event = threading.Event()
 
     try:
-        asr_module = FunASRRemoteASR() if config.asr.remote else WhisperASR(config.asr)
+        asr_module = FunASRRemoteASR(config.asr) if config.asr.remote_asr else WhisperASR(config.asr)
         asr_manager = ASRManager(
             asr_module, audio_queue, result_queue, stop_event)
         audio_listener = AudioListener(asr_manager, stop_event)
@@ -135,40 +138,20 @@ def handle_mic_input(config: AppConfig):
 
 
 @click.command()
-@click.option("--config", default=None, help="JSON filename that contains config", type=str)
-@click.option("--input_mode", default="mic", help="Input mode: 'mic' for microphone, 'keyboard' for keyboard input")
-@click.option("--model", default="large", help="Model to use", type=click.Choice(["tiny", "base", "small", "medium", "large", "large-v2", "large-v3"]))
-@click.option("--gptmodel", default="gpt-4o", help="AI Gen GPT Model to use", type=str)
-@click.option("--device", default="mps", help="Device to use", type=click.Choice(["mps"]))
-@click.option("--language", default="zh", help="Language model", type=click.Choice(["en", "zh"]))
-@click.option("--verbose", default=False, help="Whether to print verbose output", is_flag=True, type=bool)
-@click.option("--prompt", default=None, help="Prompt", type=str)
-@click.option("--prefix", default=None, help="Prefix", type=str)
-@click.option("--ignore_text_without_prefix", default=False, help="Ignore text without prefix", is_flag=True, type=bool)
-@click.option("--remove_prefix", default=False, help="Remove prefix", is_flag=True, type=bool)
-@click.option("--initial_prompt", default="以下是普通话的句子。", help="Initial prompt", type=str)
-@click.option("--enable_post_processing", default=False, help="Enable post processing", is_flag=True, type=bool)
-@click.option("--post_prompt", default=None, help="Post prompt", type=str)
-@click.option("--energy", default=300, help="Energy level for mic to detect", type=int)
-@click.option("--dynamic_energy", default=False, is_flag=True, help="Flag to enable dynamic energy", type=bool)
-@click.option("--pause", default=1.2, help="Pause time before entry ends", type=float)
-@click.option("--save_file", default=False, help="Flag to save file", is_flag=True, type=bool)
-@click.option("--mic_index", default=None, help="Mic index to use", type=int)
-@click.option("--list_devices", default=False, help="Flag to list devices", is_flag=True, type=bool)
-@click.option("--faster", default=False, help="Use faster_whisper implementation", is_flag=True, type=bool)
-@click.option("--remote", default=True, help="Use OpenAI whisper client", is_flag=True, type=bool)
-@click.option("--hallucinate_threshold", default=400, help="Raise this to reduce hallucinations. Lower this to activate more often.", type=int)
-@click.option("--phrase_time_limit", default=10, help="Phrase time limit", type=int)
-@click.option("--logging_level", default="info", help="Logging level", type=click.Choice(["fatal", "error", "warning", "info", "debug"]))
-@click.option("--gui", is_flag=True, help="Is Need GUI Interface")
-@click.option("--gptmodel", default="gpt-4o", help="Text Callback LLM model")
-@click.option("--no_sample", is_flag=True, help="Remove Sample code in Prompt")
-@click.option("--no_text_callback", is_flag=True, help="Remove Text Callback")
+@add_options(ASRConfig)
+@add_options(InputConfig)
+@add_options(StarterConfig)
 def main(**kwargs):
-    config = AppConfig.from_json(kwargs['config']) if kwargs.get(
-        'config') else AppConfig.from_dict(kwargs)
-    logger.info(f"Starting application with input mode: {
-                config.input.input_mode}")
+    #config = AppConfig.from_json(kwargs['config']) if kwargs.get(
+    #    'config') else AppConfig.from_dict(kwargs)
+    #logger.info(f"Starting application with input mode: {
+    #            config.input.input_mode}")
+    config = AppConfig(
+        asr=ASRConfig(**{k: v for k, v in kwargs.items() if k in asdict(ASRConfig())}),
+        input=InputConfig(**{k: v for k, v in kwargs.items() if k in asdict(InputConfig())}),
+        starter=StarterConfig(**{k: v for k, v in kwargs.items() if k in asdict(StarterConfig())})
+    )
+    
     logger.debug(f"Configuration: {config.to_dict()}")
 
     global GPTMODEL
@@ -176,11 +159,12 @@ def main(**kwargs):
     global GUI_APP
     global NO_SAMPLE_PROMPT
     global NO_TEXT_CALLBACK
-    GPTMODEL = kwargs['gptmodel']
-    NO_SAMPLE_PROMPT = kwargs['no_sample']
-    NO_TEXT_CALLBACK = kwargs['no_text_callback']
-
-    if config.gui:
+    
+    GPTMODEL = config.starter.gptmodel
+    NO_SAMPLE_PROMPT = config.starter.no_sample
+    NO_TEXT_CALLBACK = config.starter.no_text_callback
+    
+    if config.starter.gui:
         logger.info("Initializing GUI mode")
 
         def gui_input_callback(gui, player_input):
