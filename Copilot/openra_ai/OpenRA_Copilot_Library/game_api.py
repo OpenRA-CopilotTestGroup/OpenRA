@@ -7,12 +7,22 @@ from .models import *
 
 class GameAPI:
     def __init__(self, host, port=7445, cache_duration=60):
+        # Initialize the GameAPI with server address and establish a socket connection
         self.server_address = (host, port)
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.connect(self.server_address)
 
-    #通过socket和Game交互，发送信息，返回值为json结构
+    def close(self):
+        # Close the socket connection
+        if self.sock:
+            self.sock.close()
+            self.sock = None
+
+    # Send a request to the game server and return the response as a JSON object
     def _send_request(self, command, data):
 
         def receive_data(sock):
+            # Helper function to receive data from the socket
             chunks = []
             while True:
                 chunk = sock.recv(4096)
@@ -23,11 +33,12 @@ class GameAPI:
 
         data['command'] = command
         json_data = json.dumps(data)
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-            sock.connect(self.server_address)
-            sock.sendall(json_data.encode('utf-8'))
-            response = receive_data(sock)
         try:
+            # Send the JSON data to the server
+            self.sock.sendall(json_data.encode('utf-8'))
+            # Receive the response from the server
+            response = receive_data(self.sock)
+            # Parse the response as JSON
             res_json = json.loads(response)
             if res_json["status"] < 0:
                 print("\nError:Response ErrorCode :" + str(res_json["status"]))
@@ -36,27 +47,30 @@ class GameAPI:
         except json.JSONDecodeError:
             print("Error:Response is Not Json.\nResponse:\n"+response)
             return None
+        except Exception as e:
+            print(f"Error in _send_request: {e}")
+            return None
 
     def move_camera_by_location(self, location):
+        # Move the camera to a specific location
         data = {"location": location.to_dict()}
         return self._send_request('camera_move', data)
 
-    # 向某个方向移动相机，必须满足 direction ∈ {ALL_DIRECTIONS}，如果不在范围内请转换到范围呢
     def move_camera_by_direction(self, direction: str, distance):
+        # Move the camera in a specified direction by a certain distance
         data = {"direction": direction, "distance": distance}
         return self._send_request('camera_move', data)
 
-    # 必须满足 unit_type ∈ {ALL_UNITS}，如果不在范围内请转换到范围呢
     def able_to_produce(self, unit_type: str):
+        # Check if a unit of a specific type can be produced
         data = {"units": [{"unit_type": unit_type}]}
         response = self._send_request('query_produce_info', data)
         if response is not None and "canProduce" in response:
             return response["canProduce"]
         return False
 
-    # 必须满足 unit_type ∈ {ALL_UNITS}，如果不在范围内请转换到范围呢
-    # 返回值为waitId，可以通过waitId查询生产是否完成
     def produce_units(self, unit_type: str, quantity: int):
+        # Start production of a specified quantity of units of a given type
         data = {"units": [{"unit_type": unit_type, "quantity": quantity}]}
         response = self._send_request('start_production', data)
         try:
@@ -66,14 +80,14 @@ class GameAPI:
             print("Error in produce_units ,Response:")
             print(response)
 
-    # 传入waitId，可以查询这个等待事件是否完成，返回值为bool
-    # 目前只有生产
     def is_ready(self, waitId: int):
+        # Check if a production or wait event is complete
         data = {"waitId": waitId}
         response = self._send_request('query_wait_info', data)
         return response["status"]
 
     def wait(self, waitId: int, maxWaitTime: float = 20.0):
+        # Wait for a production or wait event to complete, with a maximum wait time
         data = {"waitId": waitId}
         response = self._send_request('query_wait_info', data)
         waitTime = .0
@@ -92,6 +106,7 @@ class GameAPI:
         return True
 
     def move_units_by_location(self, actors, location, attackmove=False):
+        # Move units to a specific location, optionally using attack move
         data = {
             "targets": {"actorId": [actor.actor_id for actor in actors]},
             "location": location.to_dict(),
@@ -100,6 +115,7 @@ class GameAPI:
         return self._send_request('move_actor', data)
 
     def move_units_by_direction(self, actors, direction, distance):
+        # Move units in a specified direction by a certain distance
         data = {
             "targets": {"actorId": [actor.actor_id for actor in actors]},
             "direction": direction,
@@ -108,6 +124,7 @@ class GameAPI:
         return self._send_request('move_actor', data)
 
     def move_units_by_path(self, actors, path: list[Location]):
+        # Move units along a specified path
         if not path:
             return
         data = {
@@ -117,17 +134,12 @@ class GameAPI:
         return self._send_request('move_actor', data)
 
     def select_units(self, query_params):
+        # Select units based on query parameters
         data = {"targets": query_params.to_dict()}
         return self._send_request('select_unit', data)
 
     def form_group(self, actors, group_id):
-        data = {
-            "targets": {"actorId": [actor.actor_id for actor in actors]},
-            "groupId": group_id
-        }
-        return self._send_request('form_group', data)
-
-    def form_group(self, actors, group_id):
+        # Form a group with specified actors and group ID
         data = {
             "targets": {"actorId": [actor.actor_id for actor in actors]},
             "groupId": group_id
@@ -135,6 +147,7 @@ class GameAPI:
         return self._send_request('form_group', data)
 
     def query_actor(self, query_params):
+        # Query information about actors based on query parameters
         data = {"targets": query_params.to_dict()}
         response = self._send_request('query_actor', data)
         actors = []
@@ -156,6 +169,7 @@ class GameAPI:
         return actors
 
     def find_path(self, actors, destination, method):
+        # Find a path for actors to a destination using a specified method
         data = {
             "targets": {"actorId": [actor.actor_id for actor in actors]},
             "destination": destination.to_dict(),
@@ -173,12 +187,14 @@ class GameAPI:
             return []
 
     def get_actor(self, actor_id):
+        # Retrieve an actor by ID and update its details
         a = Actor(actor_id)
         if self.update_actor(a):
             return a
         return None
 
     def update_actor(self, actor) -> bool:
+        # Update the details of an actor
         data = {"targets": {"actorId":  [actor.actor_id]}}
         response = self._send_request('query_actor', data)
         if response is None:
@@ -194,27 +210,27 @@ class GameAPI:
             print(response)
             return False
 
-
     def deploy_units(self, actors: List[Actor]) -> Optional[int]:
+        # Deploy units and return a wait ID if successful
         data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
         response = self._send_request('deploy', data)
         return response.get('waitId') if response else None
 
-
     def move_camera_to(self, actor: Actor) -> dict:
+        # Move the camera to focus on a specific actor
         data = {"actorId": actor.actor_id}
         return self._send_request('view', data)
 
-    #占领
     def occupy_units(self, occupiers: List[Actor], targets: List[Actor]) -> dict:
+        # Occupy target units with specified occupiers
         data = {
             "occupiers": {"actorId": [actor.actor_id for actor in occupiers]},
             "targets": {"actorId": [target.actor_id for target in targets]}
         }
         return self._send_request('occupy', data)
 
-    #攻击指令，攻击移动，只会攻击路径旁的战斗单位，不会攻击建筑，因此攻击建筑，或者具体指定攻击某个人，需要用这个，但目标必须是我当前可见的Actor
     def attack_target(self, attacker: Actor, target: Actor) -> bool:
+        # Command an actor to attack a target
         data = {
             "attackers": {"actorId": [attacker.actor_id]},
             "targets": {"actorId": [target.actor_id] }
@@ -225,41 +241,41 @@ class GameAPI:
         except:
             return False
 
-    # 修复车辆或建筑，都可以使用这个修复
     def repair_units(self, actors: List[Actor]) -> Optional[int]:
+        # Repair specified units
         data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
         return self._send_request('repair', data)
 
-
     def stop(self, actors: List[Actor]) -> dict:
+        # Stop specified units
         data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
         return self._send_request('stop', data)
 
-
     def visible_query(self, location: Location) -> bool:
+        # Query if a location is visible
         data = {"location": location.to_dict()}
         response = self._send_request('fog_query', data)
         return response.get('IsVisible', False) if response else False
 
-
     def explorer_query(self, location: Location) -> bool:
+        # Query if a location has been explored
         data = {"location": location.to_dict()}
         response = self._send_request('fog_query', data)
         return response.get('IsExplored', False) if response else False
 
-    # 获取这些传入Actor攻击范围内的所有Target
     def unit_range_query(self, actors: List[Actor]) -> List[int]:
+        # Get all targets within the attack range of specified units
         data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
         response = self._send_request('unit_range_query', data)
         return response.get('actors', []) if response else []
 
-
     def unit_attribute_query(self, actors: List[Actor]) -> dict:
+        # Query attributes of specified units
         data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
         return self._send_request('unit_attribute_query', data)
 
-
     def map_query(self) -> MapQueryResult:
+        # Query the map information
         response = self._send_request('map_query', {})
         if not response:
             raise ValueError("Failed to retrieve map data.")
@@ -276,6 +292,7 @@ class GameAPI:
         )
 
     def player_base_info_query(self) -> PlayerBaseInfo:
+        # Query the player's base information
         response = self._send_request('player_baseinfo_query', {})
         if not response:
             raise ValueError("Failed to retrieve player base information.")
@@ -288,8 +305,8 @@ class GameAPI:
             PowerProvided=response.get('PowerProvided', 0)
         )
 
-    # 查询当前玩家看到的屏幕信息，非常关键的一个接口，可以用来判断屏幕上的Actor是否在屏幕上，以及鼠标位置
     def screen_info_query(self) -> ScreenInfoResult:
+        # Query the current screen information
         response = self._send_request('screen_info_query', {})
         if not response:
             raise ValueError("Failed to retrieve screen info data.")
