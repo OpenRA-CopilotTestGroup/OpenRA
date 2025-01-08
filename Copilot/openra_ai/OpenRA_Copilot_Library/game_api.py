@@ -195,10 +195,9 @@ class GameAPI:
             return False
 
 
-    def deploy_units(self, actors: List[Actor]) -> Optional[int]:
+    def deploy_units(self, actors: List[Actor]) -> dict:
         data = {"targets": {"actorId": [actor.actor_id for actor in actors]}}
-        response = self._send_request('deploy', data)
-        return response.get('waitId') if response else None
+        return self._send_request('deploy', data)
 
 
     def move_camera_to(self, actor: Actor) -> dict:

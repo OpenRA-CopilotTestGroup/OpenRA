@@ -12,6 +12,8 @@ from OpenRA_Copilot_Library import *
 import time
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
+import platform
+
 
 # from openai import client
 from openai import OpenAI
@@ -22,7 +24,34 @@ start_time = time.perf_counter()
 log_directory = "Logs"
 os.makedirs(log_directory, exist_ok=True)
 
+device_name = platform.node()
 current_time = datetime.now().strftime("%Y%m%d%H%M%S")
+
+prompt_path = os.path.join("./prompt", device_name, current_time)
+prompt_counter = 0
+
+
+def save_prompt(static_prompt: str, dynamic_prompt: str, player_prompt: str, answer: str):
+    global prompt_counter
+
+    if prompt_counter == 0:
+        os.makedirs(prompt_path, exist_ok=True)
+
+    prompt_counter += 1
+
+    base_file_prefix = os.path.join(prompt_path, f"{device_name}_{current_time}_{prompt_counter}")
+    base_file_suffix = ".txt"
+
+    with open(base_file_prefix + 'static_prompt'+base_file_suffix, 'w', encoding='utf-8') as file:
+        file.write(static_prompt)
+    with open(base_file_prefix + 'dynamic_prompt'+base_file_suffix, 'w', encoding='utf-8') as file:
+        file.write(dynamic_prompt)
+    with open(base_file_prefix + 'player_prompt'+base_file_suffix, 'w', encoding='utf-8') as file:
+        file.write(player_prompt)
+    with open(base_file_prefix + 'answer'+base_file_suffix, 'w', encoding='utf-8') as file:
+        file.write(answer)
+
+
 log_filename = os.path.join(log_directory, f"{current_time}.log")
 
 
@@ -32,7 +61,7 @@ def print_log(content):
 
     log_entry = f"COPILOT LOG{formatted_elapsed_time}: {content}\n"
 
-    with open(log_filename, "a") as log_file:
+    with open(log_filename, "a", encoding='utf-8') as log_file:
         log_file.write(log_entry)
 
 
@@ -69,7 +98,7 @@ MEMORY = "无"
 api = OpenRA.GameAPI("localhost")
 
 
-def make_prompt(no_sample_prompt=False):
+def make_sys_prompt(no_sample_prompt=False):
 
     config_path = os.path.join(os.path.dirname(__file__), 'config.yaml')
 
@@ -116,7 +145,8 @@ def make_prompt(no_sample_prompt=False):
                         print(f"Skipping {filename} due to ignore mark.")
                     code_content = file.read()
 
-                sample_code += f"{sample_index}. {filename}\n<code>{code_content}</code>\n\n"
+                sample_code += f"{sample_index}. {
+                    filename}\n<code>{code_content}</code>\n\n"
                 sample_index += 1
 
     current_time = time.perf_counter() - start_time
@@ -134,9 +164,10 @@ def make_prompt(no_sample_prompt=False):
     )
     screen_units_str = ""
     for unit in visible_units:
-        screen_units_str += f"单位ID={unit.actor_id}, 阵营= {unit.faction}, 类型={unit.type}, 位置=({unit.position.x}, {unit.position.y})\n"
+        screen_units_str += f"单位ID={unit.actor_id}, 阵营= {unit.faction}, 类型={
+            unit.type}, 位置=({unit.position.x}, {unit.position.y})\n"
 
-    prompt = f"""
+    static_prompt = f"""
 你是 OpenRA（红色警戒）游戏的战略AI指挥副官。你需要根据玩家的指示来辅助玩家进行游戏，具体来说，你需要输出python代码，使用python的OpenRA库与游戏交互，我们会执行你输出的代码
 
 prompt将分为6个部分：
@@ -174,8 +205,8 @@ ALL_UNITS = {ALL_UNITS}
 
 生成的代码必须封装在 <code> 和 </code> 标签对中。生成的代码应当是可执行的。API 可以从 <code> 标签中提取代码并执行。尝试使代码逻辑尽可能简单，并尽量避免使用 time.sleep 来等待某些操作完成。
 
-{' ' if no_sample_prompt else '以下是一些示例代码：' + sample_code}
-
+{' ' if no_sample_prompt else '以下是一些示例代码：' + sample_code}"""
+    dynamic_prompt = f"""
 prompt part 2:当前正在执行的内容，这些都是正在运行的，你之前的代码
 无
 prompt part 3:你和玩家之前的历史对话
@@ -189,12 +220,13 @@ prompt part 5:目前游戏的基本信息
 prompt part 6:当前的时间戳
 当前是运行的第："{formatted_time}"秒
     """
+    prompt = static_prompt + dynamic_prompt
     print_log(f"prompt:\n{prompt}\n")
-    return prompt
+    return static_prompt, dynamic_prompt
 
 
 CACHED_PREVIOUS_PROMPTS = []
-MAX_CACHED_PROMPTS = 0
+MAX_CACHED_PROMPTS = 2
 
 
 def create_tag_regex(tag_name):
@@ -222,10 +254,11 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui=None, no_sample_pro
         print_log('prompt should not be None')
         return
     messages = []
+    static_sys_prompt, dynamic_sys_prompt = make_sys_prompt(no_sample_prompt)
     messages.append(
-        {"role": "system", "content": make_prompt(no_sample_prompt)})
-    # for previous_prompt in CACHED_PREVIOUS_PROMPTS:
-    #     messages.append(previous_prompt)
+        {"role": "system", "content": static_sys_prompt + dynamic_sys_prompt})
+    for previous_prompt in CACHED_PREVIOUS_PROMPTS:
+        messages.append(previous_prompt)
     messages.append({"role": "user", "content": prompt})
 
     print_log(f'Full Promt:\n{messages}\n')
@@ -260,27 +293,12 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui=None, no_sample_pro
             gui.set_memory_content(MEMORY)
 
     if code_match:
+
+        save_prompt(static_sys_prompt, dynamic_sys_prompt, prompt, completion.content)
+
         executable = code_match.group(1)
         print(f'executable={executable}')
         print_log(f'executable={executable}')
-
-        # def done_callback(future):
-        #     if gui and plan:
-        #         error = future.result()
-        #         if error:
-        #             gui.update_plan_item_status(plan, "失败")
-        #         else:
-        #             gui.update_plan_item_status(plan, "已完成")
-        #     if gui and plan:
-        #         try:
-        #             future.result()
-        #             print("Task completed successfully")
-        #             gui.update_plan_item_status(plan, "已完成")
-        #         except Exception as e:
-        #             print("Task failed with exception:")
-        #             traceback.print_exc()
-        #             gui.update_plan_item_status(plan, "失败")
-        #             gui.add_ai_dialog(e.__traceback__)
 
         class GuiOutput:
             def __init__(self, gui):
@@ -291,7 +309,7 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui=None, no_sample_pro
                     self.gui.add_ai_dialog(message.strip(), False)
 
             def flush(self):
-                pass  # 保留方法以符合 `file-like` 对象的接口
+                pass
 
         def execute(command):
             try:
@@ -313,28 +331,22 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui=None, no_sample_pro
                     error_message = traceback.format_exception_only(type(e), e)
                     last_line = "".join(error_message).strip()
                     gui.add_ai_dialog(f"错误信息：{last_line}", False)
-            finally:
-                sys.stdout = old_stdout
-                sys.stderr = old_stderr
 
         future = executor.submit(execute, executable)
-        # future.add_done_callback(done_callback)
-        # threading太卡了，换一个
-        # thread = threading.Thread(target=execute, args=(executable,))
-        # thread.start()
     else:
         print(f'failed to find matched code\n{completion.content}\n')
-    # if len(CACHED_PREVIOUS_PROMPTS) >= MAX_CACHED_PROMPTS:
-    #     if CACHED_PREVIOUS_PROMPTS:
-    #         CACHED_PREVIOUS_PROMPTS.pop(0)
-    #     if CACHED_PREVIOUS_PROMPTS:
-    #         CACHED_PREVIOUS_PROMPTS.pop(0)
-    # if len(CACHED_PREVIOUS_PROMPTS) < MAX_CACHED_PROMPTS:
-    #     CACHED_PREVIOUS_PROMPTS.append({"role": "user", "content": prompt})
-    #     CACHED_PREVIOUS_PROMPTS.append({"role": "assistant", "content": completion.content})
+
+    if len(CACHED_PREVIOUS_PROMPTS) >= MAX_CACHED_PROMPTS:
+        if CACHED_PREVIOUS_PROMPTS:
+            CACHED_PREVIOUS_PROMPTS.pop(0)
+        if CACHED_PREVIOUS_PROMPTS:
+            CACHED_PREVIOUS_PROMPTS.pop(0)
+    if len(CACHED_PREVIOUS_PROMPTS) < MAX_CACHED_PROMPTS:
+        CACHED_PREVIOUS_PROMPTS.append({"role": "user", "content": prompt})
+        CACHED_PREVIOUS_PROMPTS.append({"role": "assistant", "content": completion.content})
 
 
 # 直接运行这个文件，这个文件会输出一个prompt，你可以直接复制到openai的playground里面进行测试
 if __name__ == "__main__":
-    prompt = make_prompt()
+    prompt = make_sys_prompt()
     print(prompt)

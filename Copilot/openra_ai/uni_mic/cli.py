@@ -151,19 +151,17 @@ def main(**kwargs):
         input=InputConfig(**{k: v for k, v in kwargs.items() if k in asdict(InputConfig())}),
         starter=StarterConfig(**{k: v for k, v in kwargs.items() if k in asdict(StarterConfig())})
     )
-    
-    logger.debug(f"Configuration: {config.to_dict()}")
 
     global GPTMODEL
     global GUI_WINDOW
     global GUI_APP
     global NO_SAMPLE_PROMPT
     global NO_TEXT_CALLBACK
-    
+
     GPTMODEL = config.starter.gptmodel
     NO_SAMPLE_PROMPT = config.starter.no_sample
     NO_TEXT_CALLBACK = config.starter.no_text_callback
-    
+
     if config.starter.gui:
         logger.info("Initializing GUI mode")
 

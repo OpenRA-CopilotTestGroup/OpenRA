@@ -24,7 +24,7 @@ def ensure_enough_power(target_building):
     仅在必须时（Power < 0）补充，否则会浪费生产周期。
     """
     info = api.player_base_info_query()
-    if info.Power < 0:  # 剩余电力不足
+    if info.Power <= 0:  # 剩余电力不足
         # 如果能直接造核电厂，就造核电厂，否则先造电厂
         if api.able_to_produce("核电厂"):
             p = api.produce_units("核电厂", 1)

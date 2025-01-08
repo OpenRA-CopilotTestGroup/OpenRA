@@ -32,7 +32,7 @@ class StarterConfig:
     logging_level: str = "info"
     verbose: bool = False
     gptmodel: str = "gpt-4o"
-    no_sample: bool = True
+    no_sample: bool = False
     no_text_callback: bool = False
 
 @dataclass
@@ -40,37 +40,6 @@ class AppConfig:
     asr: 'ASRConfig' = field(default_factory=lambda: ASRConfig())
     input: 'InputConfig' = field(default_factory=lambda: InputConfig())
     starter: 'StarterConfig' = field(default_factory=lambda: StarterConfig())
-    
-    # following classmethods are not used by now
-    @classmethod
-    def from_dict(cls, config_dict: dict) -> 'AppConfig':
-        asr_config = ASRConfig(**{k: v for k, v in config_dict.items()
-                                if hasattr(ASRConfig, k)})
-        input_config = InputConfig(**{k: v for k, v in config_dict.items()
-                                    if hasattr(InputConfig, k)})
-
-        main_config_keys = {'verbose', 'logging_level', 'gui'}
-        main_config = {k: config_dict[k] for k in main_config_keys
-                      if k in config_dict}
-
-        return cls(
-            asr=asr_config,
-            input=input_config,
-            **main_config
-        )
-
-    @classmethod
-    def from_json(cls, json_file: str) -> 'AppConfig':
-        with open(json_file, 'r', encoding='utf-8') as f:
-            config_dict = json.load(f)
-        return cls.from_dict(config_dict)
-
-    def to_dict(self) -> dict:
-        return {
-            **vars(self.asr),
-            **vars(self.input),
-            **vars(self.starter)
-        }
 
 def add_options(dataclass_type):
     def decorator(f):
