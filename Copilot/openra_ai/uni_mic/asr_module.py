@@ -5,7 +5,7 @@ import os
 import requests
 import numpy as np
 import time
-import tempfile
+import wave
 from openai import OpenAI
 from .utils import get_logger
 from .config import ASRConfig
@@ -114,6 +114,7 @@ class FunASRRemoteASR(ASRModule):
 class WhisperAPIASR(ASRModule):
     def __init__(self, config: ASRConfig = ASRConfig()):
         self.api_key = config.api_key
+        self.language = config.language
         self.model = "whisper-1"
         self.response_format = "text"
         self.logger = get_logger("whisper_api_asr", "info")
@@ -131,19 +132,28 @@ class WhisperAPIASR(ASRModule):
 
     def transcribe(self, audio_data: np.ndarray):
         try:
-            with tempfile.NamedTemporaryFile(suffix='.mp3', delete=True) as temp_audio:
-                temp_audio.write(audio_data.tobytes())
-                temp_audio.flush()
+            timestamp = int(time.time()*1000)
+            pcm_data = (audio_data*32768).astype("int16").tobytes()
+            wav_file_path = f"temp_audio_{timestamp}.wav"
+            with wave.open(wav_file_path, "wb") as wav_file:
+                wav_file.setnchannels(1)
+                wav_file.setsampwidth(2)
+                wav_file.setframerate(16000)
+                wav_file.writeframes(pcm_data)
 
-                self.logger.info(f"WhisperAPIASR -> Transcribing audio with {self.model}...")
+            self.logger.info(f"Transcribing audio with {self.model}...")
 
+            with open(wav_file_path, "rb") as audio_file:
                 transcription = self.client.audio.transcriptions.create(
                     model=self.model,
-                    file=temp_audio,
+                    language=self.language,
+                    file=audio_file,
                     response_format=self.response_format,
                 )
 
-            return transcription.text
+            os.remove(wav_file_path)
+
+            return transcription
         except Exception as e:
             self.logger.error(f"WhisperAPIASR -> Error: {e}")
             return ""

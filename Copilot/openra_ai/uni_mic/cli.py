@@ -172,6 +172,9 @@ def main(**kwargs):
     NO_SAMPLE_PROMPT = config.starter.no_sample
     NO_TEXT_CALLBACK = config.starter.no_text_callback
 
+    if config.asr.api_key is None and config.asr.remote_type == "whisper":
+        config.asr.api_key = os.getenv("OPENAI_API_KEY")
+    
     if config.starter.gui:
         logger.info("Initializing GUI mode")
 
