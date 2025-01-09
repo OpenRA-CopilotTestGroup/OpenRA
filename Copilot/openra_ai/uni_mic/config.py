@@ -6,11 +6,13 @@ import click
 
 @dataclass
 class ASRConfig:
-    model: str = "large"
-    device: str = "mps"
+    model: str = "base"
+    device: str = "cpu"
     language: str = "zh"
     initial_prompt: str = "以下是中文的普通话句子。"
+    api_key: str = None
     remote_asr: bool = False
+    remote_type: str = "funasr"
     remote_asr_url: str = "http://digisky.ananthe.party:5286/transcribe"
     hallucinate_threshold: int = 400
     phrase_time_limit: int = 10

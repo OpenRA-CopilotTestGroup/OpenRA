@@ -145,8 +145,7 @@ def make_sys_prompt(no_sample_prompt=False):
                         print(f"Skipping {filename} due to ignore mark.")
                     code_content = file.read()
 
-                sample_code += f"{sample_index}. {
-                    filename}\n<code>{code_content}</code>\n\n"
+                sample_code += f"{sample_index}.{filename}\n<code>{code_content}</code>\n\n"
                 sample_index += 1
 
     current_time = time.perf_counter() - start_time
@@ -164,8 +163,10 @@ def make_sys_prompt(no_sample_prompt=False):
     )
     screen_units_str = ""
     for unit in visible_units:
-        screen_units_str += f"单位ID={unit.actor_id}, 阵营= {unit.faction}, 类型={
-            unit.type}, 位置=({unit.position.x}, {unit.position.y})\n"
+        screen_units_str += (
+            f"单位ID={unit.actor_id}, 阵营= {unit.faction}, 类型={unit.type}"
+            f", 位置=({unit.position.x}, {unit.position.y})\n"
+        )
 
     static_prompt = f"""
 你是 OpenRA（红色警戒）游戏的战略AI指挥副官。你需要根据玩家的指示来辅助玩家进行游戏，具体来说，你需要输出python代码，使用python的OpenRA库与游戏交互，我们会执行你输出的代码

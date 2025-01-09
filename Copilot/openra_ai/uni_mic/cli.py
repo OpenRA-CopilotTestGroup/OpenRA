@@ -14,7 +14,7 @@ from .gui import create_ai_assistant_ui_instance
 from .audio_listener import AudioListener
 from .utils import get_logger
 from .asr_manager import ASRManager
-from .asr_module import WhisperASR, FunASRRemoteASR
+from .asr_module import WhisperASR, FunASRRemoteASR, WhisperAPIASR
 from .config import AppConfig, ASRConfig, InputConfig, StarterConfig
 from .config import add_options
 from dataclasses import asdict
@@ -92,7 +92,17 @@ def handle_mic_input(config: AppConfig):
     stop_event = threading.Event()
 
     try:
-        asr_module = FunASRRemoteASR(config.asr) if config.asr.remote_asr else WhisperASR(config.asr)
+        if config.asr.remote_asr:
+            if config.asr.remote_type == "whisper":
+                asr_module = WhisperAPIASR(config.asr)
+            elif config.asr.remote_type == "funasr":
+                asr_module = FunASRRemoteASR(config.asr)
+            else:
+                logger.error(
+                    f"Remote ASR type {config.asr.remote_type} not supported")
+                return
+        else:
+            asr_module = WhisperASR(config.asr)
         asr_manager = ASRManager(
             asr_module, audio_queue, result_queue, stop_event)
         audio_listener = AudioListener(asr_manager, stop_event)
@@ -134,7 +144,7 @@ def handle_mic_input(config: AppConfig):
                 logger.info("Saving audio file")
                 pass
     except Exception as e:
-        logger.error(f"Error in microphone input: {str(e)}")
+        logger.error(f"Error: {str(e)}")
 
 
 @click.command()
