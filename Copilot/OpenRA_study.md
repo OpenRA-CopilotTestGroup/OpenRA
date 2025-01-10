@@ -34,6 +34,22 @@ a.info
 
 TraitInfo是在Yaml中配置的，相同兵种的同一个Trait的TraitInfo相同
 
+这样拿组件：
+
+```
+a.TraitOrDefault<xxx>()
+a.Trait<xxx>()
+```
+
+这样判有没有组件以及拿Info：
+
+```
+a.Info.HasTraitInfo<xxx>()
+a.Info.TraitInfo<xxx>() 
+```
+
+
+
 ## Order和Activity
 
 Order是指令，会被解析为Activity

@@ -54,6 +54,10 @@ namespace OpenRA.Mods.Common.Commands
 			else if (faction == "敌方" || faction == "敌人" || faction == "对面" || faction == "他的" || faction == "他")
 				actors = world.Actors.Where(a => a.Owner != player && a.Owner.IsBot && a.OccupiesSpace != null);
 			else
+				if (faction == "中立")
+				actors = world.Actors.Where(a => (a.Owner == null || (a.Owner != player && !a.Owner.IsBot)) && a.OccupiesSpace != null);
+			else
+				//  throw new ArgumentException($"Invalid faction: {faction}");
 				//  throw new ArgumentException($"Invalid faction: {faction}");
 				actors = world.Actors.Where(a => a.OccupiesSpace != null);
 
@@ -297,16 +301,24 @@ namespace OpenRA.Mods.Common.Commands
 			var sum = new CPos(0, 0);
 
 			var actorsInfo = targetActors
-				.ConvertAll(actor => new JObject
+				.ConvertAll(actor =>
 				{
-					["id"] = actor.ActorID,
-					["type"] = actor.Info.Name,
-					["faction"] = actor.Owner == player ? "己方" : "敌方",
-					["position"] = new JObject
+					var hashealth = actor.Info.HasTraitInfo<HealthInfo>();
+					var health = actor.TraitOrDefault<Health>();
+					return new JObject
 					{
-						["x"] = actor.Location.X,
-						["y"] = actor.Location.Y
-					}
+						["id"] = actor.ActorID,
+						["type"] = actor.Info.Name,
+						["faction"] = actor.Owner == player ? "己方" : (actor.Owner != null && actor.Owner.IsBot ? "敌方" : "中立"),
+						["hp"] = hashealth ? health.HP : -1,
+						["maxHp"] = hashealth ? health.MaxHP : -1,
+						["isDead"] = hashealth && health.IsDead,
+						["position"] = new JObject
+						{
+							["x"] = actor.Location.X,
+							["y"] = actor.Location.Y
+						}
+					};
 				});
 
 			var result = new JObject

@@ -34,16 +34,19 @@ prompt_counter = 0
 def save_prompt(static_prompt: str, dynamic_prompt: str, player_prompt: str, answer: str):
     global prompt_counter
 
-    if prompt_counter == 0:
-        os.makedirs(prompt_path, exist_ok=True)
-
-    prompt_counter += 1
-
     base_file_prefix = os.path.join(prompt_path, f"{device_name}_{current_time}_{prompt_counter}")
     base_file_suffix = ".txt"
 
-    with open(base_file_prefix + 'static_prompt'+base_file_suffix, 'w', encoding='utf-8') as file:
-        file.write(static_prompt)
+    if prompt_counter == 0:
+        os.makedirs(prompt_path, exist_ok=True)
+        with open(base_file_prefix + 'static_prompt' + base_file_suffix, 'w', encoding='utf-8') as file:
+            file.write(static_prompt)
+
+    prompt_counter += 1
+
+
+
+
     with open(base_file_prefix + 'dynamic_prompt'+base_file_suffix, 'w', encoding='utf-8') as file:
         file.write(dynamic_prompt)
     with open(base_file_prefix + 'player_prompt'+base_file_suffix, 'w', encoding='utf-8') as file:
@@ -121,8 +124,11 @@ def make_sys_prompt(no_sample_prompt=False):
 
     gamelib_dir = os.path.abspath(os.path.join(
         os.path.dirname(__file__), '../OpenRA_Copilot_Library'))
+    api_prompt_path = os.path.join(gamelib_dir, 'OpenRA_Promt.py')
     api_path = os.path.join(gamelib_dir, 'game_api.py')
     api_struct_path = os.path.join(gamelib_dir, 'models.py')
+    with open(api_prompt_path, 'r', encoding='utf-8') as file:
+        api_prompt_content = file.read()
     with open(api_path, 'r', encoding='utf-8') as file:
         api_content = file.read()
     with open(api_struct_path, 'r', encoding='utf-8') as file:
@@ -155,10 +161,10 @@ def make_sys_prompt(no_sample_prompt=False):
 
     visible_units = api.query_actor(
         TargetsQueryParam(
-            type=[],  # 查询所有类型的单位
-            faction=["任意"],  # 查询所有阵营的单位
-            range="screen",  # 查询屏幕范围内的单位
-            restrain=[{"visible": True}]  # 必须可见
+            type=[],
+            faction=["任意"],
+            range="screen",
+            restrain=[{"visible": True}]
         )
     )
     screen_units_str = ""
@@ -198,15 +204,17 @@ ALL_RELATIVES = {ALL_RELATIVES}
 ALL_BUILDINGS = {ALL_BUILDINGS}
 ALL_UNITS = {ALL_UNITS}
 
-接口如下所示： api_struct: <code> {api_struct_content} </code> api_define: <code> {api_content} </code>
+接口结构体和api如下所示：
+{api_prompt_content}
 
 给定一个复合命令，尝试使用以上列出的基本 API 操作组合生成带有控制结构的 Python 代码，遇到意料外的情况，可以用raise报错
 
 对于给定的复合命令： 如果命令中存在拼写错误，请尝试修正。如果某个命令缺少生成正确基本 API 操作所需的信息，请尝试从先前的命令中补充这些信息。如果参数在 API 调用中有一些要求，但该参数不满足要求，请将参数转换为满足要求的格式。如果某些部分没有合理地反映某些基本 API 操作，或者没有实际意义，请忽略这些部分，不为它们生成 Python 代码。生成的代码应考虑先前的命令和在游戏中运行的代码。这意味着游戏状态可能会因先前的命令和代码的执行而改变。但我们不应该为先前的命令生成代码，只为当前命令生成代码。
 
-生成的代码必须封装在 <code> 和 </code> 标签对中。生成的代码应当是可执行的。API 可以从 <code> 标签中提取代码并执行。尝试使代码逻辑尽可能简单，并尽量避免使用 time.sleep 来等待某些操作完成。
+生成的代码必须封装在 <code> 和 </code> 标签对中。生成的代码应当是可执行的。API 可以从 <code> 标签中提取代码并执行。你不需要生成import部分，尝试使代码逻辑尽可能完善，避免对未知信息的猜测，尽量通过api推敲出准确的逻辑
 
 {' ' if no_sample_prompt else '以下是一些示例代码：' + sample_code}"""
+
     dynamic_prompt = f"""
 prompt part 2:当前正在执行的内容，这些都是正在运行的，你之前的代码
 无
