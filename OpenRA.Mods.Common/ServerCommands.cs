@@ -10,7 +10,6 @@ using OpenRA.Mods.Common.Activities;
 using OpenRA.Mods.Common.Traits;
 using OpenRA.Mods.Common.Widgets;
 using OpenRA.Traits;
-using static OpenRA.GameInformation;
 namespace OpenRA.Mods.Common.Commands
 {
 	[TraitLocation(SystemActors.World)]
@@ -31,6 +30,25 @@ namespace OpenRA.Mods.Common.Commands
 					if (actor != null)
 					{
 						result.Add(actor);
+					}
+				}
+
+				var restrainss = targets["restrain"]?.ToList();
+				if (restrainss != null)
+				{
+					foreach (var restrain in restrainss)
+					{
+						var visible = restrain["visible"]?.ToObject<bool>();
+						if (visible == true)
+						{
+							result = result.Where(a =>
+							{
+								var tar = Target.FromActor(a);
+								tar.Recalculate(player.PlayerActor.Owner, out var targetIsHiddenActor);
+								return !targetIsHiddenActor && a.CanBeViewedByPlayer(player.PlayerActor.Owner);
+							})
+							.ToList();
+						}
 					}
 				}
 
@@ -126,7 +144,7 @@ namespace OpenRA.Mods.Common.Commands
 						{
 							var tar = Target.FromActor(a);
 							tar.Recalculate(player.PlayerActor.Owner, out var targetIsHiddenActor);
-							return !targetIsHiddenActor;
+							return !targetIsHiddenActor && a.CanBeViewedByPlayer(player.PlayerActor.Owner);
 						}
 						);
 					}
@@ -910,7 +928,7 @@ namespace OpenRA.Mods.Common.Commands
 			const bool Queued = false;
 			var tar = Target.FromActor(target);
 			tar.Recalculate(attacker.Owner, out var targetIsHiddenActor);
-			if (targetIsHiddenActor)
+			if (targetIsHiddenActor || !target.CanBeViewedByPlayer(attacker.Owner))
 				throw new NotImplementedException("Target is hidden now");
 			world.IssueOrder(new Order("Attack", attacker, tar, Queued));
 

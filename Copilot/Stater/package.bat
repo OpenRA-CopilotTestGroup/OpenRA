@@ -1,1 +1,0 @@
-pyinstaller --onefile --distpath . --clean Starter.py

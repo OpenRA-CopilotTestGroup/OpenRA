@@ -15,7 +15,7 @@ import pygetwindow as gw
 import ctypes
 
 CONFIG_FILE = "settings.ini"
-VERSION = "0.1.5"
+VERSION = "0.2.0"
 
 
 def load_settings():
@@ -75,40 +75,6 @@ def install_python():
         messagebox.showinfo("信息", "Python 环境已安装并设置完成")
     else:
         messagebox.showerror("错误", "找不到Python安装包")
-
-
-def get_system_proxy():
-    try:
-        registry_path = r"Software\Microsoft\Windows\CurrentVersion\Internet Settings"
-        reg_key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, registry_path)
-
-        proxy_enabled, regtype = winreg.QueryValueEx(reg_key, "ProxyEnable")
-        proxy_server, regtype = winreg.QueryValueEx(reg_key, "ProxyServer")
-
-        if proxy_enabled:
-
-            if ':' in proxy_server:
-                return proxy_server.split(":")[-1]
-            return None
-        else:
-            return None
-    except FileNotFoundError:
-        return None
-    finally:
-        winreg.CloseKey(reg_key)
-
-
-def get_system_proxy_unix():
-    http_proxy = os.getenv("http_proxy")
-    https_proxy = os.getenv("https_proxy")
-
-    if http_proxy or https_proxy:
-
-        if http_proxy and ':' in http_proxy:
-            return http_proxy.split(":")[-1]
-        elif https_proxy and ':' in https_proxy:
-            return https_proxy.split(":")[-1]
-    return None
 
 
 def can_access_google():
@@ -201,22 +167,28 @@ def start_python_script(Alert=True):
         os.environ['DASHSCOPE_API_KEY'] = cozyvoice_key
     set_proxy_env(proxy_port)
     mic_mode = selected_mic_version.get()
-    command = [os.path.join("openra_ai", "start.bat")]
+    if package_mode.get():
+        command = ["cmd", "/k", os.path.join("openra_ai", "OpenRA_Copilot.exe")]
+    else:
+        command = [os.path.join("openra_ai", "start.bat")]
 
-    if mic_mode == "手动输入":
-        command.append("--input_mode")
-        command.append("keyboard")
+    command.append("--remote-asr")
+
+    if mic_mode == "whisper":
+        command.append("--remote-type")
+        command.append("whisper")
 
     if not prompt_with_sample.get():
-        command.append("--no_sample")
+        command.append("--no-sample")
+
+    if single_sample.get():
+        command.append("--single-sample")
 
     if srtest_only.get():
-        command.append("--no_text_callback")
+        command.append("--no-text-callback")
 
     command.append("--gptmodel")
     command.append(selected_version.get())
-
-    command.append("--gui")
 
     subprocess.Popen(command, env=os.environ,
                      creationflags=subprocess.CREATE_NEW_CONSOLE)
@@ -416,7 +388,7 @@ def download_and_replace(download_url):
 
 
 def replace_and_restart(zip_file):
-    result = messagebox.askokcancel("升级确认", "下载完成，确认升级将重启当前进程")
+    result = messagebox.askokcancel("升级确认", "下载完成，确认升级将关闭当前进程")
 
     if result:
         print("继续执行后续操作")
@@ -435,6 +407,8 @@ def replace_and_restart(zip_file):
     with zipfile.ZipFile(zip_file, 'r') as zip_ref:
         zip_ref.extractall(temp_dir)
 
+    os.remove(zip_file)
+
     new_exe_file = os.path.join(temp_dir, "Starter.exe")
 
     if os.path.exists(new_exe_file):
@@ -451,7 +425,7 @@ def run_update_bat(current_process_name, temp_dir):
     bat_content = f"""
         @echo off
         echo 升级中...请勿关闭此窗口
-        timeout /t 3 /nobreak > NUL
+        timeout /t 5 /nobreak > NUL
         mkdir backup
         rmdir /s /q "backup\\build" >nul 2>nul
         rmdir /s /q "backup\\openra_ai" >nul 2>nul
@@ -464,8 +438,10 @@ def run_update_bat(current_process_name, temp_dir):
         move {temp_dir}\\build build
         move {temp_dir}\\openra_ai openra_ai
         rmdir /s /q "{temp_dir}"
-        start "" "{current_process_name}"
         start "" cmd /c del "%~f0"
+        cls
+        echo 升级完成！
+        pause
         """
     with open("update.bat", "w") as f:
         f.write(bat_content)
@@ -503,7 +479,7 @@ terminate_process_by_window_title("OpenRA - Red Alert")
 root = tk.Tk()
 root.title("Copilot-OpenRA启动器" + " v" + VERSION)
 
-root.geometry("350x300")
+root.geometry("350x400")
 root.configure(bg="#f0f0f0")
 
 
@@ -531,8 +507,10 @@ class GridRows:
     OPENAI_KEY = GridConfig(ni(), 2)
     DASHSCOPE_KEY = GridConfig(ni(), 2)
     ASR_SERVER = GridConfig(ni(), 2)
+    EXTRA_STARTPARAM = GridConfig(ni(), 2)
     PROXY_PORT = GridConfig(ni(), 2)
-    CHECKS = GridConfig(ni(), 3)
+    CHECKS = GridConfig(ni(), 2)
+    CHECKS2 = GridConfig(ni(), 2)
     DROPDOWNS = GridConfig(ni(), 3)
     BUTTONS = GridConfig(ni(), 3)
     ONE_CLICK = GridConfig(ni(), 6)
@@ -560,92 +538,119 @@ for col_key, col_value in vars(GridColumns).items():
         root.grid_columnconfigure(
             col_value.index, weight=col_value.weight, uniform="col")
 
-openai_key_label = tk.Label(root, text="OPENAI-KEY:", bg="#f0f0f0")
-openai_key_label.grid(row=GridRows.OPENAI_KEY.index, column=GridColumns.LEFT_PADDING.index,
-                      columnspan=2, padx=(20, 0), pady=5, sticky="w")
 
-openai_key_entry = tk.Entry(root)
-openai_key_entry.grid(row=GridRows.OPENAI_KEY.index, column=GridColumns.LEFT_PADDING.index,
-                      columnspan=3, padx=(120, 10), pady=5, sticky="we")
+def create_labeled_entry(label_text, grid_row, label_columnspan, entry_columnspan, entry_width=None):
+    tk.Label(root, text=label_text, bg="#f0f0f0").grid(
+        row=grid_row.index, column=GridColumns.LEFT_PADDING.index,
+        columnspan=label_columnspan, padx=(20, 0), pady=5, sticky="w"
+    )
+    entry = tk.Entry(
+        root, width=entry_width) if entry_width else tk.Entry(root)
+    entry.grid(
+        row=grid_row.index, column=GridColumns.LEFT_PADDING.index,
+        columnspan=entry_columnspan, padx=(120, 10), pady=5, sticky="we"
+    )
+    return entry
 
-cozy_voice_key_label = tk.Label(root, text="CozyVoice-KEY:", bg="#f0f0f0")
-cozy_voice_key_label.grid(row=GridRows.DASHSCOPE_KEY.index, column=GridColumns.LEFT_PADDING.index,
-                          columnspan=2, padx=(20, 0), pady=5, sticky="w")
+def create_checkbox(text, variable, grid_row, grid_column):
+    checkbox = tk.Checkbutton(
+        root, text=text, variable=variable, compound="right")
+    checkbox.grid(row=grid_row.index, column=grid_column.index,
+                  sticky="w", padx=(15, 15), pady=5)
+    return checkbox
 
-cozy_voice_key_entry = tk.Entry(root)
-cozy_voice_key_entry.grid(row=GridRows.DASHSCOPE_KEY.index, column=GridColumns.LEFT_PADDING.index,
-                          columnspan=3, padx=(120, 10), pady=5, sticky="we")
+def create_button(text, command, grid_row, grid_column, font=None, **grid_options):
+    button = tk.Button(root, text=text, command=command, font=font)
+    button.grid(row=grid_row.index, column=grid_column.index, **grid_options)
+    return button
 
-asr_server_label = tk.Label(root, text="ASR SERVER:", bg="#f0f0f0")
-asr_server_label.grid(row=GridRows.ASR_SERVER.index, column=GridColumns.LEFT_PADDING.index,
-                          columnspan=2, padx=(20, 0), pady=5, sticky="w")
 
-asr_server_entry = tk.Entry(root)
-asr_server_entry.grid(row=GridRows.ASR_SERVER.index, column=GridColumns.LEFT_PADDING.index,
-                          columnspan=3, padx=(120, 10), pady=5, sticky="we")
 
-proxy_port_label = tk.Label(root, text="设置代理端口:", bg="#f0f0f0")
-proxy_port_label.grid(row=GridRows.PROXY_PORT.index, column=GridColumns.LEFT_PADDING.index,
-                      columnspan=2, padx=(20, 0), pady=5, sticky="w")
+# ---------------------参数框 start---------------------
 
-proxy_port_entry = tk.Entry(root, width=6)
-proxy_port_entry.grid(row=GridRows.PROXY_PORT.index, column=GridColumns.LEFT_PADDING.index,
-                      columnspan=2, padx=(120, 10), pady=5, sticky="w")
+openai_key_entry = create_labeled_entry(
+    "OPENAI-KEY:", GridRows.OPENAI_KEY, 2, 3)
 
-button_font = ("Microsoft YaHei", 10)
+cozy_voice_key_entry = create_labeled_entry(
+    "CozyVoice-KEY:", GridRows.DASHSCOPE_KEY, 2, 3)
+
+asr_server_entry = create_labeled_entry(
+    "ASR SERVER:", GridRows.ASR_SERVER, 2, 3)
+
+extra_param_entry = create_labeled_entry(
+    "额外启动参数:", GridRows.EXTRA_STARTPARAM, 2, 3)
+
+proxy_port_entry = create_labeled_entry(
+    "设置代理端口:", GridRows.PROXY_PORT, 2, 2, entry_width=6)
+
+# ---------------------参数框 end---------------------
+
+
+# ---------------------CheckBox start---------------------
+
+prompt_with_sample = tk.BooleanVar(value=True)
+create_checkbox("包含Sample(更贵)", prompt_with_sample,
+                GridRows.CHECKS, GridColumns.CONTENT_LEFT)
+
+srtest_only = tk.BooleanVar()
+create_checkbox("只测试语音识别", srtest_only, GridRows.CHECKS,
+                GridColumns.CONTENT_RIGHT)
+
+package_mode = tk.BooleanVar(value=True)
+create_checkbox("打包模式", package_mode, GridRows.CHECKS2,
+                GridColumns.CONTENT_RIGHT)
+
+single_sample = tk.BooleanVar(value=True)
+create_checkbox("仅单一Sample", single_sample,
+                GridRows.CHECKS2, GridColumns.CONTENT_LEFT)
+
+# ---------------------CheckBox end---------------------
+
+
+# ---------------------下拉框 start---------------------
 
 gpt_versions = ["gpt-4o",
                 "gpt-4o mini", "gpt-o1", "ft:gpt-4o-2024-08-06:edaijia:openra-v1219:Ag4lT9jx"]
 
-prompt_with_sample = tk.BooleanVar(value=True)
+mic_versions = ["whisper", "手动输入", "fun_asr"]
 
-checkbox_sample = tk.Checkbutton(
-    root, text="包含Sample(更贵)", variable=prompt_with_sample, compound="right")
-checkbox_sample.grid(row=GridRows.CHECKS.index,
-              column=GridColumns.CONTENT_LEFT.index, sticky="we", padx=(15, 15), pady=5)
 
-srtest_only = tk.BooleanVar()
+def create_dropdown(root, variable, options, grid_row, grid_column):
+    dropdown = tk.OptionMenu(root, variable, *options)
+    dropdown.grid(row=grid_row.index, column=grid_column.index,
+                  padx=(15, 15), pady=5, sticky="we")
+    return dropdown
 
-checkbox_sample = tk.Checkbutton(
-    root, text="只测试语音识别", variable=srtest_only, compound="right")
-checkbox_sample.grid(row=GridRows.CHECKS.index,
-              column=GridColumns.CONTENT_RIGHT.index, sticky="we", padx=(15, 15), pady=5)
 
 selected_version = StringVar(root)
 selected_version.set("gpt-4o")
-
-dropdown = tk.OptionMenu(root, selected_version, *gpt_versions)
-dropdown.grid(row=GridRows.DROPDOWNS.index,
-              column=GridColumns.CONTENT_LEFT.index, padx=(15, 15), pady=5, sticky="we")
+create_dropdown(
+    root, selected_version, gpt_versions, GridRows.DROPDOWNS, GridColumns.CONTENT_LEFT)
 
 selected_mic_version = StringVar(root)
 selected_mic_version.set("whisper")
+create_dropdown(
+    root, selected_mic_version, mic_versions, GridRows.DROPDOWNS, GridColumns.CONTENT_RIGHT)
 
-mic_versions = ["whisper", "手动输入", "fun_asr"]
+# ---------------------下拉框 end---------------------
 
-dropdown_mic = tk.OptionMenu(root, selected_mic_version, *mic_versions)
-dropdown_mic.grid(row=GridRows.DROPDOWNS.index,
-                  column=GridColumns.CONTENT_RIGHT.index, padx=(15, 15), pady=5, sticky="we")
 
-start_python_button = tk.Button(
-    root, text="启动AI助手", command=start_python_script, font=button_font)
-start_python_button.grid(row=GridRows.BUTTONS.index,
-                         column=GridColumns.CONTENT_RIGHT.index, padx=(15, 15), pady=5, sticky="we")
+# ---------------------按钮 start---------------------
 
-start_openra_button = tk.Button(
-    root, text="启动OpenRA", command=start_openra, font=button_font)
-start_openra_button.grid(row=GridRows.BUTTONS.index,
-                         column=GridColumns.CONTENT_LEFT.index, padx=(15, 15), pady=5, sticky="we")
+button_font = ("Microsoft YaHei", 10)
 
-auto_proxy_button = tk.Button(
-    root, text="自动设置代理端口", command=auto_detect_proxy, font=button_font)
-auto_proxy_button.grid(row=GridRows.PROXY_PORT.index,
-                       column=GridColumns.CONTENT_RIGHT.index, padx=(15, 15), pady=2, sticky="we")
 
-one_click_button = tk.Button(
-    root, text="一键启动！", command=one_click_start, font=("Microsoft YaHei", 18))
-one_click_button.grid(row=GridRows.ONE_CLICK.index,
-                      column=GridColumns.CONTENT_LEFT.index, columnspan=2, pady=10, ipadx=50, ipady=10)
+start_python_button = create_button("启动AI助手", start_python_script, GridRows.BUTTONS,
+                                    GridColumns.CONTENT_RIGHT, font=button_font, padx=(15, 15), pady=5, sticky="we")
+
+start_openra_button = create_button("启动OpenRA", start_openra, GridRows.BUTTONS,
+                                    GridColumns.CONTENT_LEFT, font=button_font, padx=(15, 15), pady=5, sticky="we")
+
+auto_proxy_button = create_button("自动设置代理端口", auto_detect_proxy, GridRows.PROXY_PORT,
+                                  GridColumns.CONTENT_RIGHT, font=button_font, padx=(15, 15), pady=2, sticky="we")
+
+one_click_button = create_button("一键启动！", one_click_start, GridRows.ONE_CLICK, GridColumns.CONTENT_LEFT, font=(
+    "Microsoft YaHei", 18), columnspan=2, pady=10, ipadx=50, ipady=10)
 
 if update_available:
     auto_update_button = tk.Button(
@@ -656,6 +661,8 @@ else:
 
 auto_update_button.grid(row=GridRows.ONE_CLICK.index, rowspan=2,
                         column=GridColumns.CONTENT_RIGHT.index, columnspan=2, padx=(10, 10), pady=(10, 10), sticky="es")
+
+# ---------------------按钮 end---------------------
 
 load_settings()
 
