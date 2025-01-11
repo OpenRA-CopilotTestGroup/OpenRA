@@ -300,7 +300,7 @@ class GameAPI:
             position = Location(
                 response["actors"][0]["position"]["x"], response["actors"][0]["position"]["y"])
             actor.update_details(
-                response["actors"][0]["type"], response["actors"][0]["faction"], position)
+                response["actors"][0]["type"], response["actors"][0]["faction"], position, response["actors"][0]["hp"] * 100 // response["actors"][0]["maxHp"])
             return True
         except:
             print("Error in Update Actor ,Response:")
@@ -347,8 +347,9 @@ class GameAPI:
             "targets": {"actorId": [target.actor_id]}
         }
         try:
-            self._send_request('attack', data)
-            return True
+            response = self._send_request('attack', data)
+            if response is not None:
+                return response["status"] > 0 
         except:
             return False
 
@@ -433,3 +434,132 @@ class GameAPI:
             MousePosition=Location(
                 response['MousePosition']['X'], response['MousePosition']['Y'])
         )
+        
+     # ===== 依赖关系表 =====
+    
+    BUILDING_DEPENDENCIES = {
+        "电厂": [],
+        "兵营": ["电厂"],
+        "矿场": ["电厂"],
+        "车间": ["矿场"],
+        "雷达": ["矿场"],
+        "维修中心": ["车间"],
+        "核电": ["雷达"],
+        "科技中心": ["车间", "雷达"],
+        "机场": ["雷达"]
+    }
+
+    UNIT_DEPENDENCIES = {
+        "步兵": ["兵营"],
+        "火箭兵": ["兵营"],
+        "工程师": ["兵营"],
+        "手雷兵": ["兵营"],
+        "矿车": ["车间"],
+        "防空车": ["车间"],
+        "装甲车": ["车间"],
+        "重坦": ["车间", "维修中心"],
+        "v2": ["车间", "雷达"],
+        "猛犸坦克": ["车间", "维修中心", "科技中心"]
+    }
+
+    def deploy_mcv_and_wait(self, wait_time: float = 1.0) -> None:
+        '''展开自己的基地车并等待一小会
+        Args:
+            wait_time (float): 展开后的等待时间(秒)，默认为1秒，已经够了，一般不用改
+        '''
+        mcv = self.query_actor(TargetsQueryParam(type=['mcv'], faction='自己'))
+        if not mcv:
+            return
+        self.deploy_units(mcv)
+        time.sleep(wait_time)
+
+    def ensure_building_wait(self, building_name: str) -> bool:
+        '''确保拥有某个建筑，如果没有就建造，并等待建造完成
+        Args:
+            building_name (str): 建筑名称(中文)
+        Returns:
+            bool: 是否已经拥有该建筑或成功建造
+        '''
+        
+        building_exists = self.query_actor(TargetsQueryParam(type=[building_name], faction="自己"))
+        if building_exists:
+            return True
+
+        # 检查该建筑的依赖
+        deps = self.BUILDING_DEPENDENCIES.get(building_name, [])
+        for dep in deps:
+            self.ensure_building_wait(dep)
+
+        if self.able_to_produce(building_name):
+            wait_id = self.produce_units(building_name, 1)
+            if wait_id:
+                self.wait(wait_id)
+                return True
+        return False
+
+    def ensure_can_produce_unit(self, unit_name: str) -> bool:
+        '''确保能生产某个单位(会自动建造其所需建筑并等待完成)
+        Args:
+            unit_name (str): 单位名称(中文)
+        Returns:
+            bool: 是否成功准备好生产该单位
+        '''
+        if self.able_to_produce(unit_name):
+            return True
+        # 根据UNIT_DEPENDENCIES找到依赖的建筑
+        needed_buildings = self.UNIT_DEPENDENCIES.get(unit_name, [])
+        for b in needed_buildings:
+            self.ensure_building_wait(b)
+        # 如果依赖全部OK还是造不出来，可能是什么东西没修好，稍微等一下
+        if not self.able_to_produce(unit_name):
+            time.sleep(1)
+        return self.able_to_produce(unit_name)
+
+    def get_unexplored_nearby_positions(self, map_query_result: MapQueryResult, current_pos: Location,
+                                        max_distance: int) -> List[Location]:
+        '''获取当前位置附近尚未探索的坐标列表
+        Args:
+            map_query_result (MapQueryResult): 地图信息
+            current_pos (Location): 当前单位的位置
+            max_distance (int): 距离范围(曼哈顿)
+        Returns:
+            List[Location]: 未探索位置列表
+        '''
+        neighbors = []
+        for dx in range(-max_distance, max_distance + 1):
+            for dy in range(-max_distance, max_distance + 1):
+                if abs(dx) + abs(dy) > max_distance:
+                    continue
+                if dx == 0 and dy == 0:
+                    continue
+                x = current_pos.x + dx
+                y = current_pos.y + dy
+                if 0 <= x < map_query_result.MapWidth and 0 <= y < map_query_result.MapHeight:
+                    if not map_query_result.IsExplored[x][y]:
+                        neighbors.append(Location(x, y))
+        return neighbors
+
+    def move_units_by_location_and_wait(self, actors: List[Actor], location: Location,
+                                        max_wait_time: float = 10.0, tolerance_dis : int = 1) -> bool:
+        '''移动一批单位到指定位置，并等待(或直到超时)
+        Args:
+            actors (List[Actor]): 要移动的Actor列表
+            location (Location): 目标位置
+            max_wait_time (float): 最大等待时间(秒)
+            tolerance_dis (int): 容忍的距离误差，单位：格子，单位越多一般就得设得越大
+        Returns:
+            bool: 是否在max_wait_time内到达(若中途卡住或超时则False)
+        '''
+        self.move_units_by_location(actors, location)
+        start_time = time.time()
+        while time.time() - start_time < max_wait_time:
+            all_arrived = True
+            for actor in actors:
+                self.update_actor(actor)
+                if actor.position.manhattan_distance(location) > tolerance_dis:
+                    all_arrived = False
+                    break
+            if all_arrived:
+                return True
+            time.sleep(0.3)
+        return False

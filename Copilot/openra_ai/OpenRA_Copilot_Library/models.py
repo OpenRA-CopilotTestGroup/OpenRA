@@ -63,7 +63,17 @@ class Actor:
     faction: Optional[str] = None  # 阵营，值为 {ALL_ACTORS} 中的一个。
     position: Optional[Location] = None  # 单位的位置。
     hppercent: Optional[int] = None
+    
+    def __hash__(self):
+        #actor_id 作为哈希值
+        return hash(self.actor_id)
 
+    def __eq__(self, other):
+        # 判断两个 Actor 是否相等，基于 actor_id
+        if isinstance(other, Actor):
+            return self.actor_id == other.actor_id
+        return False
+    
     def update_details(self, type: str, faction: str, position: Location, hppercent: int):
         # 更新单位的详细信息。
         self.type = type
