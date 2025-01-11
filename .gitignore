@@ -72,3 +72,5 @@ packaging/RACopilot*.zip
 Copilot/openra_ai/Logs
 Copilot/openra_ai/Test.bat
 Copilot/openra_ai/prompt
+Copilot/openra_ai/uni_mic/Logs
+Copilot/openra_ai/build
