@@ -34,7 +34,7 @@ class TargetsQueryParam:
     type: Optional[str] = None  # 目标类型，值为 {ALL_UNITS} 列表或 None。
     faction: Optional[str] = None  # 阵营，值为 {ALL_ACTORS} 中的一个或 None。
     group_id: Optional[List[int]] = None  # {ALL_GROUPS} 列表或 None。
-    restrain: Optional[dict] = None  # 约束条件。
+    restrain: Optional[List[dict]] = None  # 约束条件。
     ''' 约束条件是一个字典，可以为空，也包含以下键值对：
     {"distance": int}   # 距离（只选中距离小于等于distance的单位）
     {"visible": bool}  # 是否可见
@@ -63,7 +63,7 @@ class Actor:
     faction: Optional[str] = None  # 阵营，值为 {ALL_ACTORS} 中的一个。
     position: Optional[Location] = None  # 单位的位置。
     hppercent: Optional[int] = None
-    
+
     def __hash__(self):
         #actor_id 作为哈希值
         return hash(self.actor_id)
@@ -73,7 +73,7 @@ class Actor:
         if isinstance(other, Actor):
             return self.actor_id == other.actor_id
         return False
-    
+
     def update_details(self, type: str, faction: str, position: Location, hppercent: int):
         # 更新单位的详细信息。
         self.type = type

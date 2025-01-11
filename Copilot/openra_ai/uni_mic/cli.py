@@ -22,7 +22,7 @@ logger = get_logger("cli", 'info')
 CACHED_PROMPTS = []
 CACHED_TIME = 0.0
 LAST_TIME = 0.0
-GPTMODEL = "gpt-4o"
+STARTERCONFIG = None
 GUI_WINDOW = None
 GUI_APP = None
 NO_SAMPLE_PROMPT = False
@@ -37,15 +37,15 @@ def text_callback(text: str, is_from_ui: bool = False):
         return
     global CACHED_PROMPTS
     global CACHED_TIME
-    global GPTMODEL
+    global STARTERCONFIG
     if not is_from_ui and GUI_WINDOW:
         GUI_WINDOW.add_player_dialog(text)
     CACHED_PROMPTS.append(text)
     full_text = ",".join(CACHED_PROMPTS)
     full_text = full_text.removesuffix("\u6267\u884c\u547d\u4ee4")
     logger.info(f"Processing strategy command: {full_text}")
-    handle_strategy_command(prompt=full_text, model=GPTMODEL,
-                            gui=GUI_WINDOW, no_sample_prompt=NO_SAMPLE_PROMPT)
+    handle_strategy_command(prompt=full_text,
+                            gui=GUI_WINDOW, starter_config=STARTERCONFIG)
     logger.info("Strategy command processed, clearing cache")
     CACHED_PROMPTS.clear()
 
@@ -160,19 +160,19 @@ def main(**kwargs):
         starter=StarterConfig(**{k: v for k, v in kwargs.items() if k in asdict(StarterConfig())})
     )
 
-    global GPTMODEL
     global GUI_WINDOW
     global GUI_APP
     global NO_SAMPLE_PROMPT
     global NO_TEXT_CALLBACK
+    global STARTERCONFIG
 
-    GPTMODEL = config.starter.gptmodel
-    NO_SAMPLE_PROMPT = config.starter.no_sample
+    STARTERCONFIG = config.starter
     NO_TEXT_CALLBACK = config.starter.no_text_callback
+
 
     if config.asr.api_key is None and config.asr.remote_type == "whisper":
         config.asr.api_key = os.getenv("OPENAI_API_KEY")
-    
+
     if config.starter.gui:
         logger.info("Initializing GUI mode")
 

@@ -7,7 +7,7 @@ from .models import *
 
 class GameAPI:
     '''游戏API接口类，用于与游戏服务器进行通信
-    提供了一系列方法来与游戏服务器进行交互，包括单位移动、生产、查询等功能。
+    提供了一系列方法来与游戏服务器进行交互，包括Actor移动、生产、查询等功能。
     所有的通信都是通过socket连接完成的。'''
 
     def __init__(self, host, port=7445):
@@ -76,10 +76,10 @@ class GameAPI:
         return self._send_request('camera_move', data)
 
     def able_to_produce(self, unit_type: str):
-        '''检查是否可以生产指定类型的单位
+        '''检查是否可以生产指定类型的Actor
 
         Args:
-            unit_type (str): 单位类型，必须在 {ALL_UNITS} 中
+            unit_type (str): Actor类型，必须在 {ALL_UNITS} 中
 
         Returns:
             bool: 是否可以生产
@@ -91,10 +91,10 @@ class GameAPI:
         return False
 
     def produce_units(self, unit_type: str, quantity: int):
-        '''生产指定数量的单位
+        '''生产指定数量的Actor
 
         Args:
-            unit_type (str): 单位类型
+            unit_type (str): Actor类型
             quantity (int): 生产数量
 
         Returns:
@@ -176,13 +176,11 @@ class GameAPI:
         return self._send_request('move_actor', data)
 
     def select_units(self, query_params):
-        '''选中符合条件的单位
+        '''选中符合条件的Actor，指的是游戏中的选中操作
 
         Args:
             query_params (TargetsQueryParam): 查询参数
 
-        Returns:
-            List[Actor]: 选择的单位列表
         '''
         data = {"targets": query_params.to_dict()}
         return self._send_request('select_unit', data)
@@ -195,10 +193,10 @@ class GameAPI:
         return self._send_request('form_group', data)
 
     def form_group(self, actors, group_id):
-        '''将单位编成编组
+        '''将Actor编成编组
 
         Args:
-            actors (List[Actor]): 要分组的单位列表
+            actors (List[Actor]): 要分组的Actor列表
             group_id (int): 群组 ID
         '''
         data = {
@@ -208,13 +206,13 @@ class GameAPI:
         return self._send_request('form_group', data)
 
     def query_actor(self, query_params):
-        '''查询符合条件的单位
+        '''查询符合条件的Actor，获取Actor应该使用的接口
 
         Args:
             query_params (TargetsQueryParam): 查询参数
 
         Returns:
-            List[Actor]: 符合条件的单位列表
+            List[Actor]: 符合条件的Actor列表
         '''
         data = {"targets": query_params.to_dict()}
         response = self._send_request('query_actor', data)
@@ -308,10 +306,10 @@ class GameAPI:
             return False
 
     def deploy_units(self, actors: List[Actor]) -> dict:
-        '''部署/展开 单位
+        '''部署/展开 Actor
 
         Args:
-            actors (List[Actor]): 要部署/展开 的单位列表
+            actors (List[Actor]): 要部署/展开 的Actor列表
 
         Returns:
             dict: 操作结果
@@ -331,7 +329,7 @@ class GameAPI:
         }
         return self._send_request('occupy', data)
 
-    # 攻击指令，攻击移动，只会攻击路径旁的战斗单位，不会攻击建筑，因此攻击建筑，或者具体指定攻击某个人，需要用这个，但目标必须是我当前可见的Actor
+    # 攻击指令，攻击移动，只会攻击路径旁的战斗Actor，不会攻击建筑，因此攻击建筑，或者具体指定攻击某个人，需要用这个，但目标必须是我当前可见的Actor
     def attack_target(self, attacker: Actor, target: Actor) -> bool:
         '''攻击指定目标
 
@@ -349,15 +347,25 @@ class GameAPI:
         try:
             response = self._send_request('attack', data)
             if response is not None:
-                return response["status"] > 0 
+                return response["status"] > 0
         except:
             return False
 
+    def can_attack_target(self, attacker: Actor, target: Actor) -> bool:
+        data = {"targets": {"actorId": [target.actor_id],"restrain":[{"visible":True}]}}
+        response = self._send_request('query_actor', data)
+        if response is None:
+            return False
+        actors_data = response.get("actors")
+        if actors_data is None or len(actors_data) == 0:
+            return False
+        return True
+
     def repair_units(self, actors: List[Actor]) -> Optional[int]:
-        '''修复单位
+        '''修复Actor
 
         Args:
-            actors (List[Actor]): 要修复的单位列表，可以是载具或者建筑，修理载具需要修建修理中心
+            actors (List[Actor]): 要修复的Actor列表，可以是载具或者建筑，修理载具需要修建修理中心
 
         Returns:
             int: 修复任务的 ID
@@ -434,9 +442,9 @@ class GameAPI:
             MousePosition=Location(
                 response['MousePosition']['X'], response['MousePosition']['Y'])
         )
-        
+
      # ===== 依赖关系表 =====
-    
+
     BUILDING_DEPENDENCIES = {
         "电厂": [],
         "兵营": ["电厂"],
@@ -480,7 +488,7 @@ class GameAPI:
         Returns:
             bool: 是否已经拥有该建筑或成功建造
         '''
-        
+
         building_exists = self.query_actor(TargetsQueryParam(type=[building_name], faction="自己"))
         if building_exists:
             return True
@@ -498,11 +506,11 @@ class GameAPI:
         return False
 
     def ensure_can_produce_unit(self, unit_name: str) -> bool:
-        '''确保能生产某个单位(会自动建造其所需建筑并等待完成)
+        '''确保能生产某个Actor(会自动建造其所需建筑并等待完成)
         Args:
-            unit_name (str): 单位名称(中文)
+            unit_name (str): Actor名称(中文)
         Returns:
-            bool: 是否成功准备好生产该单位
+            bool: 是否成功准备好生产该Actor
         '''
         if self.able_to_produce(unit_name):
             return True
@@ -520,7 +528,7 @@ class GameAPI:
         '''获取当前位置附近尚未探索的坐标列表
         Args:
             map_query_result (MapQueryResult): 地图信息
-            current_pos (Location): 当前单位的位置
+            current_pos (Location): 当前Actor的位置
             max_distance (int): 距离范围(曼哈顿)
         Returns:
             List[Location]: 未探索位置列表
@@ -541,12 +549,12 @@ class GameAPI:
 
     def move_units_by_location_and_wait(self, actors: List[Actor], location: Location,
                                         max_wait_time: float = 10.0, tolerance_dis : int = 1) -> bool:
-        '''移动一批单位到指定位置，并等待(或直到超时)
+        '''移动一批Actor到指定位置，并等待(或直到超时)
         Args:
             actors (List[Actor]): 要移动的Actor列表
             location (Location): 目标位置
             max_wait_time (float): 最大等待时间(秒)
-            tolerance_dis (int): 容忍的距离误差，单位：格子，单位越多一般就得设得越大
+            tolerance_dis (int): 容忍的距离误差，Actor：格子，Actor越多一般就得设得越大
         Returns:
             bool: 是否在max_wait_time内到达(若中途卡住或超时则False)
         '''

@@ -33,7 +33,10 @@ class StarterConfig:
     verbose: bool = False
     gptmodel: str = "gpt-4o"
     no_sample: bool = False
+    single_sample: bool = False
     no_text_callback: bool = False
+    debug_mode: bool = False
+
 
 @dataclass
 class AppConfig:

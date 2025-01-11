@@ -10,7 +10,9 @@ from OpenRA_Copilot_Library import *
 import time
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
+from uni_mic.config import StarterConfig
 import platform
+import random
 
 if hasattr(sys, '_MEIPASS'):
     os.chdir(os.path.dirname(sys.executable))
@@ -29,7 +31,12 @@ os.makedirs(log_directory, exist_ok=True)
 device_name = platform.node()
 current_time = datetime.now().strftime("%Y%m%d%H%M%S")
 
-prompt_path = os.path.join("./prompt", device_name, current_time)
+if hasattr(sys, '_MEIPASS'):
+    base_path = os.getcwd()
+else:
+    base_path = os.path.dirname(os.path.dirname(__file__))
+
+prompt_path = os.path.join(base_path ,"prompt", device_name, current_time)
 prompt_counter = 0
 
 
@@ -37,6 +44,7 @@ def save_prompt(static_prompt: str, dynamic_prompt: str, player_prompt: str, ans
     global prompt_counter
 
     base_file_prefix = os.path.join(prompt_path, f"{device_name}_{current_time}_{prompt_counter}")
+
     base_file_suffix = ".txt"
 
     if prompt_counter == 0:
@@ -103,12 +111,10 @@ MEMORY = "无"
 api = OpenRA.GameAPI("localhost")
 
 
-def make_sys_prompt(no_sample_prompt=False):
+def make_sys_prompt(starter_config : StarterConfig = None):
 
-    # config_path = os.path.join(os.path.dirname(__file__), 'config.yaml')
-    # 切换过工作目录直接用绝对路径
-    config_path = os.path.join(os.getcwd(), 'config.yaml')
-    
+    config_path = os.path.join(base_path, 'config.yaml')
+
     with open(config_path, 'r', encoding='utf-8') as file:
         config = yaml.safe_load(file)
 
@@ -126,18 +132,8 @@ def make_sys_prompt(no_sample_prompt=False):
     ALL_MOVABLES = ALL_INFANTRIES + ALL_TANKS
     ALL_UNITS = ALL_BUILDINGS + ALL_DEFENSE_DEVICES + ALL_MOVABLES
 
-    # gamelib_dir = os.path.abspath(os.path.join(
-    #     os.path.dirname(__file__), '../OpenRA_Copilot_Library'))
-    # api_prompt_path = os.path.join(gamelib_dir, 'OpenRA_Promt.py')
-    # api_path = os.path.join(gamelib_dir, 'game_api.py')
-    # api_struct_path = os.path.join(gamelib_dir, 'models.py')
-    if hasattr(sys, '_MEIPASS'):
-        # 此时读取副本
-        api_prompt_path = os.path.join(os.getcwd(),'copy_OpenRA_Promt.py')
-    else:
-        # 开发环境默认读取原有文件
-        api_prompt_path = os.path.join(os.getcwd(),'../OpenRA_Copilot_Library','OpenRA_Promt.py')
-    
+    api_prompt_path = os.path.join(base_path,'OpenRA_Promt.py')
+
     with open(api_prompt_path, 'r', encoding='utf-8') as file:
         api_prompt_content = file.read()
     # with open(api_path, 'r', encoding='utf-8') as file:
@@ -146,28 +142,28 @@ def make_sys_prompt(no_sample_prompt=False):
     #     api_struct_content = file.read()
 
     sample_code = ""
-    if not no_sample_prompt:
-        if hasattr(sys, '_MEIPASS'):
-            # 同上
-            sample_dir = os.path.join(os.getcwd(),'Samples')
-        else:    
-            sample_dir = os.path.abspath(os.path.join(
-                os.path.dirname(__file__), '../Samples'))
-        sample_index = 1
+    if not starter_config.no_sample:
+        if starter_config.single_sample:
+            sample_path = os.path.join(base_path,'Sample.py')
+            with open(sample_path, 'r', encoding='utf-8') as file:
+                sample_code = file.read()
+        else:
+            sample_dir = os.path.join(base_path,'Samples')
+            sample_index = 1
 
-        for filename in os.listdir(sample_dir):
-            print(f"SampleFileName:{filename}")
-            if filename.endswith('.py'):
-                file_path = os.path.join(sample_dir, filename)
+            for filename in os.listdir(sample_dir):
+                print(f"SampleFileName:{filename}")
+                if filename.endswith('.py'):
+                    file_path = os.path.join(sample_dir, filename)
 
-                with open(file_path, 'r', encoding='utf-8') as file:
-                    first_line = file.readline().strip()
-                    if first_line == "# COPILOT_PROMPT_IGNORE":
-                        print(f"Skipping {filename} due to ignore mark.")
-                    code_content = file.read()
+                    with open(file_path, 'r', encoding='utf-8') as file:
+                        first_line = file.readline().strip()
+                        if first_line == "# COPILOT_PROMPT_IGNORE":
+                            print(f"Skipping {filename} due to ignore mark.")
+                        code_content = file.read()
 
-                sample_code += f"{sample_index}.{filename}\n<code>{code_content}</code>\n\n"
-                sample_index += 1
+                    sample_code += f"{sample_index}.{filename}\n<code>{code_content}</code>\n\n"
+                    sample_index += 1
 
     current_time = time.perf_counter() - start_time
     formatted_time = f"{current_time:.2f}"
@@ -246,7 +242,7 @@ v2：车间，雷达
 
 生成的代码必须封装在 <code> 和 </code> 标签对中。生成的代码应当是可执行的。API 可以从 <code> 标签中提取代码并执行。你不需要生成import部分，尝试使代码逻辑尽可能完善，避免对未知信息的猜测，尽量通过api推敲出准确的逻辑
 
-{' ' if no_sample_prompt else '以下是一些示例代码：' + sample_code}"""
+{' ' if starter_config.no_sample else '以下是一些示例代码：' + sample_code}"""
 
     dynamic_prompt = f"""
 prompt part 2:当前正在执行的内容，这些都是正在运行的，你之前的代码
@@ -285,7 +281,7 @@ MEMORY_REGEX = create_tag_regex('memory')
 executor = ThreadPoolExecutor(max_workers=10)
 
 
-def handle_strategy_command(prompt=None, model="gpt-4o", gui=None, no_sample_prompt=False):
+def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfig = None):
     global CACHED_PREVIOUS_PROMPTS
     global MAX_CACHED_PROMPTS
     global CODE_REGEX
@@ -296,7 +292,18 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui=None, no_sample_pro
         print_log('prompt should not be None')
         return
     messages = []
-    static_sys_prompt, dynamic_sys_prompt = make_sys_prompt(no_sample_prompt)
+
+    if starter_config.debug_mode:
+        print("start to handle strategy command")
+
+    static_sys_prompt, dynamic_sys_prompt = make_sys_prompt(starter_config)
+
+    if starter_config.debug_mode:
+        print(f'Static Prompt:\n{static_sys_prompt}\n')
+        print(f'Dynamic Prompt:\n{dynamic_sys_prompt}\n')
+        print_log(f'Static Prompt:\n{static_sys_prompt}\n')
+        print_log(f'Dynamic Prompt:\n{dynamic_sys_prompt}\n')
+
     messages.append(
         {"role": "system", "content": static_sys_prompt + dynamic_sys_prompt})
     for previous_prompt in CACHED_PREVIOUS_PROMPTS:
@@ -304,10 +311,20 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui=None, no_sample_pro
     messages.append({"role": "user", "content": prompt})
 
     print_log(f'Full Promt:\n{messages}\n')
-    completion = get_chat_completion(
-        model=model, messages=messages, tools=None)
 
-    print(f'Response:\n{completion.content}\n')
+    if starter_config.debug_mode:
+        start_time = time.perf_counter()
+        print("start to get chat completion")
+
+    completion = get_chat_completion(
+        model=starter_config.gptmodel, messages=messages, tools=None)
+
+    if starter_config.debug_mode:
+        end_time = time.perf_counter()
+        print(f'get chat completion time: {end_time - start_time}')
+        print_log(f'get chat completion time: {end_time - start_time}')
+
+    # print(f'Response:\n{completion.content}\n')
     print_log(f'Response:\n{completion.content}\n')
 
     code_match = CODE_REGEX.search(completion.content)
@@ -339,7 +356,7 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui=None, no_sample_pro
         save_prompt(static_sys_prompt, dynamic_sys_prompt, prompt, completion.content)
 
         executable = code_match.group(1)
-        print(f'executable={executable}')
+        # print(f'executable={executable}')
         print_log(f'executable={executable}')
 
         class GuiOutput:
@@ -355,14 +372,15 @@ def handle_strategy_command(prompt=None, model="gpt-4o", gui=None, no_sample_pro
 
         def execute(command):
             try:
-                captured_output = GuiOutput(gui)
-                with contextlib.redirect_stdout(captured_output), contextlib.redirect_stderr(captured_output):
-                    if callable(command):
-                        command()
-                    else:
-                        exec(command)
-                    if gui and plan:
-                        gui.update_plan_item_status(plan, "已完成")
+                # 有bug，之后再开
+                # captured_output = GuiOutput(gui)
+                # with contextlib.redirect_stdout(captured_output), contextlib.redirect_stderr(captured_output):
+                if callable(command):
+                    command()
+                else:
+                    exec(command)
+                if gui and plan:
+                    gui.update_plan_item_status(plan, "已完成")
             except Exception as e:
                 traceback.print_tb(e.__traceback__)
                 traceback.print_exc()
