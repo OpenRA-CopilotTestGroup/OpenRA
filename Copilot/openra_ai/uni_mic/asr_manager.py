@@ -4,7 +4,7 @@ from queue import Queue, Empty
 import time
 import speech_recognition as sr
 import numpy as np
-from .utils import get_logger
+from uni_mic.utils import get_logger
 
 class ASRManager:
     def __init__(self, asr_module, audio_queue: Queue, result_queue: Queue, stop_event: threading.Event):

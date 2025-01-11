@@ -4,9 +4,9 @@ import speech_recognition as sr
 import numpy as np
 import traceback
 from queue import Queue
-from .utils import get_logger
-from .config import AppConfig
-from .asr_manager import ASRManager
+from uni_mic.utils import get_logger
+from uni_mic.config import AppConfig
+from uni_mic.asr_manager import ASRManager
 
 class AudioListener:
     def __init__(self, asr_manager:ASRManager, stop_event, config:AppConfig = None):

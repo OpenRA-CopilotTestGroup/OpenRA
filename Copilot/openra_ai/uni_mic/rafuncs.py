@@ -1,11 +1,9 @@
-
 import contextlib
 import os
 import sys
 import yaml
 import re
 from typing import Optional, List, Dict, Any
-import threading
 import traceback
 import OpenRA_Copilot_Library as OpenRA
 from OpenRA_Copilot_Library import *
@@ -14,6 +12,10 @@ from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 import platform
 
+if hasattr(sys, '_MEIPASS'):
+    os.chdir(os.path.dirname(sys.executable))
+else:
+    os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # from openai import client
 from openai import OpenAI
@@ -103,8 +105,10 @@ api = OpenRA.GameAPI("localhost")
 
 def make_sys_prompt(no_sample_prompt=False):
 
-    config_path = os.path.join(os.path.dirname(__file__), 'config.yaml')
-
+    # config_path = os.path.join(os.path.dirname(__file__), 'config.yaml')
+    # 切换过工作目录直接用绝对路径
+    config_path = os.path.join(os.getcwd(), 'config.yaml')
+    
     with open(config_path, 'r', encoding='utf-8') as file:
         config = yaml.safe_load(file)
 
@@ -122,22 +126,33 @@ def make_sys_prompt(no_sample_prompt=False):
     ALL_MOVABLES = ALL_INFANTRIES + ALL_TANKS
     ALL_UNITS = ALL_BUILDINGS + ALL_DEFENSE_DEVICES + ALL_MOVABLES
 
-    gamelib_dir = os.path.abspath(os.path.join(
-        os.path.dirname(__file__), '../OpenRA_Copilot_Library'))
-    api_prompt_path = os.path.join(gamelib_dir, 'OpenRA_Promt.py')
-    api_path = os.path.join(gamelib_dir, 'game_api.py')
-    api_struct_path = os.path.join(gamelib_dir, 'models.py')
+    # gamelib_dir = os.path.abspath(os.path.join(
+    #     os.path.dirname(__file__), '../OpenRA_Copilot_Library'))
+    # api_prompt_path = os.path.join(gamelib_dir, 'OpenRA_Promt.py')
+    # api_path = os.path.join(gamelib_dir, 'game_api.py')
+    # api_struct_path = os.path.join(gamelib_dir, 'models.py')
+    if hasattr(sys, '_MEIPASS'):
+        # 此时读取副本
+        api_prompt_path = os.path.join(os.getcwd(),'copy_OpenRA_Promt.py')
+    else:
+        # 开发环境默认读取原有文件
+        api_prompt_path = os.path.join(os.getcwd(),'../OpenRA_Copilot_Library','OpenRA_Promt.py')
+    
     with open(api_prompt_path, 'r', encoding='utf-8') as file:
         api_prompt_content = file.read()
-    with open(api_path, 'r', encoding='utf-8') as file:
-        api_content = file.read()
-    with open(api_struct_path, 'r', encoding='utf-8') as file:
-        api_struct_content = file.read()
+    # with open(api_path, 'r', encoding='utf-8') as file:
+    #     api_content = file.read()
+    # with open(api_struct_path, 'r', encoding='utf-8') as file:
+    #     api_struct_content = file.read()
 
     sample_code = ""
     if not no_sample_prompt:
-        sample_dir = os.path.abspath(os.path.join(
-            os.path.dirname(__file__), '../Samples'))
+        if hasattr(sys, '_MEIPASS'):
+            # 同上
+            sample_dir = os.path.join(os.getcwd(),'Samples')
+        else:    
+            sample_dir = os.path.abspath(os.path.join(
+                os.path.dirname(__file__), '../Samples'))
         sample_index = 1
 
         for filename in os.listdir(sample_dir):

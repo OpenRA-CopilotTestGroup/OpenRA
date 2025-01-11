@@ -1,6 +1,4 @@
 from dataclasses import dataclass, field, fields
-from typing import Optional
-import json
 import click
 
 

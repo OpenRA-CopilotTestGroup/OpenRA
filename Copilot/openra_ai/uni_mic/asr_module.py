@@ -7,8 +7,8 @@ import numpy as np
 import time
 import wave
 from openai import OpenAI
-from .utils import get_logger
-from .config import ASRConfig
+from uni_mic.utils import get_logger
+from uni_mic.config import ASRConfig
 
 def load_whisper():
     import importlib

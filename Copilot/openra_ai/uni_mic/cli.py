@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
 
 import click
-import speech_recognition as sr
-from typing import Optional
 import time
 import os
 import sys
 import queue
 import threading
 
-from .rafuncs import handle_strategy_command
-from .gui import create_ai_assistant_ui_instance
-from .audio_listener import AudioListener
-from .utils import get_logger
-from .asr_manager import ASRManager
-from .asr_module import WhisperASR, FunASRRemoteASR, WhisperAPIASR
-from .config import AppConfig, ASRConfig, InputConfig, StarterConfig
-from .config import add_options
+from uni_mic.rafuncs import handle_strategy_command
+from uni_mic.gui import create_ai_assistant_ui_instance
+from uni_mic.audio_listener import AudioListener
+from uni_mic.utils import get_logger
+from uni_mic.asr_manager import ASRManager
+from uni_mic.asr_module import WhisperASR, FunASRRemoteASR, WhisperAPIASR
+from uni_mic.config import AppConfig, ASRConfig, InputConfig, StarterConfig
+from uni_mic.config import add_options
 from dataclasses import asdict
 
 logger = get_logger("cli", 'info')
