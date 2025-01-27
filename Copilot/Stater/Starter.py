@@ -184,11 +184,12 @@ def start_python_script(Alert=True):
         command.append("--remote-type")
         command.append("whisper")
 
-    if not prompt_with_sample.get():
+    if prompt_with_sample.get():
         command.append("--no-sample")
 
-    if single_sample.get():
-        command.append("--single-sample")
+    # if single_sample.get():
+    # 默认开启这个吧，全Sample太难顶了
+    command.append("--single-sample")
 
     if srtest_only.get():
         command.append("--no-text-callback")
@@ -560,10 +561,10 @@ def create_labeled_entry(label_text, grid_row, label_columnspan, entry_columnspa
     return entry
 
 
-def create_checkbox(text, variable, grid_row, grid_column):
+def create_checkbox(text, variable, grid_row, grid_column, entry_columnspan = 1):
     checkbox = tk.Checkbutton(
         root, text=text, variable=variable, compound="right")
-    checkbox.grid(row=grid_row.index, column=grid_column.index,
+    checkbox.grid(row=grid_row.index, column=grid_column.index,columnspan=entry_columnspan,
                   sticky="w", padx=(15, 15), pady=5)
     return checkbox
 
@@ -599,21 +600,21 @@ proxy_port_entry = create_labeled_entry(
 
 # ---------------------CheckBox start---------------------
 
-prompt_with_sample = tk.BooleanVar(value=True)
-create_checkbox("包含Sample(更贵)", prompt_with_sample,
-                GridRows.CHECKS, GridColumns.CONTENT_LEFT)
+prompt_with_sample = tk.BooleanVar()
+create_checkbox("无Sample（需要使用finetune模型）", prompt_with_sample,
+                GridRows.CHECKS, GridColumns.CONTENT_LEFT, 2)
 
 srtest_only = tk.BooleanVar()
-create_checkbox("只测试语音识别", srtest_only, GridRows.CHECKS,
-                GridColumns.CONTENT_RIGHT)
+create_checkbox("只测试语音识别", srtest_only, GridRows.CHECKS2,
+                GridColumns.CONTENT_LEFT)
 
 package_mode = tk.BooleanVar(value=True)
 create_checkbox("打包模式", package_mode, GridRows.CHECKS2,
                 GridColumns.CONTENT_RIGHT)
 
-single_sample = tk.BooleanVar(value=True)
-create_checkbox("仅单一Sample", single_sample,
-                GridRows.CHECKS2, GridColumns.CONTENT_LEFT)
+# single_sample = tk.BooleanVar(value=True)
+# create_checkbox("仅单一Sample", single_sample,
+#                 GridRows.CHECKS2, GridColumns.CONTENT_LEFT)
 
 # ---------------------CheckBox end---------------------
 
