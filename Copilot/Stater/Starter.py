@@ -15,7 +15,7 @@ import pygetwindow as gw
 import ctypes
 
 CONFIG_FILE = "settings.ini"
-VERSION = "0.2.0"
+VERSION = "0.2.1"
 
 
 def load_settings():

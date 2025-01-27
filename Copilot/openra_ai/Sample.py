@@ -53,7 +53,7 @@ def explore_with_infantry(api):
             if not unexplored:
                 print("附近都探索完了")
                 break
-            
+
             target_loc = random.choice(unexplored)
             print(f"前往({target_loc.x},{target_loc.y})...")
             arrived = api.move_units_by_location_and_wait(infantry_list, target_loc, max_wait_time=10.0, tolerance_dis=2)
@@ -61,14 +61,14 @@ def explore_with_infantry(api):
                 print("步兵似乎在路途中卡住了，再换个位置试试")
                 continue
             time.sleep(0.5)
-    
+
 # 开启一个线程来探索，因为这个过程可能不会结束，或者持续很久
 explore_thread = threading.Thread(target=explore_with_infantry, args=(api,))
 explore_thread.start()
 
 # 4. 建造“矿场”、“车间”以便生产载具
 
-api.ensure_building_wait("矿场") 
+api.ensure_building_wait("矿场")
 api.ensure_building_wait("车间")
 
 # 确保一下还有电
@@ -82,7 +82,7 @@ while playerinfo.Power <= 0:
     api.wait(p1)
     time.sleep(0.5)
     playerinfo = api.player_base_info_query()
-    
+
 # 5. 生产4个防空车
 
 if api.ensure_can_produce_unit("防空车"):
@@ -115,16 +115,22 @@ path2 = api.find_path(team_3, base_position, '右侧路径')
 
 print("编组2开始沿路径移动")
 api.move_units_by_path(team_2, path1)
-
+# 稍微等一下
+time.sleep(1)
 print("编组3开始沿路径移动")
 api.move_units_by_path(team_3, path2)
 
-active_units = set(team_2 + team_3)
+active_units = list(team_2 + team_3)
+start_time = time.time()
 while active_units:
     if not api.update_actor(enemy_base):
         print(f"地方基地 {enemy_base.actor_id} 已被摧毁，完成目标！")
         break
-    for unit in list(active_units):
+    camera_moved = False
+    if time.time() - start_time > 10:
+        # 已经过了10s，摄像机可以不再跟随防空车
+        camera_moved = True
+    for unit in active_units:
         if not api.update_actor(unit):
             print(f"单位 {unit.actor_id} 已被摧毁")
             active_units.remove(unit)
@@ -134,20 +140,24 @@ while active_units:
             api.repair_units([unit])
             active_units.remove(unit)
             continue
-        
+        if not camera_moved and unit in team_2:
+            api.move_camera_to(unit)
+            camera_moved = True
         # 优先打步兵
         current_position = unit.position
-        near_ememies = api.query_actor(TargetsQueryParam(type=["士兵"], faction="敌方", location=current_position, restrain={"distance": 6,"visible": True}))
+        near_ememies = api.query_actor(TargetsQueryParam(type=["士兵"], faction="敌方", location=current_position, restrain=[{"distance": 6},{"visible": True}]))
         if near_ememies:
             for enemy in near_ememies:
-                if api.attack_target(unit, enemy):
-                    break
-        
-        # 尝试进攻敌方基地     
-        if api.attack_target(unit, enemy_base):
-            break
-        
+                if api.can_attack_target(unit, enemy):
+                    api.attack_target(unit, enemy_base)
+                    continue
+
+        # 尝试进攻敌方基地
+        if api.can_attack_target(unit, enemy_base):
+            api.attack_target(unit, enemy_base)
+            continue
+
         # 否则向敌方基地移动
         api.move_units_by_location([unit],base_position)
-        
+
     time.sleep(0.5)

@@ -13,6 +13,7 @@ from concurrent.futures import ThreadPoolExecutor
 from uni_mic.config import StarterConfig
 import platform
 import random
+import threading
 
 if hasattr(sys, '_MEIPASS'):
     os.chdir(os.path.dirname(sys.executable))
@@ -94,8 +95,10 @@ def get_chat_completion(
         'stop': stop,
         'tools': tools,
     }
-    if model.find("deepseek") :
+    if "deepseek" in model:
         deep_apikey = os.getenv("DEEPSEEK_API_KEY")
+        if not deep_apikey:
+            raise ValueError("DEEPSEEK_API_KEY is not set in the environment.")
         CLIENT = OpenAI(api_key=deep_apikey, base_url="https://api.deepseek.com")
     else :
         CLIENT = OpenAI()
@@ -245,6 +248,8 @@ v2：车间，雷达
 
 生成的代码必须封装在 <code> 和 </code> 标签对中。生成的代码应当是可执行的。API 可以从 <code> 标签中提取代码并执行。你不需要生成import部分，尝试使代码逻辑尽可能完善，避免对未知信息的猜测，尽量通过api推敲出准确的逻辑
 
+除非有明显的阻断行为（例如sleep）否则尽量不要使用多线程逻辑
+
 玩家的台词可能并不直白对应着具体的游戏行为，为了准确的翻译这些指令，需要你对游戏有一定的了解，请你结合你对RTS和红色警戒的理解，回答，以下是一些常见情况：
 1. 玩家的这里：通常指代鼠标准星位置，可以用准星位置来控制交互逻辑
 2. 所有单位进攻敌方基地：通常不包含矿车，基地车等非战斗单位
@@ -252,6 +257,7 @@ v2：车间，雷达
 4. 前方，后方：在战斗中，通常指靠近敌人为前，远离敌人为后，非战斗时指相对于敌方基地的方向，前方是敌方基地方向，后方是己方基地方向
 5. 攻击敌方：在游戏中，对于战斗单位的进攻，会自动索敌，在移动的时候也可以攻击，而对建筑的攻击，需要手动控制，挨个摧毁
 6. 分散：尽可能的不要一起移动，分开站在不同地点，是否可站可以查询地图信息
+7. 夹击：通常采用寻两条路，寻路通常使用“左路”和“右路”来夹击，然后不同单位采用不同寻路结果移动
 
 {' ' if starter_config.no_sample else '以下是一些示例代码：' + sample_code}"""
 
@@ -314,8 +320,8 @@ def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfi
         static_sys_prompt, dynamic_sys_prompt = make_sys_prompt(starter_config)
 
     if starter_config.debug_mode:
-        print(f'Static Prompt:\n{static_sys_prompt}\n')
-        print(f'Dynamic Prompt:\n{dynamic_sys_prompt}\n')
+        # print(f'Static Prompt:\n{static_sys_prompt}\n')
+        # print(f'Dynamic Prompt:\n{dynamic_sys_prompt}\n')
         print_log(f'Static Prompt:\n{static_sys_prompt}\n')
         print_log(f'Dynamic Prompt:\n{dynamic_sys_prompt}\n')
 
@@ -371,7 +377,10 @@ def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfi
         save_prompt(static_sys_prompt, dynamic_sys_prompt, prompt, completion.content)
 
         executable = code_match.group(1)
-        # print(f'executable={executable}')
+
+        if starter_config.debug_mode:
+            print(f'executable={executable}')
+
         print_log(f'executable={executable}')
 
         class GuiOutput:
