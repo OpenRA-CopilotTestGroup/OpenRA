@@ -21,7 +21,7 @@ else:
 
 # from openai import client
 from openai import OpenAI
-CLIENT = OpenAI()
+
 
 start_time = time.perf_counter()
 
@@ -81,6 +81,7 @@ def print_log(content):
 def get_chat_completion(
     messages: list[dict[str, str]],
     model: str = "gpt-4o",
+    config: StarterConfig = None,
     max_tokens=1500,
     temperature=1.0,
     stop=None,
@@ -95,7 +96,11 @@ def get_chat_completion(
         'stop': stop,
         'tools': tools,
     }
-    global CLIENT
+    if model.find("deepseek") :
+        deep_apikey = os.getenv("DEEPSEEK_API_KEY")
+        CLIENT = OpenAI(api_key=deep_apikey, base_url="https://api.deepseek.com")
+    else :
+        CLIENT = OpenAI()
     if functions:
         params['functions'] = functions
     try:
@@ -317,7 +322,7 @@ def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfi
         print("start to get chat completion")
 
     completion = get_chat_completion(
-        model=starter_config.gptmodel, messages=messages, tools=None)
+        model=starter_config.gptmodel, messages=messages, config=starter_config)
 
     if starter_config.debug_mode:
         end_time = time.perf_counter()

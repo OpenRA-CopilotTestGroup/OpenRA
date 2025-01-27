@@ -25,6 +25,8 @@ def load_settings():
         if "Settings" in config:
             openai_key_entry.insert(0, config.get(
                 "Settings", "OPENAI_KEY", fallback=""))
+            deepseek_key_entry.insert(0, config.get(
+                "Settings", "DEEPSEEK_KEY", fallback=""))
             cozy_voice_key_entry.insert(0, config.get(
                 "Settings", "DASHSCOPE_KEY", fallback=""))
             asr_server_entry.insert(0, config.get(
@@ -37,6 +39,7 @@ def save_settings():
     config = configparser.ConfigParser()
     config["Settings"] = {
         "OPENAI_KEY": openai_key_entry.get(),
+        "DEEPSEEK_KEY": deepseek_key_entry.get(),
         "DASHSCOPE_KEY": cozy_voice_key_entry.get(),
         "ASR_SERVER": asr_server_entry.get(),
         "PROXY_PORT": proxy_port_entry.get()
@@ -150,6 +153,7 @@ def start_python_script(Alert=True):
             messagebox.showinfo("信息", "Copilot_Whisper_Mic 已经在运行")
         return
     openai_key = openai_key_entry.get()
+    deepseek_key = deepseek_key_entry.get()
     cozyvoice_key = cozy_voice_key_entry.get()
 
     proxy_port = proxy_port_entry.get()
@@ -163,12 +167,14 @@ def start_python_script(Alert=True):
         return False
 
     os.environ['OPENAI_API_KEY'] = openai_key
+    os.environ['DEEPSEEK_API_KEY'] = deepseek_key
     if cozyvoice_key:
         os.environ['DASHSCOPE_API_KEY'] = cozyvoice_key
     set_proxy_env(proxy_port)
     mic_mode = selected_mic_version.get()
     if package_mode.get():
-        command = ["cmd", "/k", os.path.join("openra_ai", "OpenRA_Copilot.exe")]
+        command = ["cmd", "/k",
+                   os.path.join("openra_ai", "OpenRA_Copilot.exe")]
     else:
         command = [os.path.join("openra_ai", "start.bat")]
 
@@ -505,6 +511,7 @@ class GridRows:
 
     HEADER = GridConfig(ni(), 1)
     OPENAI_KEY = GridConfig(ni(), 2)
+    DEEPSEEK_KEY = GridConfig(ni(), 2)
     DASHSCOPE_KEY = GridConfig(ni(), 2)
     ASR_SERVER = GridConfig(ni(), 2)
     EXTRA_STARTPARAM = GridConfig(ni(), 2)
@@ -552,6 +559,7 @@ def create_labeled_entry(label_text, grid_row, label_columnspan, entry_columnspa
     )
     return entry
 
+
 def create_checkbox(text, variable, grid_row, grid_column):
     checkbox = tk.Checkbutton(
         root, text=text, variable=variable, compound="right")
@@ -559,23 +567,26 @@ def create_checkbox(text, variable, grid_row, grid_column):
                   sticky="w", padx=(15, 15), pady=5)
     return checkbox
 
+
 def create_button(text, command, grid_row, grid_column, font=None, **grid_options):
     button = tk.Button(root, text=text, command=command, font=font)
     button.grid(row=grid_row.index, column=grid_column.index, **grid_options)
     return button
 
 
-
 # ---------------------参数框 start---------------------
-
 openai_key_entry = create_labeled_entry(
     "OPENAI-KEY:", GridRows.OPENAI_KEY, 2, 3)
+
+deepseek_key_entry = create_labeled_entry(
+    "DEEPSEEK-KEY:", GridRows.DEEPSEEK_KEY, 2, 3)
 
 cozy_voice_key_entry = create_labeled_entry(
     "CozyVoice-KEY:", GridRows.DASHSCOPE_KEY, 2, 3)
 
 asr_server_entry = create_labeled_entry(
     "ASR SERVER:", GridRows.ASR_SERVER, 2, 3)
+
 
 extra_param_entry = create_labeled_entry(
     "额外启动参数:", GridRows.EXTRA_STARTPARAM, 2, 3)
@@ -610,7 +621,7 @@ create_checkbox("仅单一Sample", single_sample,
 # ---------------------下拉框 start---------------------
 
 gpt_versions = ["gpt-4o",
-                "gpt-4o mini", "gpt-o1", "ft:gpt-4o-2024-08-06:edaijia:openra-v1219:Ag4lT9jx"]
+                "gpt-4o mini", "gpt-o1", "ft:gpt-4o-2024-08-06:edaijia:openra-v0124:At9K9XP3", "deepseek-chat", "deepseek-reasoner"]
 
 mic_versions = ["whisper", "手动输入", "fun_asr"]
 
