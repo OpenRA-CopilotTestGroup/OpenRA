@@ -35,6 +35,7 @@ class StarterConfig:
     no_sample: bool = False
     single_sample: bool = False
     no_text_callback: bool = False
+    no_prompt: bool = False
     debug_mode: bool = False
 
 

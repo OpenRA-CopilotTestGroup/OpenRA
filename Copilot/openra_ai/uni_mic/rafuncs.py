@@ -43,7 +43,7 @@ prompt_counter = 0
 def save_prompt(static_prompt: str, dynamic_prompt: str, player_prompt: str, answer: str):
     global prompt_counter
 
-    base_file_prefix = os.path.join(prompt_path, f"{device_name}_{current_time}_{prompt_counter}")
+    base_file_prefix = os.path.join(prompt_path, f"{device_name}_{current_time}")
 
     base_file_suffix = ".txt"
 
@@ -52,10 +52,8 @@ def save_prompt(static_prompt: str, dynamic_prompt: str, player_prompt: str, ans
         with open(base_file_prefix + 'static_prompt' + base_file_suffix, 'w', encoding='utf-8') as file:
             file.write(static_prompt)
 
+    base_file_prefix += f"_{prompt_counter}"
     prompt_counter += 1
-
-
-
 
     with open(base_file_prefix + 'dynamic_prompt'+base_file_suffix, 'w', encoding='utf-8') as file:
         file.write(dynamic_prompt)
@@ -301,7 +299,11 @@ def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfi
     if starter_config.debug_mode:
         print("start to handle strategy command")
 
-    static_sys_prompt, dynamic_sys_prompt = make_sys_prompt(starter_config)
+    if starter_config.no_prompt:
+        static_sys_prompt = ""
+        dynamic_sys_prompt = ""
+    else:
+        static_sys_prompt, dynamic_sys_prompt = make_sys_prompt(starter_config)
 
     if starter_config.debug_mode:
         print(f'Static Prompt:\n{static_sys_prompt}\n')
