@@ -11,6 +11,7 @@ import time
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor
 from uni_mic.config import StarterConfig
+from uni_mic.utils import time_it
 import platform
 import random
 import threading
@@ -44,7 +45,7 @@ prompt_counter = 0
 def save_prompt(static_prompt: str, dynamic_prompt: str, player_prompt: str, answer: str):
     global prompt_counter
 
-    base_file_prefix = os.path.join(prompt_path, f"{device_name}_{current_time}")
+    base_file_prefix = os.path.join(prompt_path, f"{device_name}_{current_time}_")
 
     base_file_suffix = ".txt"
 
@@ -76,7 +77,7 @@ def print_log(content):
     with open(log_filename, "a", encoding='utf-8') as log_file:
         log_file.write(log_entry)
 
-
+@time_it("get_chat_completion")
 def get_chat_completion(
     messages: list[dict[str, str]],
     model: str = "gpt-4o",
@@ -297,7 +298,7 @@ MEMORY_REGEX = create_tag_regex('memory')
 
 executor = ThreadPoolExecutor(max_workers=10)
 
-
+@time_it("handle_strategy_command")
 def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfig = None):
     global CACHED_PREVIOUS_PROMPTS
     global MAX_CACHED_PROMPTS

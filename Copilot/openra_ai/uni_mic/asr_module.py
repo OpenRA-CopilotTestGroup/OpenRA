@@ -9,6 +9,8 @@ import wave
 from openai import OpenAI
 from uni_mic.utils import get_logger
 from uni_mic.config import ASRConfig
+from uni_mic.config import StarterConfig
+from uni_mic.utils import time_it
 
 def load_whisper():
     import importlib
@@ -130,6 +132,7 @@ class WhisperAPIASR(ASRModule):
             self.logger.error(f"WhisperAPIASR -> Error: {e}")
             raise ValueError("WhisperAPIASR -> Error initializing Whisper API")
 
+    @time_it("WhisperAPIASR")
     def transcribe(self, audio_data: np.ndarray):
         try:
             timestamp = int(time.time()*1000)
