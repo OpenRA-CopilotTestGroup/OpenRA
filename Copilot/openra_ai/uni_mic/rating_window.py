@@ -26,7 +26,8 @@ class RatingManager:
     def get_prompt_status(self):
 
         prompt_files = [
-            f for f in os.listdir(self.prompt_dir) if f.endswith("_player_prompt.txt")
+            f for f in os.listdir(self.prompt_dir) if f.endswith(".json") 
+            and not f.endswith("ratings.jsonl")
         ]
         rated_files = {record["prompt_file_name"] for record in self.ratings}
 
@@ -48,12 +49,20 @@ class RatingManager:
     def clean_invalid_entries(self):
 
         prompt_files = [
-            f for f in os.listdir(self.prompt_dir) if f.endswith("_player_prompt.txt")
+            f for f in os.listdir(self.prompt_dir) if f.endswith(".json") 
+            and not f.endswith("ratings.jsonl")
         ]
         self.ratings = [
             record for record in self.ratings if record["prompt_file_name"] in prompt_files
         ]
         self._save_ratings()
+
+    def get_prompt_content(self, prompt_file):
+        
+        file_path = os.path.join(self.prompt_dir, prompt_file)
+        with open(file_path, "r", encoding="utf-8") as file:
+            data = json.load(file)
+            return f"玩家输入: {data['player_input']}\n\n模型输出: {data['model_answer']}"
 
 
 class RatingWindow(QDialog):
@@ -69,12 +78,15 @@ class RatingWindow(QDialog):
         self.select_dir_button.clicked.connect(self.select_directory)
 
         self.prompt_list = QListWidget()
+        self.prompt_content = QLabel()
+        self.prompt_content.setWordWrap(True)
         self.load_prompt_list()
 
         layout = QVBoxLayout()
         layout.addWidget(self.select_dir_button)
         layout.addWidget(QLabel("选择一个 Prompt 并进行评分："))
         layout.addWidget(self.prompt_list)
+        layout.addWidget(self.prompt_content)
 
         score_layout = QHBoxLayout()
         self.score_spinbox = QSpinBox()
@@ -92,9 +104,9 @@ class RatingWindow(QDialog):
         layout.addWidget(self.refresh_button)
 
         # 定时器：每 10 秒自动刷新
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.refresh_prompt_list)
-        self.timer.start(10000)
+        # self.timer = QTimer(self)
+        # self.timer.timeout.connect(self.refresh_prompt_list)
+        # self.timer.start(10000)
 
         self.setLayout(layout)
 
@@ -108,10 +120,14 @@ class RatingWindow(QDialog):
         for prompt in rated:
             self.prompt_list.addItem(f"[已评分] {prompt}")
 
+        # Connect selection change event
+        self.prompt_list.itemSelectionChanged.connect(self.on_item_selected)
+
     def refresh_prompt_list(self):
 
         self.rating_manager.clean_invalid_entries()
         self.load_prompt_list()
+        self.prompt_content.clear()  # Clear content when refreshing list
 
     def save_rating(self):
 
@@ -136,3 +152,10 @@ class RatingWindow(QDialog):
         # 重新创建 RatingManager 以更新目录
         self.rating_manager = RatingManager(selected_dir, jsonl_path)
         self.refresh_prompt_list()
+
+    def on_item_selected(self):
+        current_item = self.prompt_list.currentItem()
+        if current_item:
+            prompt_name = current_item.text().split("] ")[1]
+            content = self.rating_manager.get_prompt_content(prompt_name)
+            self.prompt_content.setText(content)

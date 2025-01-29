@@ -15,6 +15,7 @@ from uni_mic.utils import time_it
 import platform
 import random
 import threading
+import json
 
 if hasattr(sys, '_MEIPASS'):
     os.chdir(os.path.dirname(sys.executable))
@@ -38,31 +39,28 @@ if hasattr(sys, '_MEIPASS'):
 else:
     base_path = os.path.dirname(os.path.dirname(__file__))
 
-prompt_path = os.path.join(base_path ,"prompt", device_name, current_time)
+prompt_path = os.path.join(base_path ,"prompt", current_time)
 prompt_counter = 0
 
 
 def save_prompt(static_prompt: str, dynamic_prompt: str, player_prompt: str, answer: str):
     global prompt_counter
 
-    base_file_prefix = os.path.join(prompt_path, f"{device_name}_{current_time}_")
-
-    base_file_suffix = ".txt"
-
     if prompt_counter == 0:
         os.makedirs(prompt_path, exist_ok=True)
-        with open(base_file_prefix + 'static_prompt' + base_file_suffix, 'w', encoding='utf-8') as file:
-            file.write(static_prompt)
 
-    base_file_prefix += f"_{prompt_counter}"
+    prompt_data = {
+        "player_input": player_prompt,
+        "static_prompt": static_prompt,
+        "dynamic_prompt": dynamic_prompt,
+        "model_answer": answer
+    }
+
+    json_file_path = os.path.join(prompt_path, f"{device_name}_{current_time}_{prompt_counter}.json")
+    with open(json_file_path, 'w', encoding='utf-8') as file:
+        json.dump(prompt_data, file, ensure_ascii=False, indent=2)
+
     prompt_counter += 1
-
-    with open(base_file_prefix + 'dynamic_prompt'+base_file_suffix, 'w', encoding='utf-8') as file:
-        file.write(dynamic_prompt)
-    with open(base_file_prefix + 'player_prompt'+base_file_suffix, 'w', encoding='utf-8') as file:
-        file.write(player_prompt)
-    with open(base_file_prefix + 'answer'+base_file_suffix, 'w', encoding='utf-8') as file:
-        file.write(answer)
 
 
 log_filename = os.path.join(log_directory, f"{current_time}.log")
@@ -77,7 +75,7 @@ def print_log(content):
     with open(log_filename, "a", encoding='utf-8') as log_file:
         log_file.write(log_entry)
 
-@time_it("get_chat_completion")
+@time_it("get chat completion")
 def get_chat_completion(
     messages: list[dict[str, str]],
     model: str = "gpt-4o",
@@ -298,7 +296,7 @@ MEMORY_REGEX = create_tag_regex('memory')
 
 executor = ThreadPoolExecutor(max_workers=10)
 
-@time_it("handle_strategy_command")
+#@time_it("完整处理过程")
 def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfig = None):
     global CACHED_PREVIOUS_PROMPTS
     global MAX_CACHED_PROMPTS
@@ -343,7 +341,7 @@ def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfi
 
     if starter_config.debug_mode:
         end_time = time.perf_counter()
-        print(f'get chat completion time: {end_time - start_time}')
+        #print(f'get chat completion time: {end_time - start_time}')
         print_log(f'get chat completion time: {end_time - start_time}')
 
     # print(f'Response:\n{completion.content}\n')

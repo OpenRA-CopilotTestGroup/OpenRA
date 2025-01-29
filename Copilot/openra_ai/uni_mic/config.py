@@ -61,3 +61,24 @@ def add_options(dataclass_type):
             )(f)
         return f
     return decorator
+
+class ConfigManager:
+    _instance = None
+
+    def __new__(cls, config=None):
+        if cls._instance is None:
+            cls._instance = super(ConfigManager, cls).__new__(cls)
+            cls._instance.config = config
+        return cls._instance
+
+    @classmethod
+    def set_config(cls, config):
+        if cls._instance is None:
+            cls._instance = cls()
+        cls._instance.config = config
+
+    @classmethod
+    def get_config(cls):
+        if cls._instance is None or cls._instance.config is None:
+            raise ValueError("ConfigManager 未初始化，请先调用 set_config() 设置 config")
+        return cls._instance.config

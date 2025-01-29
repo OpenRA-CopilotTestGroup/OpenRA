@@ -9,7 +9,6 @@ import wave
 from openai import OpenAI
 from uni_mic.utils import get_logger
 from uni_mic.config import ASRConfig
-from uni_mic.config import StarterConfig
 from uni_mic.utils import time_it
 
 def load_whisper():

@@ -13,7 +13,7 @@ from uni_mic.audio_listener import AudioListener
 from uni_mic.utils import get_logger
 from uni_mic.asr_manager import ASRManager
 from uni_mic.asr_module import WhisperASR, FunASRRemoteASR, WhisperAPIASR
-from uni_mic.config import AppConfig, ASRConfig, InputConfig, StarterConfig
+from uni_mic.config import AppConfig, ASRConfig, InputConfig, StarterConfig, ConfigManager
 from uni_mic.config import add_options
 from dataclasses import asdict
 
@@ -159,6 +159,8 @@ def main(**kwargs):
         input=InputConfig(**{k: v for k, v in kwargs.items() if k in asdict(InputConfig())}),
         starter=StarterConfig(**{k: v for k, v in kwargs.items() if k in asdict(StarterConfig())})
     )
+    
+    ConfigManager.set_config(config)
 
     global GUI_WINDOW
     global GUI_APP
