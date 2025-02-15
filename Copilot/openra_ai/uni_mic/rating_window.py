@@ -1,6 +1,6 @@
 import os
 import json
-from PyQt5.QtWidgets import QDialog, QVBoxLayout, QListWidget, QLabel, QPushButton, QHBoxLayout, QSpinBox, QFileDialog
+from PyQt5.QtWidgets import QDialog, QVBoxLayout, QListWidget, QLabel, QPushButton, QHBoxLayout, QSpinBox, QFileDialog, QScrollArea
 from PyQt5.QtCore import QTimer
 
 class RatingManager:
@@ -26,12 +26,18 @@ class RatingManager:
     def get_prompt_status(self):
 
         prompt_files = [
-            f for f in os.listdir(self.prompt_dir) if f.endswith(".json") 
+            f for f in os.listdir(self.prompt_dir) if f.endswith(".json")
             and not f.endswith("ratings.jsonl")
         ]
         rated_files = {record["prompt_file_name"] for record in self.ratings}
 
-        rated = [f for f in prompt_files if f in rated_files]
+        rated = []
+        for record in self.ratings:
+            if record["prompt_file_name"] in prompt_files:
+                rated.append({
+                    "name": record["prompt_file_name"],
+                    "score": record.get("rate", 0)
+                })
         unrated = [f for f in prompt_files if f not in rated_files]
 
         return rated, unrated
@@ -49,7 +55,7 @@ class RatingManager:
     def clean_invalid_entries(self):
 
         prompt_files = [
-            f for f in os.listdir(self.prompt_dir) if f.endswith(".json") 
+            f for f in os.listdir(self.prompt_dir) if f.endswith(".json")
             and not f.endswith("ratings.jsonl")
         ]
         self.ratings = [
@@ -58,7 +64,7 @@ class RatingManager:
         self._save_ratings()
 
     def get_prompt_content(self, prompt_file):
-        
+
         file_path = os.path.join(self.prompt_dir, prompt_file)
         with open(file_path, "r", encoding="utf-8") as file:
             data = json.load(file)
@@ -70,7 +76,7 @@ class RatingWindow(QDialog):
     def __init__(self, rating_manager, parent=None):
         super().__init__(parent)
         self.setWindowTitle("Prompt 评分")
-        self.setGeometry(200, 200, 600, 400)
+        self.setGeometry(200, 200, 600, 900)  # 初始窗口尺寸
 
         self.rating_manager = rating_manager
 
@@ -82,11 +88,20 @@ class RatingWindow(QDialog):
         self.prompt_content.setWordWrap(True)
         self.load_prompt_list()
 
+        # 设置列表高度
+        self.prompt_list.setFixedHeight(300)
+
+        # 滚动区域设置
+        scroll_area = QScrollArea()
+        scroll_area.setWidgetResizable(True)
+        scroll_area.setWidget(self.prompt_content)
+        scroll_area.setFixedHeight(450)  # 内容显示区高度
+
         layout = QVBoxLayout()
         layout.addWidget(self.select_dir_button)
         layout.addWidget(QLabel("选择一个 Prompt 并进行评分："))
         layout.addWidget(self.prompt_list)
-        layout.addWidget(self.prompt_content)
+        layout.addWidget(scroll_area)
 
         score_layout = QHBoxLayout()
         self.score_spinbox = QSpinBox()
@@ -108,17 +123,29 @@ class RatingWindow(QDialog):
         # self.timer.timeout.connect(self.refresh_prompt_list)
         # self.timer.start(10000)
 
+        # 固定窗口总高度
+        # self.setFixedHeight(800)  # 300+450+其他控件≈800
+
         self.setLayout(layout)
 
     def load_prompt_list(self):
-
         self.prompt_list.clear()
         rated, unrated = self.rating_manager.get_prompt_status()
 
-        for prompt in unrated:
-            self.prompt_list.addItem(f"[未评分] {prompt}")
-        for prompt in rated:
-            self.prompt_list.addItem(f"[已评分] {prompt}")
+        # 创建有序字典保持文件名顺序
+        all_prompts = sorted(
+            [f for f in unrated] + [item["name"] for item in rated],
+            key=lambda x: x.lower()
+        )
+
+        for prompt in all_prompts:
+            # 判断是否已评分
+            rated_item = next((item for item in rated if item["name"] == prompt), None)
+            if rated_item:
+                star = "★" * rated_item["score"] + "☆" * (5 - rated_item["score"])
+                self.prompt_list.addItem(f"[已评分 {star}] {prompt}")
+            else:
+                self.prompt_list.addItem(f"[未评分] {prompt}")
 
         # Connect selection change event
         self.prompt_list.itemSelectionChanged.connect(self.on_item_selected)
@@ -159,3 +186,4 @@ class RatingWindow(QDialog):
             prompt_name = current_item.text().split("] ")[1]
             content = self.rating_manager.get_prompt_content(prompt_name)
             self.prompt_content.setText(content)
+
