@@ -16,6 +16,7 @@ import platform
 import random
 import threading
 import json
+from PyQt5.QtCore import QMetaObject, Qt
 
 if hasattr(sys, '_MEIPASS'):
     os.chdir(os.path.dirname(sys.executable))
@@ -413,7 +414,8 @@ def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfi
                     gui.update_plan_item_status(plan, "失败")
                     error_message = traceback.format_exception_only(type(e), e)
                     last_line = "".join(error_message).strip()
-                    gui.add_ai_dialog(f"错误信息：{last_line}", False)
+                    QMetaObject.invokeMethod(gui, "add_ai_dialog", Qt.QueuedConnection,
+                                     lambda: gui.add_ai_dialog(f"错误信息：{last_line}", False))
 
         future = executor.submit(execute, executable)
     else:
