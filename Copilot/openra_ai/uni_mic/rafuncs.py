@@ -377,6 +377,8 @@ def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfi
         save_prompt(static_sys_prompt, dynamic_sys_prompt, prompt, completion.content)
 
         executable = code_match.group(1)
+        # 移除代码开头的import语句
+        executable = re.sub(r'^(import .*?\n|from .*? import .*?\n)*', '', executable.strip())
 
         if starter_config.debug_mode:
             print(f'executable={executable}')
