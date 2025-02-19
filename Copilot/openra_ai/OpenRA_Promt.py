@@ -34,7 +34,7 @@ class TargetsQueryParam:
     type: Optional[str] = None  # 目标类型，值为 {ALL_UNITS} 列表或 None。
     faction: Optional[str] = None  # 阵营，值为 {ALL_ACTORS} 中的一个或 None。
     group_id: Optional[List[int]] = None  # {ALL_GROUPS} 列表或 None。
-    restrain: Optional[dict] = None  # 约束条件。
+    restrain: Optional[List[dict]] = None  # 约束条件。
     ''' 约束条件是一个字典，可以为空，也包含以下键值对：
     {"distance": int}   # 距离（只选中距离小于等于distance的单位）
     {"visible": bool}  # 是否可见
@@ -318,7 +318,15 @@ class GameAPI:
         pass
 
     def can_attack_target(self, attacker: Actor, target: Actor) -> bool:
-        '''判断是否可以攻击指定目标'''
+        '''判断是否可以攻击指定目标
+
+        Args:
+            attacker (Actor): 发起攻击的Actor
+            target (Actor): 被攻击的目标
+
+        Returns:
+            bool: 如果目标可见且在攻击范围内返回True，否则返回False
+        '''
         pass
 
     def repair_units(self, actors: List[Actor]) -> Optional[int]:
@@ -400,6 +408,8 @@ class GameAPI:
 
     def deploy_mcv_and_wait(self, wait_time: float = 1.0) -> None:
         '''展开自己的基地车并等待一小会
+        这是一个便利方法，用于游戏开局时部署基地车。
+
         Args:
             wait_time (float): 展开后的等待时间(秒)，默认为1秒，已经够了，一般不用改
         '''
