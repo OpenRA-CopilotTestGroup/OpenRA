@@ -299,6 +299,41 @@ executor = ThreadPoolExecutor(max_workers=10)
 
 #@time_it("完整处理过程")
 def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfig = None):
+
+    # 过滤whisper常见的底噪识别结果
+    noise_keywords = [
+        # 字幕相关
+        "字幕", "双字", "中字", "英字", "无字", "字母",
+
+        # 语言标识
+        "中文", "英文", "双语", "中英", "英中", "国语",
+
+        # 视频平台相关
+        "CC", "cc", "CC字幕", "硬字幕", "软字幕",
+
+        # 翻译相关
+        "翻译", "译制", "翻译自", "机翻",
+
+        # 特定品牌或平台
+        "明镜", "油管", "YouTube", "youtube",
+
+        # 视频质量描述
+        "高清", "蓝光", "1080P", "720P", "4K",
+
+        # 常见误识别词
+        "订阅", "关注", "点赞", "转发", "分享",
+        "评论", "收藏", "投币", "充电",
+
+        # 音频相关
+        "原声", "配音", "音轨", "音频"
+    ]
+
+    if prompt and any(keyword in prompt for keyword in noise_keywords):
+        if starter_config.debug_mode:
+            print(f"检测到语音识别底噪，忽略指令: {prompt}")
+            print_log(f"检测到语音识别底噪，忽略指令: {prompt}")
+        return
+
     global CACHED_PREVIOUS_PROMPTS
     global MAX_CACHED_PROMPTS
     global CODE_REGEX
