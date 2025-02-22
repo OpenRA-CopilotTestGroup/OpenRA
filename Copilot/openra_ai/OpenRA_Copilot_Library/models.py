@@ -31,7 +31,7 @@ class Location:
 # 基本上是用这个结构体来表明一个或一些Actor
 @dataclass
 class TargetsQueryParam:
-    type: Optional[str] = None  # 目标类型，值为 {ALL_UNITS} 列表或 None。
+    type: Optional[List[str]] = None  # 目标类型，值为 {ALL_UNITS} 列表或 None。
     faction: Optional[str] = None  # 阵营，值为 {ALL_ACTORS} 中的一个或 None。
     group_id: Optional[List[int]] = None  # {ALL_GROUPS} 列表或 None。
     restrain: Optional[List[dict]] = None  # 约束条件。

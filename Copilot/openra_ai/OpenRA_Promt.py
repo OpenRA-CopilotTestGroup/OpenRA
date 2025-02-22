@@ -31,7 +31,7 @@ class Location:
 # 基本上是用这个结构体来表明一个或一些Actor
 @dataclass
 class TargetsQueryParam:
-    type: Optional[str] = None  # 目标类型，值为 {ALL_UNITS} 列表或 None。
+    type: Optional[List[str]] = None  # 目标类型，值为 {ALL_UNITS} 列表或 None。
     faction: Optional[str] = None  # 阵营，值为 {ALL_ACTORS} 中的一个或 None。
     group_id: Optional[List[int]] = None  # {ALL_GROUPS} 列表或 None。
     restrain: Optional[List[dict]] = None  # 约束条件。
@@ -417,6 +417,7 @@ class GameAPI:
 
     def ensure_building_wait(self, building_name: str) -> bool:
         '''确保拥有某个建筑，如果没有就建造，并等待建造完成
+        这个方法不应该用于建造建筑，这个方法是确保拥有某个建筑，如果建筑不存在，会建造，如果不存在，不会进行任何动作
         Args:
             building_name (str): 建筑名称(中文)
         Returns:
@@ -425,7 +426,8 @@ class GameAPI:
         pass
 
     def ensure_can_produce_unit(self, unit_name: str) -> bool:
-        '''确保能生产某个单位(会自动建造其所需建筑并等待完成)
+        '''确保能生产某个单位(会自动建造其所需建筑并等待完成)，
+        这个方法不应该用于生产单位，这个方法是确保能生产某个单位，如果单位不满足建造条件，会建造前置建筑，否则，不会进行任何动作
         Args:
             unit_name (str): 单位名称(中文)
         Returns:
