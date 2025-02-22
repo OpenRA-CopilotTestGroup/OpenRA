@@ -85,6 +85,7 @@ namespace OpenRA.Mods.Common
 			if (ret == null)
 			{
 				Console.WriteLine($"未知单位: {chineseName}");
+				return new List<string>();
 			}
 
 			return ret;
