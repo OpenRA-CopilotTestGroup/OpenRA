@@ -147,7 +147,7 @@ class GameAPI:
         '''
         pass
 
-    def produce_units(self, unit_type: str, quantity: int) -> Optional[int]:
+    def produce(self, unit_type: str, quantity: int) -> Optional[int]:
         '''生产指定数量的Actor
 
         Args:
@@ -415,9 +415,8 @@ class GameAPI:
         '''
         pass
 
-    def ensure_building_wait(self, building_name: str) -> bool:
-        '''确保拥有某个建筑，如果没有就建造，并等待建造完成
-        这个方法不应该用于建造建筑，这个方法是确保拥有某个建筑，如果建筑不存在，会建造，如果不存在，不会进行任何动作
+    def ensure_can_build_wait(self, building_name: str) -> bool:
+        '''确保能建造某个建筑，如果不能会尝试建造所有前置建筑，并等待建造完成
         Args:
             building_name (str): 建筑名称(中文)
         Returns:
@@ -426,8 +425,7 @@ class GameAPI:
         pass
 
     def ensure_can_produce_unit(self, unit_name: str) -> bool:
-        '''确保能生产某个单位(会自动建造其所需建筑并等待完成)，
-        这个方法不应该用于生产单位，这个方法是确保能生产某个单位，如果单位不满足建造条件，会建造前置建筑，否则，不会进行任何动作
+        '''确保能生产某个单位，如果不能会尝试建造所有前置建筑，并等待建造完成
         Args:
             unit_name (str): 单位名称(中文)
         Returns:

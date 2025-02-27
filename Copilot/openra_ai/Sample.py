@@ -20,7 +20,7 @@ print("基地车已展开完毕")
 
 if api.ensure_can_produce_unit("步兵"):
     print("可以生产步兵了，生产3个步兵中...")
-    p = api.produce_units("步兵", 3)
+    p = api.produce("步兵", 3)
     if p:
         api.wait(p)
         print("步兵生产完成")
@@ -68,17 +68,19 @@ explore_thread.start()
 
 # 4. 建造“矿场”、“车间”以便生产载具
 
-api.ensure_building_wait("矿场")
-api.ensure_building_wait("车间")
+api.ensure_can_build_wait("矿场")
+api.produce("矿场", 1)
+api.ensure_can_build_wait("车间")
+api.produce("车间", 1)
 
 # 确保一下还有电
 playerinfo = api.player_base_info_query()
 
 while playerinfo.Power <= 0:
     if api.able_to_produce("核电厂"):
-        p1 = api.produce_units("核电厂", 1)
+        p1 = api.produce("核电厂", 1)
     else:
-        p1 = api.produce_units("电厂", 1)
+        p1 = api.produce("电厂", 1)
     api.wait(p1)
     time.sleep(0.5)
     playerinfo = api.player_base_info_query()
@@ -87,7 +89,7 @@ while playerinfo.Power <= 0:
 
 if api.ensure_can_produce_unit("防空车"):
     print("开始生产4辆防空车...")
-    wtank = api.produce_units("防空车", 4)
+    wtank = api.produce("防空车", 4)
     if wtank:
         api.wait(wtank, maxWaitTime=30)
         print("防空车已生产完毕")

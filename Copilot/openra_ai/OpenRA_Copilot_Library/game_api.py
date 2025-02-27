@@ -90,7 +90,7 @@ class GameAPI:
             return response["canProduce"]
         return False
 
-    def produce_units(self, unit_type: str, quantity: int):
+    def produce(self, unit_type: str, quantity: int):
         '''生产指定数量的Actor
 
         Args:
@@ -107,7 +107,7 @@ class GameAPI:
             if response is not None:
                 return response["waitId"]
         except:
-            print("Error in produce_units ,Response:")
+            print("Error in produce ,Response:")
             print(response)
 
     def is_ready(self, waitId: int):
@@ -481,8 +481,8 @@ class GameAPI:
         self.deploy_units(mcv)
         time.sleep(wait_time)
 
-    def ensure_building_wait(self, building_name: str) -> bool:
-        '''确保拥有某个建筑，如果没有就建造，并等待建造完成
+    def ensure_can_build_wait(self, building_name: str) -> bool:
+        '''确保能建造某个建筑，如果不能会尝试建造所有前置建筑，并等待建造完成
         Args:
             building_name (str): 建筑名称(中文)
         Returns:
@@ -496,10 +496,27 @@ class GameAPI:
         # 检查该建筑的依赖
         deps = self.BUILDING_DEPENDENCIES.get(building_name, [])
         for dep in deps:
-            self.ensure_building_wait(dep)
+            if not self.ensure_building_wait_buildself(dep):
+                return False
+
+        return True
+
+    def ensure_building_wait_buildself(self, building_name: str) -> bool:
+        '''
+        非外部接口
+        '''
+
+        building_exists = self.query_actor(TargetsQueryParam(type=[building_name], faction="自己"))
+        if building_exists:
+            return True
+
+        # 检查该建筑的依赖
+        deps = self.BUILDING_DEPENDENCIES.get(building_name, [])
+        for dep in deps:
+            self.ensure_building_wait_buildself(dep)
 
         if self.able_to_produce(building_name):
-            wait_id = self.produce_units(building_name, 1)
+            wait_id = self.produce(building_name, 1)
             if wait_id:
                 self.wait(wait_id)
                 return True
