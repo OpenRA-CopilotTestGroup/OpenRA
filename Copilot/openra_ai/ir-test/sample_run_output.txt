@@ -1,0 +1,226 @@
+--------------------------------------------------
+Detailed timing for command: '所有单位攻击敌方基地'
+IR Generation Time: 2.64 seconds
+Code Compilation Time: 0.00 seconds
+Total Processing Time: 2.65 seconds
+==================================================
+
+Testing command: '派這三個步兵去探路'
+--------------------------------------------------
+Generating IR...
+Command: '派這三個步兵去探路'
+LLM Response Time: 2.35 seconds
+Post-processing Time: 0.00 seconds
+Total Time: 2.35 seconds
+--------------------------------------------------
+Generated IR:
+{
+  "version": "1.0",
+  "actions": [
+    {
+      "id": "analysis_001",
+      "type": "ANALYSIS",
+      "command": "query_actor",
+      "parameters": {
+        "target": "units",
+        "unit_types": [
+          "步兵"
+        ],
+        "faction": "己方"
+      }
+    },
+    {
+      "id": "group_001",
+      "type": "GROUP",
+      "command": "form_group",
+      "parameters": {
+        "unit_type": "步兵",
+        "quantity": 3,
+        "group_id": 1
+      },
+      "dependencies": [
+        "analysis_001"
+      ]
+    },
+    {
+      "id": "move_001",
+      "type": "MOVE",
+      "command": "move_units_by_path",
+      "parameters": {
+        "group_id": 1,
+        "destination": {
+          "type": "region",
+          "value": "map_center"
+        },
+        "path_method": "最短路"
+      },
+      "dependencies": [
+        "group_001"
+      ]
+    }
+  ],
+  "metadata": {
+    "timestamp": 1623456789.0,
+    "command": "派這三個步兵去探路"
+  }
+}
+--------------------------------------------------
+Compiling IR to Python code...
+Actions being compiled: [
+  {
+    "id": "analysis_001",
+    "type": "ANALYSIS",
+    "command": "query_actor",
+    "parameters": {
+      "target": "units",
+      "unit_types": [
+        "步兵"
+      ],
+      "faction": "己方"
+    }
+  },
+  {
+    "id": "group_001",
+    "type": "GROUP",
+    "command": "form_group",
+    "parameters": {
+      "unit_type": "步兵",
+      "quantity": 3,
+      "group_id": 1
+    },
+    "dependencies": [
+      "analysis_001"
+    ]
+  },
+  {
+    "id": "move_001",
+    "type": "MOVE",
+    "command": "move_units_by_path",
+    "parameters": {
+      "group_id": 1,
+      "destination": {
+        "type": "region",
+        "value": "map_center"
+      },
+      "path_method": "最短路"
+    },
+    "dependencies": [
+      "group_001"
+    ]
+  }
+]
+<code>
+from game_api import EnhancedGameAPI, UnitType, ActionStatus
+api = EnhancedGameAPI('localhost')
+analysis001_result = api.find_units(unit_type=UnitType.INFANTRY if '步兵' else None, state='待命', faction='己方')
+if not analysis001_result:
+    raise RuntimeError('No 步兵 found')
+infantrys = api.find_units(unit_type=UnitType.INFANTRY, state='待命')
+if len(infantrys) < 3:
+    raise RuntimeError('Not enough 步兵 for all groups (need 3)')
+group_1 = infantrys[0:3]
+path = api.find_path(group_1, 'map_center', '最短路')
+result = api.move_units_by_path(group_1, path)
+if result.status != ActionStatus.SUCCESS:
+    raise RuntimeError('Failed to move group to map_center')
+</code>
+--------------------------------------------------
+Detailed timing for command: '派這三個步兵去探路'
+IR Generation Time: 2.35 seconds
+Code Compilation Time: 0.00 seconds
+Total Processing Time: 2.35 seconds
+==================================================
+
+Testing command: '生产5个步枪兵5个火箭兵'
+--------------------------------------------------
+Generating IR...
+Command: '生产5个步枪兵5个火箭兵'
+LLM Response Time: 1.74 seconds
+Post-processing Time: 0.00 seconds
+Total Time: 1.74 seconds
+--------------------------------------------------
+Generated IR:
+{
+  "version": "1.0",
+  "actions": [
+    {
+      "id": "produce_infantry_001",
+      "type": "PRODUCE",
+      "command": "produce_units",
+      "parameters": {
+        "unit_type": "步枪兵",
+        "quantity": 5
+      }
+    },
+    {
+      "id": "produce_rocket_soldier_001",
+      "type": "PRODUCE",
+      "command": "produce_units",
+      "parameters": {
+        "unit_type": "火箭兵",
+        "quantity": 5
+      }
+    }
+  ],
+  "metadata": {
+    "timestamp": "float",
+    "command": "生产5个步枪兵5个火箭兵",
+    "player_state": {}
+  }
+}
+--------------------------------------------------
+Compiling IR to Python code...
+Actions being compiled: [
+  {
+    "id": "produce_infantry_001",
+    "type": "PRODUCE",
+    "command": "produce_units",
+    "parameters": {
+      "unit_type": "步枪兵",
+      "quantity": 5
+    }
+  },
+  {
+    "id": "produce_rocket_soldier_001",
+    "type": "PRODUCE",
+    "command": "produce_units",
+    "parameters": {
+      "unit_type": "火箭兵",
+      "quantity": 5
+    }
+  }
+]
+<code>
+from game_api import EnhancedGameAPI, UnitType, ActionStatus
+api = EnhancedGameAPI('localhost')
+result = api.produce_unit(UnitType.INFANTRY, quantity=5)
+if result.status != ActionStatus.SUCCESS and result.wait_id:
+    result = api.wait_for_action(result.wait_id)
+if result.status != ActionStatus.SUCCESS:
+    raise RuntimeError('Failed to produce 5 步枪兵')
+result = api.produce_unit(UnitType.ROCKET_INFANTRY, quantity=5)
+if result.status != ActionStatus.SUCCESS and result.wait_id:
+    result = api.wait_for_action(result.wait_id)
+if result.status != ActionStatus.SUCCESS:
+    raise RuntimeError('Failed to produce 5 火箭兵')
+</code>
+--------------------------------------------------
+Detailed timing for command: '生产5个步枪兵5个火箭兵'
+IR Generation Time: 1.74 seconds
+Code Compilation Time: 0.00 seconds
+Total Processing Time: 1.74 seconds
+==================================================
+
+===== PERFORMANCE SUMMARY =====
+Command: '所有单位攻击敌方基地'
+  IR Generation: 2.64s
+  Code Compilation: 0.00s
+  Total Time: 2.65s
+Command: '派這三個步兵去探路'
+  IR Generation: 2.35s
+  Code Compilation: 0.00s
+  Total Time: 2.35s
+Command: '生产5个步枪兵5个火箭兵'
+  IR Generation: 1.74s
+  Code Compilation: 0.00s
+  Total Time: 1.74s
