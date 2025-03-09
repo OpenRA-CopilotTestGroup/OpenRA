@@ -1,3 +1,10 @@
+Note:
+
+Run
+(assume .env file has the openai api key)
+
+$ python -m openra_ir_compiler.test_openai
+
 --------------------------------------------------
 Detailed timing for command: '所有单位攻击敌方基地'
 IR Generation Time: 2.64 seconds
