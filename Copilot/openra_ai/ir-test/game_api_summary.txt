@@ -1,0 +1,10 @@
+GameAPI Methods:
+- produce_units(unit_type: str, quantity: int) - Produce specified units.
+- ensure_can_produce_unit(unit_type: str) - Check and prepare to produce a unit type.
+- form_group(actors: List[Actor], group_id: int) - Group units under an ID.
+- query_actor(query_params: TargetsQueryParam) - Find units/buildings matching criteria.
+- move_units_by_path(actors: List[Actor], path: List[Location]) - Move units along a path.
+- find_path(actors: List[Actor], destination: Location, method: str) - Calculate a path ("最短路", "左路", "右路").
+- attack_target(attacker: Actor, target: Actor) - Attack a specific target.
+- map_query() - Get map information.
+- player_base_info_query() - Get player resources and power.

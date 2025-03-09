@@ -1,0 +1,152 @@
+1. Top Level
+{
+  "version": "1.0",
+  "actions": [
+    // Array of action objects
+  ],
+  "metadata": {
+    "timestamp": "float",         // Game time in seconds (e.g., 1623456789.0)
+    "command": "string",          // Original natural language command (e.g., "坦克突击，攻击敌方士兵")
+    "player_state": {             // Optional snapshot of current state
+      "cash": "int",
+      "resources": "int",
+      "power": "int"
+    }
+  }
+}
+
+2. Action
+{
+  "id": "string",                  // Unique identifier (e.g., "tactic_assault_001")
+  "type": "string",                // Action type (see below)
+  "command": "string",             // Corresponding GameAPI method (e.g., "execute_tactic")
+  "parameters": {                  // Type-specific parameters
+    // Varies by action type
+  },
+  "conditions": [                  // Preconditions for execution (optional)
+    {
+      "type": "string",            // e.g., "resource", "building", "unit_count"
+      "key": "string",             // e.g., "cash", "name", "type"
+      "value": "any",              // e.g., 1000, "车间", "坦克"
+      "operator": "string"         // e.g., ">", "<", "=", "exists"
+    }
+  ],
+  "dependencies": [                // IDs of actions that must complete first (optional)
+    "string"
+  ],
+  "fallback": {                    // Fallback behavior if action fails (optional)
+    "condition": "string",         // e.g., "NO_ENEMIES", "INSUFFICIENT_UNITS"
+    "action": "string",            // e.g., "FIND_OBJECTIVE", "RETRY"
+    "params": "object"             // Parameters for fallback action (optional)
+  },
+  "priority": "int"                // Execution priority (default: 0, higher = earlier)
+}
+
+3. Action Types and Parameters
+
+{
+  "type": "ANALYSIS",
+  "command": "map_query | query_actor | player_base_info_query",
+  "parameters": {
+    "target": "string",            // e.g., "map", "units", "player"
+    "unit_types": ["string"],      // e.g., ["坦克", "步兵"] (optional)
+    "faction": "string",           // e.g., "己方", "敌方" (optional)
+    "range": "int",                // Scan radius in tiles (optional)
+    "scan_for": ["string"],        // e.g., ["ENEMIES", "RESOURCES", "UNEXPLORED"]
+    "restrain": [ {"key": "visible", "value": "bool"} ]  // Restrict restrain to visibility
+  }
+}
+
+{
+  "type": "PRODUCE",
+  "command": "produce_units | ensure_can_produce_unit",
+  "parameters": {
+    "unit_type": "string",         // e.g., "坦克", "电厂"
+    "quantity": "int",             // Number to produce (default: 1)
+    "rally_point": {               // Optional deployment location
+      "x": "int",
+      "y": "int"
+    }
+  }
+}
+
+{
+  "type": "BUILD",
+  "command": "ensure_building_wait",
+  "parameters": {
+    "building": "string",          // e.g., "车间", "雷达"
+    "location": {                  // Optional placement
+      "x": "int",
+      "y": "int"
+    }
+  }
+}
+
+{
+  "type": "GROUP",
+  "command": "form_group",
+  "parameters": {
+    "unit_type": "string",         // e.g., "坦克"
+    "quantity": "int",             // Number of units to group (optional)
+    "group_id": "int",             // e.g., 1, 2 (from ALL_GROUPS) Required field
+    "formation": "string"          // e.g., "LINE", "WEDGE" (optional)
+  }
+}
+
+{
+  "type": "MOVE",
+  "command": "move_units_by_path | move_units_by_location",
+  "parameters": {
+    "unit_type": "string",         // e.g., "坦克" (optional if group_id used)
+    "group_id": "int",             // e.g., 1 (optional)
+    "destination": {               // Target location
+      "type": "string",            // "coordinate", "region", "relative"
+      "value": "object | string"   // e.g., {"x": 50, "y": 50}, "地图左侧", "敌方基地"
+    },
+    "path_method": "string",       // e.g., "最短路", "左路", "右路" (for move_units_by_path)
+    "attack_move": "bool"          // Attack while moving (default: false)
+  }
+}
+
+{
+  "type": "ATTACK",
+  "command": "attack_target",
+  "parameters": {
+    "unit_type": "string",         // e.g., "坦克" (optional if group_id used)
+    "group_id": "int",             // e.g., 1 (optional)
+    "target": {                    // Target specification
+      "type": "string",            // e.g., "士兵", "基地"
+      "faction": "string",         // e.g., "敌方"
+      "restrain": [                // Constraints (optional)
+        {"key": "string", "value": "any"}  // e.g., {"key": "visible", "value": true}
+      ]
+    },
+    "engagement": "string"         // e.g., "SUSTAINED", "ONE_SHOT" (optional)
+  }
+}
+
+{
+  "type": "TACTIC",
+  "command": "execute_tactic",
+  "parameters": {
+    "components": [                // Units involved in the tactic
+      {
+        "unit_type": "string",     // e.g., "坦克"
+        "group_id": "int",         // Optional group identifier
+        "role": "string",          // e.g., "FRONTLINE", "FLANKER", "SUPPORT"
+        "quantity": "int"          // Number of units for this role (default: all available)
+      }
+    ],
+    "target": {                    // Target of the tactic (optional)
+      "type": "string",            // e.g., "士兵", "基地"
+      "faction": "string",         // e.g., "敌方"
+      "restrain": [                // Constraints (e.g., visibility, distance)
+        {"key": "string", "value": "any"}  // e.g., {"key": "visible", "value": true}
+      ]
+    },
+    "strategy": "string",          // Tactical approach (e.g., "closest", "spread", "flank")
+    "condition": "string",         // Termination condition (e.g., "TARGETS_DESTROYED", "UNITS_DESTROYED")
+    "interval": "float",           // Time between iterations in seconds (default: 1.0)
+    "engagement": "string"         // e.g., "SUSTAINED", "HIT_AND_RUN" (optional)
+  }
+}
