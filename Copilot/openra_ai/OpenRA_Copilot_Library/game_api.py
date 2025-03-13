@@ -110,6 +110,26 @@ class GameAPI:
             print("Error in produce ,Response:")
             print(response)
 
+    def produce_wait(self, unit_type: str, quantity: int):
+        '''生产指定数量的Actor并等待生产完成
+
+        Args:
+            unit_type (str): Actor类型
+            quantity (int): 生产数量
+
+        Returns:
+            int: 生产任务的 waitId
+            None: 如果任务创建失败
+        '''
+        data = {"units": [{"unit_type": unit_type, "quantity": quantity}]}
+        response = self._send_request('start_production', data)
+        try:
+            if response is not None:
+                self.wait(response["waitId"], 20 * quantity)
+        except:
+            print("Error in produce ,Response:")
+            print(response)
+
     def is_ready(self, waitId: int):
         '''检查生产任务是否完成
 
@@ -266,7 +286,7 @@ class GameAPI:
             print(e)
             return []
 
-    def get_actor(self, actor_id):
+    def get_actor_by_id(self, actor_id):
         '''获取指定 ID 的Actor，这是根据ActorID获取Actor的接口，只有已知ActorID是才能调用这个接口
 
         Args:
@@ -352,7 +372,8 @@ class GameAPI:
             return False
 
     def can_attack_target(self, attacker: Actor, target: Actor) -> bool:
-        data = {"targets": {"actorId": [target.actor_id],"restrain":[{"visible":True}]}}
+        data = {"targets": {"actorId": [
+            target.actor_id], "restrain": [{"visible": True}]}}
         response = self._send_request('query_actor', data)
         if response is None:
             return False
@@ -489,7 +510,8 @@ class GameAPI:
             bool: 是否已经拥有该建筑或成功建造
         '''
 
-        building_exists = self.query_actor(TargetsQueryParam(type=[building_name], faction="自己"))
+        building_exists = self.query_actor(
+            TargetsQueryParam(type=[building_name], faction="自己"))
         if building_exists:
             return True
 
@@ -506,7 +528,8 @@ class GameAPI:
         非外部接口
         '''
 
-        building_exists = self.query_actor(TargetsQueryParam(type=[building_name], faction="自己"))
+        building_exists = self.query_actor(
+            TargetsQueryParam(type=[building_name], faction="自己"))
         if building_exists:
             return True
 
@@ -565,7 +588,7 @@ class GameAPI:
         return neighbors
 
     def move_units_by_location_and_wait(self, actors: List[Actor], location: Location,
-                                        max_wait_time: float = 10.0, tolerance_dis : int = 1) -> bool:
+                                        max_wait_time: float = 10.0, tolerance_dis: int = 1) -> bool:
         '''移动一批Actor到指定位置，并等待(或直到超时)
         Args:
             actors (List[Actor]): 要移动的Actor列表

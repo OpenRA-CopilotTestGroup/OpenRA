@@ -1,6 +1,6 @@
 # 这个是一个示例文件，展示了如何使用OpenRA_Copilot_Library库，尽可能详细的包含了库中的所有功能，可以作为参考
 
-# 该代码对应指令为：展开基地车，造一些步兵编成组1去探索，再补矿场，车间，来几个防空车编成组2和组3两路迂回到敌方基地，遇见步兵优先打步兵，并尝试进攻敌方基地，打不过就撤退，没血的车可以修一下，摄像机跟随组2防空车
+# 该代码对应指令为：展开基地车，建造电厂，兵营，轻坦克去敌方基地兜一圈，造一些步兵编成组1去探索，再补矿场，车间，来几个防空车编成组2和组3两路迂回到敌方基地，遇见步兵优先打步兵，并尝试进攻敌方基地，打不过就撤退，没血的车可以修一下，摄像机跟随组2防空车
 
 import OpenRA_Copilot_Library as OpenRA
 from OpenRA_Copilot_Library import *
@@ -10,13 +10,41 @@ import threading
 
 api = OpenRA.GameAPI("localhost")
 
-# 1. 展开基地车
+# 展开基地车
 
 api.deploy_mcv_and_wait(wait_time=1.0)
 print("基地车已展开完毕")
 
+# 建造电厂和兵营
+api.ensure_can_build_wait("电厂")
+build = api.produce_wait("电厂", 1)
+# 因为电厂本来就是兵营前置了，所以先电厂后兵营
+api.ensure_can_build_wait("兵营")
+build = api.produce_wait("兵营", 1)
 
-# 2. 确保能生产“步兵”，然后生产一些
+
+# 轻坦克去敌方基地兜一圈
+# 这里已经知道轻坦克的actor_id是23
+def move_light_tank_around_enemy_base(api, tank_actor_id):
+    ltank = api.getactor_by_id(tank_actor_id)
+    if not ltank:
+        raise RuntimeError("未找到轻坦克")
+    enemy_bases = api.query_actor(TargetsQueryParam(type=["基地"], faction="敌方"))
+    if not enemy_bases:
+        raise RuntimeError("未找到敌方基地")
+    enemy_base = enemy_bases[0]
+    original_position = ltank.position
+    api.move_units_by_location([ltank], enemy_base.position)
+    while ltank.position.manhattan_distance(enemy_base.position) > 5:
+        time.sleep(0.5)
+        api.update_actor(ltank)
+    print("轻坦克已到达敌方基地附近")
+    api.move_units_by_location([ltank], original_position)
+
+move_light_tank_around_enemy_base(23)
+
+
+# 确保能生产“步兵”，然后生产一些
 
 if api.ensure_can_produce_unit("步兵"):
     print("可以生产步兵了，生产3个步兵中...")
@@ -28,7 +56,7 @@ else:
     print("无法生产步兵，可能资源不足或其它未知原因")
 
 
-# 3. 步兵编成组1去探索周边地图
+# 步兵编成组1去探索周边地图
 def explore_with_infantry(api):
     infantry_list = api.query_actor(TargetsQueryParam(type=["步兵"], faction="自己"))
     if infantry_list:
@@ -63,15 +91,16 @@ def explore_with_infantry(api):
             time.sleep(0.5)
 
 # 开启一个线程来探索，因为这个过程可能不会结束，或者持续很久
+# 这是因为这里有后续操作，如果没有后续操作不用开线程
 explore_thread = threading.Thread(target=explore_with_infantry, args=(api,))
 explore_thread.start()
 
-# 4. 建造“矿场”、“车间”以便生产载具
+# 建造“矿场”、“车间”以便生产载具
 
 api.ensure_can_build_wait("矿场")
-api.produce("矿场", 1)
+api.produce_wait("矿场", 1)
 api.ensure_can_build_wait("车间")
-api.produce("车间", 1)
+api.produce_wait("车间", 1)
 
 # 确保一下还有电
 playerinfo = api.player_base_info_query()
@@ -85,7 +114,7 @@ while playerinfo.Power <= 0:
     time.sleep(0.5)
     playerinfo = api.player_base_info_query()
 
-# 5. 生产4个防空车
+# 生产4个防空车
 
 if api.ensure_can_produce_unit("防空车"):
     print("开始生产4辆防空车...")
@@ -97,7 +126,7 @@ else:
     print("无法生产防空车")
 
 
-# 6. 防空车进攻敌方基地
+# 防空车编成两组，两路夹击进攻敌方基地
 
 ftrks = api.query_actor(TargetsQueryParam(type=["防空车"], faction="自己"))
 enemy_bases = api.query_actor(TargetsQueryParam(type=["基地"], faction="敌方"))

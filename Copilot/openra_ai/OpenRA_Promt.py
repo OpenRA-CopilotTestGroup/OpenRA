@@ -160,11 +160,17 @@ class GameAPI:
         '''
         pass
 
+    def produce_wait(self, unit_type: str, quantity: int):
+        '''生产指定数量的Actor并等待生产完成
+        参数同produce
+        '''
+        pass
+
     def is_ready(self, waitId: int) -> bool:
         '''检查生产任务是否完成
 
         Args:
-            waitId (int): 生产任务的 ID
+            waitId (int): produce返回的 ID
 
         Returns:
             bool: 是否完成
@@ -254,7 +260,7 @@ class GameAPI:
         '''
         pass
 
-    def get_actor(self, actor_id: int) -> Optional[Actor]:
+    def get_actor_by_id(self, actor_id: int) -> Optional[Actor]:
         '''获取指定 ID 的Actor，这是根据ActorID获取Actor的接口，只有已知ActorID是才能调用这个接口
 
         Args:
@@ -417,6 +423,7 @@ class GameAPI:
 
     def ensure_can_build_wait(self, building_name: str) -> bool:
         '''确保能建造某个建筑，如果不能会尝试建造所有前置建筑，并等待建造完成
+        这个方法不应该用于建造建筑，这个方法是确保拥有某个建筑的建造条件，如果没有会尝试建造所有前置建筑，但不会建造该建筑，建造应该使用produce方法
         Args:
             building_name (str): 建筑名称(中文)
         Returns:
@@ -426,6 +433,7 @@ class GameAPI:
 
     def ensure_can_produce_unit(self, unit_name: str) -> bool:
         '''确保能生产某个单位，如果不能会尝试建造所有前置建筑，并等待建造完成
+        这个方法不应该用于生产单位，这个方法是确保拥有生产某个单位的条件，如果没有会尝试建造所有前置建筑，但不会生产该单位，生产应该使用produce方法
         Args:
             unit_name (str): 单位名称(中文)
         Returns:
