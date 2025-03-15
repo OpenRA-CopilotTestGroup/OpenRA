@@ -37,6 +37,7 @@ class StarterConfig:
     no_text_callback: bool = False
     no_prompt: bool = False
     debug_mode: bool = False
+    use_response_api: bool = False
 
 
 @dataclass

@@ -78,7 +78,9 @@ def print_log(content):
 
 @time_it("get chat completion")
 def get_chat_completion(
-    messages: list[dict[str, str]],
+    static_sys_prompt: str,
+    dynamic_sys_prompt: str,
+    user_input: str,
     model: str = "gpt-4o",
     config: StarterConfig = None,
     max_tokens=1500,
@@ -87,29 +89,65 @@ def get_chat_completion(
     tools=None,
     functions=None
 ) -> str:
-    params = {
-        'model': model,
-        'messages': messages,
-        'max_tokens': max_tokens,
-        'temperature': temperature,
-        'stop': stop,
-        'tools': tools,
-    }
-    if "deepseek" in model:
-        deep_apikey = os.getenv("DEEPSEEK_API_KEY")
-        if not deep_apikey:
-            raise ValueError("DEEPSEEK_API_KEY is not set in the environment.")
-        CLIENT = OpenAI(api_key=deep_apikey, base_url="https://api.deepseek.com")
-    else :
-        CLIENT = OpenAI()
-    if functions:
-        params['functions'] = functions
-    try:
-        completion = CLIENT.chat.completions.create(**params)
-        return completion.choices[0].message
-    except Exception as e:
-        print(f'gpt completion fail with param: {params}')
-        raise e
+    # 使用response API模式
+    if config and config.use_response_api:
+        if "deepseek" in model:
+            deep_apikey = os.getenv("DEEPSEEK_API_KEY")
+            if not deep_apikey:
+                raise ValueError("DEEPSEEK_API_KEY is not set in the environment.")
+            CLIENT = OpenAI(api_key=deep_apikey, base_url="https://api.deepseek.com")
+        else:
+            CLIENT = OpenAI()
+
+        # 检查是否有上一次的对话ID
+        previous_response_id = None
+        if hasattr(get_chat_completion, "last_response_id"):
+            previous_response_id = get_chat_completion.last_response_id
+
+        # 创建响应
+        response = CLIENT.responses.create(
+            model=model,
+            input=user_input,
+            instructions=static_sys_prompt + dynamic_sys_prompt if not previous_response_id else dynamic_sys_prompt,
+            previous_response_id=previous_response_id,
+            max_output_tokens=max_tokens,
+            temperature=temperature,
+        )
+
+        # 保存本次响应ID用于下次对话
+        get_chat_completion.last_response_id = response.id
+
+        # 构造与chat.completions格式兼容的返回
+        return response.output[0].content[0].text
+    else:
+        # 原始的chat completion实现
+        messages = [
+            {"role": "system", "content": static_sys_prompt + dynamic_sys_prompt},
+            {"role": "user", "content": user_input}
+        ]
+        params = {
+            'model': model,
+            'messages': messages,
+            'max_tokens': max_tokens,
+            'temperature': temperature,
+            'stop': stop,
+            'tools': tools,
+        }
+        if "deepseek" in model:
+            deep_apikey = os.getenv("DEEPSEEK_API_KEY")
+            if not deep_apikey:
+                raise ValueError("DEEPSEEK_API_KEY is not set in the environment.")
+            CLIENT = OpenAI(api_key=deep_apikey, base_url="https://api.deepseek.com")
+        else:
+            CLIENT = OpenAI()
+        if functions:
+            params['functions'] = functions
+        try:
+            completion = CLIENT.chat.completions.create(**params)
+            return completion.choices[0].message.content
+        except Exception as e:
+            print(f'gpt completion fail with param: {params}')
+            raise e
 
 
 MEMORY = "无"
@@ -210,7 +248,7 @@ prompt将分为6个部分：
 
 注意，不同部分需要用不同的尖括号框起来
 
-prompt part 1:python 库相关内容，包括数据结构，api以及一些sample code
+prompt part:python 库相关内容，包括数据结构，api以及一些sample code
 
 以下是参数列表：
 ALL_ACTORS = {ALL_ACTORS}
@@ -259,18 +297,16 @@ api是默认的OpenRA_Copilot_Library对象，你不用声明新的api对象
 4. 前方，后方：在战斗中，通常指靠近敌人为前，远离敌人为后，非战斗时指相对于敌方基地的方向，前方是敌方基地方向，后方是己方基地方向
 5. 攻击敌方：在游戏中，对于战斗单位的进攻，会自动索敌，在移动的时候也可以攻击，而对建筑的攻击，需要手动控制，挨个摧毁
 6. 分散：尽可能的不要一起移动，分开站在不同地点，是否可站可以查询地图信息
-7. 夹击：通常采用寻两条路，寻路通常使用“左路”和“右路”来夹击，然后不同单位采用不同寻路结果移动
+7. 夹击：通常采用寻两条路，寻路通常使用"左路"和"右路"来夹击，然后不同单位采用不同寻路结果移动
 
 {' ' if starter_config.no_sample else '以下是一些示例代码：' + sample_code}"""
 
     dynamic_prompt = f"""
-prompt part 2:当前正在执行的内容，这些都是正在运行的，你之前的代码
+prompt part:当前正在执行的内容，这些都是正在运行的，你之前的代码
 无
-prompt part 3:你和玩家之前的历史对话
-无
-prompt part 4:你的记忆
+prompt part:你的记忆
 {MEMORY}
-prompt part 5:目前游戏的基本信息
+prompt part:目前游戏的基本信息
 玩家持有资源：{playerbaseinfo.Cash + playerbaseinfo.Resources}
 玩家当前剩余电力：{playerbaseinfo.Power}
 屏幕内单位：\n{screen_units_str}
@@ -357,8 +393,8 @@ def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfi
         static_sys_prompt, dynamic_sys_prompt = make_sys_prompt(starter_config)
 
     if starter_config.debug_mode:
-        # print(f'Static Prompt:\n{static_sys_prompt}\n')
-        # print(f'Dynamic Prompt:\n{dynamic_sys_prompt}\n')
+        print(f'Static Prompt:\n{static_sys_prompt}\n')
+        print(f'Dynamic Prompt:\n{dynamic_sys_prompt}\n')
         print_log(f'Static Prompt:\n{static_sys_prompt}\n')
         print_log(f'Dynamic Prompt:\n{dynamic_sys_prompt}\n')
 
@@ -375,32 +411,38 @@ def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfi
         print("start to get chat completion")
 
     completion = get_chat_completion(
-        model=starter_config.gptmodel, messages=messages, config=starter_config)
+        static_sys_prompt=static_sys_prompt,
+        dynamic_sys_prompt=dynamic_sys_prompt,
+        user_input=prompt,
+        model=starter_config.gptmodel,
+        config=starter_config
+    )
 
     if starter_config.debug_mode:
         end_time = time.perf_counter()
-        #print(f'get chat completion time: {end_time - start_time}')
+        print(f'get chat completion time: {end_time - start_time}')
         print_log(f'get chat completion time: {end_time - start_time}')
 
-    # print(f'Response:\n{completion.content}\n')
-    print_log(f'Response:\n{completion.content}\n')
+    if starter_config.debug_mode:
+        print(f'Response:\n{completion}\n')
+    print_log(f'Response:\n{completion}\n')
 
-    code_match = CODE_REGEX.search(completion.content)
+    code_match = CODE_REGEX.search(completion)
 
     if code_match:
         executable = code_match.group(1)
     else:
-        code_match = CODE_REGEX2.search(completion.content)
+        code_match = CODE_REGEX2.search(completion)
 
-    mermory_match = MEMORY_REGEX.search(completion.content)
+    mermory_match = MEMORY_REGEX.search(completion)
     if mermory_match:
         MEMORY = mermory_match.group(1)
         print_log(f'New Mermory:\n{MEMORY}\n')
 
     plan = None
     if gui:
-        title_match = TITLE_REGEX.search(completion.content)
-        speech_match = SPEECH_REGEX.search(completion.content)
+        title_match = TITLE_REGEX.search(completion)
+        speech_match = SPEECH_REGEX.search(completion)
         if speech_match:
             gui.add_ai_dialog(speech_match.group(1))
         if title_match:
@@ -411,7 +453,7 @@ def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfi
 
     if code_match:
 
-        save_prompt(static_sys_prompt, dynamic_sys_prompt, prompt, completion.content)
+        save_prompt(static_sys_prompt, dynamic_sys_prompt, prompt, completion)
 
         executable = code_match.group(1)
         # 移除代码开头的import语句
@@ -458,7 +500,7 @@ def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfi
 
         future = executor.submit(execute, executable)
     else:
-        print(f'failed to find matched code\n{completion.content}\n')
+        print(f'failed to find matched code\n{completion}\n')
 
     if len(CACHED_PREVIOUS_PROMPTS) >= MAX_CACHED_PROMPTS:
         if CACHED_PREVIOUS_PROMPTS:
@@ -467,7 +509,7 @@ def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfi
             CACHED_PREVIOUS_PROMPTS.pop(0)
     if len(CACHED_PREVIOUS_PROMPTS) < MAX_CACHED_PROMPTS:
         CACHED_PREVIOUS_PROMPTS.append({"role": "user", "content": prompt})
-        CACHED_PREVIOUS_PROMPTS.append({"role": "assistant", "content": completion.content})
+        CACHED_PREVIOUS_PROMPTS.append({"role": "assistant", "content": completion})
 
 
 # 直接运行这个文件，这个文件会输出一个prompt，你可以直接复制到openai的playground里面进行测试
