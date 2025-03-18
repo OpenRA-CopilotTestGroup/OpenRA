@@ -40,7 +40,7 @@ if hasattr(sys, '_MEIPASS'):
 else:
     base_path = os.path.dirname(os.path.dirname(__file__))
 
-prompt_path = os.path.join(base_path ,"prompt", current_time)
+prompt_path = os.path.join(base_path, "prompt", current_time)
 prompt_counter = 0
 
 
@@ -57,7 +57,8 @@ def save_prompt(static_prompt: str, dynamic_prompt: str, player_prompt: str, ans
         "model_answer": answer
     }
 
-    json_file_path = os.path.join(prompt_path, f"{device_name}_{current_time}_{prompt_counter}.json")
+    json_file_path = os.path.join(
+        prompt_path, f"{device_name}_{current_time}_{prompt_counter}.json")
     with open(json_file_path, 'w', encoding='utf-8') as file:
         json.dump(prompt_data, file, ensure_ascii=False, indent=2)
 
@@ -75,6 +76,14 @@ def print_log(content):
 
     with open(log_filename, "a", encoding='utf-8') as log_file:
         log_file.write(log_entry)
+
+simplest_prompt_path = os.path.join(base_path, 'OpenRA_Promt.py')
+with open(simplest_prompt_path, 'r', encoding='utf-8') as file:
+    simplest_prompt_content = file.read()
+simplest_prompt = f"""
+这是帮你回忆的接口api：
+{simplest_prompt_content}
+"""
 
 @time_it("get chat completion")
 def get_chat_completion(
@@ -94,8 +103,10 @@ def get_chat_completion(
         if "deepseek" in model:
             deep_apikey = os.getenv("DEEPSEEK_API_KEY")
             if not deep_apikey:
-                raise ValueError("DEEPSEEK_API_KEY is not set in the environment.")
-            CLIENT = OpenAI(api_key=deep_apikey, base_url="https://api.deepseek.com")
+                raise ValueError(
+                    "DEEPSEEK_API_KEY is not set in the environment.")
+            CLIENT = OpenAI(api_key=deep_apikey,
+                            base_url="https://api.deepseek.com")
         else:
             CLIENT = OpenAI()
 
@@ -108,7 +119,8 @@ def get_chat_completion(
         response = CLIENT.responses.create(
             model=model,
             input=user_input,
-            instructions=static_sys_prompt + dynamic_sys_prompt if not previous_response_id else dynamic_sys_prompt,
+            instructions=static_sys_prompt +
+            dynamic_sys_prompt if not previous_response_id else simplest_prompt + dynamic_sys_prompt,
             previous_response_id=previous_response_id,
             max_output_tokens=max_tokens,
             temperature=temperature,
@@ -136,8 +148,10 @@ def get_chat_completion(
         if "deepseek" in model:
             deep_apikey = os.getenv("DEEPSEEK_API_KEY")
             if not deep_apikey:
-                raise ValueError("DEEPSEEK_API_KEY is not set in the environment.")
-            CLIENT = OpenAI(api_key=deep_apikey, base_url="https://api.deepseek.com")
+                raise ValueError(
+                    "DEEPSEEK_API_KEY is not set in the environment.")
+            CLIENT = OpenAI(api_key=deep_apikey,
+                            base_url="https://api.deepseek.com")
         else:
             CLIENT = OpenAI()
         if functions:
@@ -155,7 +169,7 @@ MEMORY = "无"
 api = OpenRA.GameAPI("localhost")
 
 
-def make_sys_prompt(starter_config : StarterConfig = None):
+def make_sys_prompt(starter_config: StarterConfig = None):
 
     config_path = os.path.join(base_path, 'config.yaml')
 
@@ -176,7 +190,7 @@ def make_sys_prompt(starter_config : StarterConfig = None):
     ALL_MOVABLES = ALL_INFANTRIES + ALL_TANKS
     ALL_UNITS = ALL_BUILDINGS + ALL_DEFENSE_DEVICES + ALL_MOVABLES
 
-    api_prompt_path = os.path.join(base_path,'OpenRA_Promt.py')
+    api_prompt_path = os.path.join(base_path, 'OpenRA_Promt.py')
 
     with open(api_prompt_path, 'r', encoding='utf-8') as file:
         api_prompt_content = file.read()
@@ -188,11 +202,11 @@ def make_sys_prompt(starter_config : StarterConfig = None):
     sample_code = ""
     if not starter_config.no_sample:
         if starter_config.single_sample:
-            sample_path = os.path.join(base_path,'Sample.py')
+            sample_path = os.path.join(base_path, 'Sample.py')
             with open(sample_path, 'r', encoding='utf-8') as file:
                 sample_code = file.read()
         else:
-            sample_dir = os.path.join(base_path,'Samples')
+            sample_dir = os.path.join(base_path, 'Samples')
             sample_index = 1
 
             for filename in os.listdir(sample_dir):
@@ -335,8 +349,10 @@ MEMORY_REGEX = create_tag_regex('memory')
 
 executor = ThreadPoolExecutor(max_workers=10)
 
-#@time_it("完整处理过程")
-def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfig = None):
+# @time_it("完整处理过程")
+
+
+def handle_strategy_command(prompt=None, gui=None, starter_config: StarterConfig = None):
 
     # 过滤whisper常见的底噪识别结果
     noise_keywords = [
@@ -365,8 +381,8 @@ def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfi
         "高清", "藍光", "1080P", "720P", "4K",  # 繁体中文
 
         # 常见误识别词
-        "订阅", "关注", "点赞", "转发", "分享",
-        "訂閱", "關注", "點讚", "轉發", "分享",  # 繁体中文
+        "点赞", "订阅", "关注", "点赞", "转发", "分享", "栏目",
+        "點贊", "訂閱", "關注", "點讚", "轉發", "分享", "欄目",  # 繁体中文
 
         # 音频相关
         "原声", "配音", "音轨", "音频"
@@ -405,16 +421,9 @@ def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfi
         print_log(f'Static Prompt:\n{static_sys_prompt}\n')
         print_log(f'Dynamic Prompt:\n{dynamic_sys_prompt}\n')
 
-    messages.append(
-        {"role": "system", "content": static_sys_prompt + dynamic_sys_prompt})
-    for previous_prompt in CACHED_PREVIOUS_PROMPTS:
-        messages.append(previous_prompt)
-    messages.append({"role": "user", "content": prompt})
-
-    print_log(f'Full Promt:\n{messages}\n')
-
+    start_time = time.perf_counter()
+    print_log("start to get chat completion")
     if starter_config.debug_mode:
-        start_time = time.perf_counter()
         print("start to get chat completion")
 
     completion = get_chat_completion(
@@ -425,14 +434,14 @@ def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfi
         config=starter_config
     )
 
+    end_time = time.perf_counter()
+    print_log(f'get chat completion time: {end_time - start_time}')
     if starter_config.debug_mode:
-        end_time = time.perf_counter()
         print(f'get chat completion time: {end_time - start_time}')
-        print_log(f'get chat completion time: {end_time - start_time}')
 
+    print_log(f'Response:\n{completion}\n')
     if starter_config.debug_mode:
         print(f'Response:\n{completion}\n')
-    print_log(f'Response:\n{completion}\n')
 
     code_match = CODE_REGEX.search(completion)
 
@@ -464,7 +473,8 @@ def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfi
 
         executable = code_match.group(1)
         # 移除代码开头的import语句
-        executable = re.sub(r'^(import .*?\n|from .*? import .*?\n)*', '', executable.strip())
+        executable = re.sub(
+            r'^(import .*?\n|from .*? import .*?\n)*', '', executable.strip())
 
         if starter_config.debug_mode:
             print(f'executable={executable}')
@@ -503,7 +513,7 @@ def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfi
                     error_message = traceback.format_exception_only(type(e), e)
                     last_line = "".join(error_message).strip()
                     QMetaObject.invokeMethod(gui, "add_ai_dialog", Qt.QueuedConnection,
-                                     lambda: gui.add_ai_dialog(f"错误信息：{last_line}", False))
+                                             lambda: gui.add_ai_dialog(f"错误信息：{last_line}", False))
 
         future = executor.submit(execute, executable)
     else:
@@ -516,7 +526,8 @@ def handle_strategy_command(prompt=None, gui=None, starter_config : StarterConfi
             CACHED_PREVIOUS_PROMPTS.pop(0)
     if len(CACHED_PREVIOUS_PROMPTS) < MAX_CACHED_PROMPTS:
         CACHED_PREVIOUS_PROMPTS.append({"role": "user", "content": prompt})
-        CACHED_PREVIOUS_PROMPTS.append({"role": "assistant", "content": completion})
+        CACHED_PREVIOUS_PROMPTS.append(
+            {"role": "assistant", "content": completion})
 
 
 # 直接运行这个文件，这个文件会输出一个prompt，你可以直接复制到openai的playground里面进行测试
