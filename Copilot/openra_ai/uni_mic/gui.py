@@ -1,13 +1,56 @@
 import sys
 from PyQt5.QtWidgets import QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QTextEdit, QPushButton, QLineEdit, QFrame, QListWidget, QListWidgetItem, QGridLayout
-from PyQt5.QtCore import Qt, pyqtSignal, QTimer
+from PyQt5.QtCore import Qt, pyqtSignal, QTimer, QThread
 from PyQt5.QtGui import QTextCursor, QTextCharFormat, QColor
 import pyttsx3
 import threading
 import pyaudio
 import dashscope
+import uuid
 from dashscope.audio.tts_v2 import *
 import os
+import atexit
+import edge_tts
+import asyncio
+import pyaudio
+from playsound import playsound
+import tempfile
+import queue
+
+
+class TTSPlayer(threading.Thread):
+    def __init__(self):
+        super().__init__(daemon=True)
+        self.q = queue.Queue()
+        self._stop = threading.Event()
+        self.loop = asyncio.new_event_loop()
+
+    def run(self):
+        asyncio.set_event_loop(self.loop)
+        self.loop.run_until_complete(self._main_loop())
+
+    async def _main_loop(self):
+        while not self._stop.is_set():
+            try:
+                text = self.q.get(timeout=0.5)
+                await self._play_tts(text)
+            except queue.Empty:
+                continue
+
+    async def _play_tts(self, text):
+        filename = f"tts_{uuid.uuid4().hex}.mp3"
+        path = os.path.join(tempfile.gettempdir(), filename)
+
+        tts = edge_tts.Communicate(text, voice="zh-CN-XiaoxiaoNeural")
+        await tts.save(path)
+        playsound(path)
+        os.remove(path)
+
+    def play(self, text):
+        self.q.put(text)
+
+    def stop(self):
+        self._stop.set()
 
 usenormalTTS = False
 
@@ -54,18 +97,27 @@ def synthesizer_with_llm(text):
     print('requestId: ', synthesizer.get_last_request_id())
 
 
+
 class AIAssistantUI(QWidget):
     player_dialog_signal = pyqtSignal(object, str)
     ui_exit_signal = pyqtSignal(object)
     qt_tick_signal = pyqtSignal(object)
     mic_state_signal = pyqtSignal(bool)
 
-    def closeEvent(self, event):
-        self.ui_exit_signal.emit(self)
+    # def closeEvent(self, event): 
+    #     try:
+    #         self.ui_exit_signal.emit(self)
+    #         if hasattr(self, 'tts_engine'):
+    #             self.tts_engine.stop()
+    #     except Exception as e:
+    #         print(f"Error during closeEvent: {e}")
 
     def __init__(self):
         super().__init__()
 
+        self.tts = TTSPlayer()
+        self.tts.start()
+        
         self.setWindowTitle("AI 副官")
         self.setGeometry(100, 100, 800, 600)
 
@@ -126,11 +178,13 @@ class AIAssistantUI(QWidget):
         self.setLayout(main_layout)
 
         # TTS
-        self.tts_engine = pyttsx3.init()
-        self.tts_engine.setProperty('rate', 150)
-        self.tts_engine.setProperty('volume', 0.9)
+        #self.tts_engine = pyttsx3.init(driverName='espeak')
+        # self.tts_engine = pyttsx3.init()
+        
+        # self.tts_engine.setProperty('rate', 150)
+        # self.tts_engine.setProperty('volume', 0.9)
 
-        self.tts_lock = threading.Lock()
+        # self.tts_lock = threading.Lock()
 
         self.mic_enabled = True  # Initial mic state
 
@@ -182,16 +236,7 @@ class AIAssistantUI(QWidget):
             self.speak_text(text)
 
     def speak_text(self, text):
-        thread = threading.Thread(target=self._speak, args=(text,))
-        thread.start()
-
-    def _speak(self, text):
-        if usenormalTTS:
-            with self.tts_lock:
-                self.tts_engine.say(text)
-                self.tts_engine.runAndWait()
-        else:
-            synthesizer_with_llm(text)
+        self.tts.play(text)
 
     def add_plan_item(self, plan_name: str, status: str = "未开始"):
         widget = QWidget()
@@ -256,6 +301,18 @@ def create_ai_assistant_ui_instance():
     window.show()
     return app, window
 
+import traceback
+def handle_exception(exc_type, exc_value, exc_traceback):
+    print("捕获到异常:")
+    traceback.print_exception(exc_type, exc_value, exc_traceback)
+    sys.exit(1)
+
+def on_exit():
+    print("程序正在退出...")
+    print("".join(traceback.format_stack()))
+    
+atexit.register(on_exit)
+
 
 if __name__ == "__main__":
     app, window = create_ai_assistant_ui_instance()
@@ -274,4 +331,8 @@ if __name__ == "__main__":
 
     b = window.add_plan_item("长度测试长度测试长度测试长度测试长度测试长度测试长度测试长度测试", "未开始")
     window.update_plan_item_status(b, "已完成")
+    
+    window.add_player_dialog("两路夹击地方基地") 
+    window.add_ai_dialog("已经派遣步兵和防空车，从上下两路进攻敌方基地")
+    
     sys.exit(app.exec_())
