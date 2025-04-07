@@ -32,6 +32,7 @@ class StarterConfig:
     logging_level: str = "info"
     verbose: bool = False
     gptmodel: str = "gpt-4o"
+    ai_mode: str = "openai_normal"
     no_sample: bool = False
     single_sample: bool = False
     no_text_callback: bool = False

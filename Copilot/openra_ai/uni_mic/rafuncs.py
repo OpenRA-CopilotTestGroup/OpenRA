@@ -17,6 +17,7 @@ import random
 import threading
 import json
 from PyQt5.QtCore import QMetaObject, Qt
+from .ai_factory import AIAssistantFactory, AIMode
 
 if hasattr(sys, '_MEIPASS'):
     os.chdir(os.path.dirname(sys.executable))
@@ -352,182 +353,46 @@ executor = ThreadPoolExecutor(max_workers=10)
 # @time_it("完整处理过程")
 
 
-def handle_strategy_command(prompt=None, gui=None, starter_config: StarterConfig = None):
-
-    # 过滤whisper常见的底噪识别结果
-    noise_keywords = [
-        # 字幕相关
-        "字幕", "双字", "中字", "英字", "无字", "字母",
-        "字幕", "雙字", "中字", "英字", "無字", "字母",  # 繁体中文
-
-        # 语言标识
-        "中文", "英文", "双语", "中英", "英中", "国语",
-        "中文", "英文", "雙語", "中英", "英中", "國語",  # 繁体中文
-
-        # 视频平台相关
-        "CC", "cc", "CC字幕", "硬字幕", "软字幕",
-        "CC", "cc", "CC字幕", "硬字幕", "軟字幕",  # 繁体中文
-
-        # 翻译相关
-        "翻译", "译制", "翻译自", "机翻",
-        "翻譯", "譯製", "翻譯自", "機翻",  # 繁体中文
-
-        # 特定品牌或平台
-        "明镜", "油管", "YouTube", "youtube",
-        "明鏡", "油管", "YouTube", "youtube",  # 繁体中文
-
-        # 视频质量描述
-        "高清", "蓝光", "1080P", "720P", "4K",
-        "高清", "藍光", "1080P", "720P", "4K",  # 繁体中文
-
-        # 常见误识别词
-        "点赞", "订阅", "关注", "点赞", "转发", "分享", "栏目",
-        "點贊", "訂閱", "關注", "點讚", "轉發", "分享", "欄目",  # 繁体中文
-
-        # 音频相关
-        "原声", "配音", "音轨", "音频"
-        "原聲", "配音", "音軌", "音頻"  # 繁体中文
-    ]
-
-    if prompt and any(keyword in prompt for keyword in noise_keywords):
-        if starter_config.debug_mode:
-            print(f"检测到语音识别底噪，忽略指令: {prompt}")
-            print_log(f"检测到语音识别底噪，忽略指令: {prompt}")
-        return
-
-    global CACHED_PREVIOUS_PROMPTS
-    global MAX_CACHED_PROMPTS
-    global CODE_REGEX
-    global MEMORY
-    default_func = None
-    if prompt is None:
-        print('prompt should not be None')
-        print_log('prompt should not be None')
-        return
-    messages = []
-
-    if starter_config.debug_mode:
-        print("start to handle strategy command")
-
-    if starter_config.no_prompt:
-        static_sys_prompt = ""
-        dynamic_sys_prompt = ""
-    else:
-        static_sys_prompt, dynamic_sys_prompt = make_sys_prompt(starter_config)
-
-    if starter_config.debug_mode:
-        print(f'Static Prompt:\n{static_sys_prompt}\n')
-        print(f'Dynamic Prompt:\n{dynamic_sys_prompt}\n')
-        print_log(f'Static Prompt:\n{static_sys_prompt}\n')
-        print_log(f'Dynamic Prompt:\n{dynamic_sys_prompt}\n')
-
-    start_time = time.perf_counter()
-    print_log("start to get chat completion")
-    if starter_config.debug_mode:
-        print("start to get chat completion")
-
-    completion = get_chat_completion(
-        static_sys_prompt=static_sys_prompt,
-        dynamic_sys_prompt=dynamic_sys_prompt,
-        user_input=prompt,
-        model=starter_config.gptmodel,
-        config=starter_config
-    )
-
-    end_time = time.perf_counter()
-    print_log(f'get chat completion time: {end_time - start_time}')
-    if starter_config.debug_mode:
-        print(f'get chat completion time: {end_time - start_time}')
-
-    print_log(f'Response:\n{completion}\n')
-    if starter_config.debug_mode:
-        print(f'Response:\n{completion}\n')
-
-    code_match = CODE_REGEX.search(completion)
-
-    if code_match:
-        executable = code_match.group(1)
-    else:
-        code_match = CODE_REGEX2.search(completion)
-
-    mermory_match = MEMORY_REGEX.search(completion)
-    if mermory_match:
-        MEMORY = mermory_match.group(1)
-        print_log(f'New Mermory:\n{MEMORY}\n')
-
-    plan = None
-    if gui:
-        title_match = TITLE_REGEX.search(completion)
-        speech_match = SPEECH_REGEX.search(completion)
-        if speech_match:
-            gui.add_ai_dialog(speech_match.group(1))
-        if title_match:
-            plan = gui.add_plan_item(
-                plan_name=title_match.group(1), status="进行中")
-        if mermory_match:
-            gui.set_memory_content(MEMORY)
-
-    if code_match:
-
-        save_prompt(static_sys_prompt, dynamic_sys_prompt, prompt, completion)
-
-        executable = code_match.group(1)
-        # 移除代码开头的import语句
-        executable = re.sub(
-            r'^(import .*?\n|from .*? import .*?\n)*', '', executable.strip())
-
-        if starter_config.debug_mode:
-            print(f'executable={executable}')
-
-        print_log(f'executable={executable}')
-
-        class GuiOutput:
-            def __init__(self, gui):
-                self.gui = gui
-
-            def write(self, message):
-                if message.strip():  # 忽略空行
-                    self.gui.add_ai_dialog(message.strip(), False)
-
-            def flush(self):
-                pass
-
-        def execute(command):
-            try:
-                # 有bug，之后再开
-                # captured_output = GuiOutput(gui)
-                # with contextlib.redirect_stdout(captured_output), contextlib.redirect_stderr(captured_output):
-                if callable(command):
-                    command()
-                else:
-                    exec(command)
-                if gui and plan:
-                    gui.update_plan_item_status(plan, "已完成")
-            except Exception as e:
-                traceback.print_tb(e.__traceback__)
-                traceback.print_exc()
-                print(f'failed to execute:\n`{command}\n`')
-                print_log(f'failed to execute:\n`{command}\n`')
-                if gui and plan:
-                    gui.update_plan_item_status(plan, "失败")
-                    error_message = traceback.format_exception_only(type(e), e)
-                    last_line = "".join(error_message).strip()
-                    QMetaObject.invokeMethod(gui, "add_ai_dialog", Qt.QueuedConnection,
-                                             lambda: gui.add_ai_dialog(f"错误信息：{last_line}", False))
-
-        future = executor.submit(execute, executable)
-    else:
-        print(f'failed to find matched code\n{completion}\n')
-
-    if len(CACHED_PREVIOUS_PROMPTS) >= MAX_CACHED_PROMPTS:
-        if CACHED_PREVIOUS_PROMPTS:
-            CACHED_PREVIOUS_PROMPTS.pop(0)
-        if CACHED_PREVIOUS_PROMPTS:
-            CACHED_PREVIOUS_PROMPTS.pop(0)
-    if len(CACHED_PREVIOUS_PROMPTS) < MAX_CACHED_PROMPTS:
-        CACHED_PREVIOUS_PROMPTS.append({"role": "user", "content": prompt})
-        CACHED_PREVIOUS_PROMPTS.append(
-            {"role": "assistant", "content": completion})
+class RAFunctions:
+    def __init__(self, config: StarterConfig, gui=None):
+        self.config = config
+        self.gui = gui
+        self.ai_assistant = AIAssistantFactory.create_assistant(
+            AIMode(config.ai_mode),
+            config,
+            gui
+        )
+        
+    async def handle_strategy_command(self, prompt: str):
+        try:
+            response = await self.ai_assistant.process_command(prompt)
+            
+            # 解析响应
+            code_match = CODE_REGEX.search(response)
+            memory_match = MEMORY_REGEX.search(response)
+            
+            if memory_match:
+                self.ai_assistant.update_memory(memory_match.group(1))
+                
+            if code_match:
+                executable = code_match.group(1)
+                plan = None
+                
+                if self.gui:
+                    title_match = TITLE_REGEX.search(response)
+                    speech_match = SPEECH_REGEX.search(response)
+                    
+                    if speech_match:
+                        self.gui.add_ai_dialog(speech_match.group(1))
+                    if title_match:
+                        plan = self.gui.add_plan_item(title_match.group(1), "进行中")
+                
+                self.ai_assistant.execute_command(executable, plan)
+                
+        except Exception as e:
+            print(f"Error processing command: {str(e)}")
+            if self.gui:
+                self.gui.add_ai_dialog(f"处理命令时出错：{str(e)}", False)
 
 
 # 直接运行这个文件，这个文件会输出一个prompt，你可以直接复制到openai的playground里面进行测试

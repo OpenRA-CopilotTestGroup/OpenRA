@@ -6,8 +6,9 @@ import os
 import sys
 import queue
 import threading
+import asyncio
 
-from uni_mic.rafuncs import handle_strategy_command
+from uni_mic.rafuncs import handle_strategy_command, RAFunctions
 from uni_mic.gui import create_ai_assistant_ui_instance
 from uni_mic.audio_listener import AudioListener
 from uni_mic.utils import get_logger
@@ -30,24 +31,10 @@ NO_TEXT_CALLBACK = False
 text_callback_queue = queue.Queue()
 
 
-def text_callback(text: str, is_from_ui: bool = False):
-    logger.info(f"Received text input: {repr(text)}")
-    print(f"Received text input: {repr(text)}")
-    if NO_TEXT_CALLBACK:
-        return
-    global CACHED_PROMPTS
-    global CACHED_TIME
-    global STARTERCONFIG
-    if not is_from_ui and GUI_WINDOW:
-        GUI_WINDOW.add_player_dialog(text)
-    CACHED_PROMPTS.append(text)
-    full_text = ",".join(CACHED_PROMPTS)
-    full_text = full_text.removesuffix("\u6267\u884c\u547d\u4ee4")
-    logger.info(f"Processing strategy command: {full_text}")
-    handle_strategy_command(prompt=full_text,
-                            gui=GUI_WINDOW, starter_config=STARTERCONFIG)
-    logger.info("Strategy command processed, clearing cache")
-    CACHED_PROMPTS.clear()
+async def text_callback(text: str, ra_functions: RAFunctions, is_from_ui: bool = False):
+    if not is_from_ui and ra_functions.gui:
+        ra_functions.gui.add_player_dialog(text)
+    await ra_functions.handle_strategy_command(text)
 
 
 def text_callback_async(text: str, is_from_ui: bool = False):
@@ -150,16 +137,23 @@ def handle_mic_input(config: AppConfig):
 @add_options(InputConfig)
 @add_options(StarterConfig)
 def main(**kwargs):
-    #config = AppConfig.from_json(kwargs['config']) if kwargs.get(
-    #    'config') else AppConfig.from_dict(kwargs)
-    #logger.info(f"Starting application with input mode: {
-    #            config.input.input_mode}")
     config = AppConfig(
         asr=ASRConfig(**{k: v for k, v in kwargs.items() if k in asdict(ASRConfig())}),
         input=InputConfig(**{k: v for k, v in kwargs.items() if k in asdict(InputConfig())}),
         starter=StarterConfig(**{k: v for k, v in kwargs.items() if k in asdict(StarterConfig())})
     )
     
+    gui_window = None
+    if config.starter.gui:
+        app, gui_window = create_ai_assistant_ui_instance()
+    
+    ra_functions = RAFunctions(config.starter, gui_window)
+    
+    if gui_window:
+        gui_window.player_dialog_signal.connect(
+            lambda gui, text: asyncio.create_task(text_callback(text, ra_functions, True))
+        )
+
     ConfigManager.set_config(config)
 
     global GUI_WINDOW
@@ -174,15 +168,6 @@ def main(**kwargs):
 
     if config.asr.api_key is None and config.asr.remote_type == "whisper":
         config.asr.api_key = os.getenv("OPENAI_API_KEY")
-
-    if config.starter.gui:
-        logger.info("Initializing GUI mode")
-
-        def gui_input_callback(gui, player_input):
-            text_callback(player_input, True)
-        GUI_APP, GUI_WINDOW = create_ai_assistant_ui_instance()
-        GUI_WINDOW.player_dialog_signal.connect(gui_input_callback)
-        GUI_WINDOW.ui_exit_signal.connect(lambda: sys.exit(0))
 
     if config.input.input_mode == "mic":
         handle_mic_input(config)
