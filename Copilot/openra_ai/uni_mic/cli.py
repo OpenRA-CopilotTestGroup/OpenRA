@@ -189,6 +189,22 @@ def main(**kwargs):
     elif config.input.input_mode == "keyboard":
         handle_keyboard_input()
 
+import traceback
+def handle_exception(exc_type, exc_value, exc_traceback):
+    print("捕获到异常:")
+    traceback.print_exception(exc_type, exc_value, exc_traceback)
+    sys.exit(1)
+
+sys.excepthook = handle_exception
+
+import atexit
+
+def on_exit():
+    print("程序正在退出...")
+    print("".join(traceback.format_stack()))
+
+
+atexit.register(on_exit)
 
 if __name__ == "__main__":
     logger.info("Application starting")
