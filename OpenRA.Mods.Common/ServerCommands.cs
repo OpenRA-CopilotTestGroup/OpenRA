@@ -326,7 +326,7 @@ namespace OpenRA.Mods.Common.Commands
 					return new JObject
 					{
 						["id"] = actor.ActorID,
-						["type"] = actor.Info.Name,
+						["type"] = CopilotsConfig.GetChineseByConfigName(actor.Info.Name),
 						["faction"] = actor.Owner == player ? "己方" : (actor.Owner != null && actor.Owner.IsBot ? "敌方" : "中立"),
 						["hp"] = hashealth ? health.HP : -1,
 						["maxHp"] = hashealth ? health.MaxHP : -1,

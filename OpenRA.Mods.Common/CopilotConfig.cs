@@ -54,6 +54,7 @@ namespace OpenRA.Mods.Common
 					var configName = node.Key;
 					var chineseNames = node.Value.Nodes.Select(n => n.Key).ToList();
 
+					//if (!configNameToChinese.ContainsKey(configName))
 					configNameToChinese[configName] = chineseNames;
 					chineseToConfigName.TryAdd(configName, new List<string>());
 					chineseToConfigName[configName].Add(configName);
@@ -91,9 +92,9 @@ namespace OpenRA.Mods.Common
 			return ret;
 		}
 
-		public static List<string> GetChineseByConfigName(string configName)
+		public static string GetChineseByConfigName(string configName)
 		{
-			return configNameToChinese.TryGetValue(configName, out var chineseNames) ? chineseNames : null;
+			return configNameToChinese.TryGetValue(configName, out var chineseNames) ? chineseNames.First() : configName;
 		}
 
 	}
