@@ -5,6 +5,7 @@ import os
 import json
 from typing_extensions import Literal
 from rich.logging import RichHandler
+import re
 
 
 
@@ -45,3 +46,18 @@ def time_it(label):
             return result
         return wrapper
     return decorator
+
+# 正则表达式定义
+CODE_REGEX = re.compile(r'<code>(.*?)</code>', re.DOTALL)
+SPEECH_REGEX = re.compile(r'<speech>(.*?)</speech>', re.DOTALL)
+TITLE_REGEX = re.compile(r'<title>(.*?)</title>', re.DOTALL)
+MEMORY_REGEX = re.compile(r'<memory>(.*?)</memory>', re.DOTALL)
+
+def parse_response(response: str):
+    """解析AI助手的响应"""
+    return {
+        'code': CODE_REGEX.search(response),
+        'speech': SPEECH_REGEX.search(response),
+        'title': TITLE_REGEX.search(response),
+        'memory': MEMORY_REGEX.search(response)
+    }

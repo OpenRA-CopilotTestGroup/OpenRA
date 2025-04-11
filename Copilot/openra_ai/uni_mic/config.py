@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field, fields
 import click
+import os
+import sys
 
 
 @dataclass
@@ -37,7 +39,8 @@ class StarterConfig:
     no_text_callback: bool = False
     no_prompt: bool = False
     debug_mode: bool = False
-    use_response_api: bool = False
+    openai_response_mode: bool = False
+    openai_realtime_mode:bool = False
 
 
 @dataclass
@@ -83,3 +86,11 @@ class ConfigManager:
         if cls._instance is None or cls._instance.config is None:
             raise ValueError("ConfigManager 未初始化，请先调用 set_config() 设置 config")
         return cls._instance.config
+
+
+if hasattr(sys, '_MEIPASS'):
+    base_path = os.getcwd()
+else:
+    base_path = os.path.dirname(os.path.dirname(__file__))
+    
+base_path = os.path.join(base_path, 'configs')
