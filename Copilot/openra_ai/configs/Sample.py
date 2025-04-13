@@ -6,7 +6,6 @@ import OpenRA_Copilot_Library as OpenRA
 from OpenRA_Copilot_Library import *
 import time
 import random
-import threading
 
 api = OpenRA.GameAPI("localhost")
 
@@ -44,7 +43,7 @@ def move_light_tank_around_enemy_base(api, tank_actor_id):
 move_light_tank_around_enemy_base(23)
 
 
-# 确保能生产“步兵”，然后生产一些
+# 确保能生产"步兵"，然后生产一些
 
 if api.ensure_can_produce_unit("步兵"):
     print("可以生产步兵了，生产3个步兵中...")
@@ -62,7 +61,11 @@ def explore_with_infantry(api):
     if infantry_list:
         api.form_group(infantry_list, group_id=1)
         FirstTime = True
-        while True:
+        # 限制探索次数，避免无限循环
+        max_explore_attempts = 15
+        explore_count = 0
+        
+        while explore_count < max_explore_attempts:
             map_data = api.map_query()
             for infantry in infantry_list:
                 if not api.update_actor(infantry):
@@ -89,13 +92,12 @@ def explore_with_infantry(api):
                 print("步兵似乎在路途中卡住了，再换个位置试试")
                 continue
             time.sleep(0.5)
+            explore_count += 1
 
-# 开启一个线程来探索，因为这个过程可能不会结束，或者持续很久
-# 这是因为这里有后续操作，如果没有后续操作不用开线程
-explore_thread = threading.Thread(target=explore_with_infantry, args=(api,))
-explore_thread.start()
+# 直接调用探索函数，不再使用线程
+explore_with_infantry(api)
 
-# 建造“矿场”、“车间”以便生产载具
+# 建造"矿场"、"车间"以便生产载具
 
 api.ensure_can_build_wait("矿场")
 api.produce_wait("矿场", 1)
