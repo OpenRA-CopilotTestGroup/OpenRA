@@ -15,7 +15,7 @@ import pygetwindow as gw
 import ctypes
 
 CONFIG_FILE = "settings.ini"
-VERSION = "0.2.1"
+VERSION = "0.4.0"
 
 
 def load_settings():
@@ -185,14 +185,17 @@ def start_python_script(Alert=True):
         command.append("whisper")
 
     if prompt_with_sample.get():
-        command.append("--no-sample")
+        command.append("--use-simplest-prompt")
 
     # if single_sample.get():
     # 默认开启这个吧，全Sample太难顶了
     command.append("--single-sample")
 
+
     if srtest_only.get():
-        command.append("--no-text-callback")
+        command.append("--openai-realtime-mode")
+    else:
+        command.append("--openai-response-mode")
 
     command.append("--gptmodel")
     command.append(selected_version.get())
@@ -601,11 +604,11 @@ proxy_port_entry = create_labeled_entry(
 # ---------------------CheckBox start---------------------
 
 prompt_with_sample = tk.BooleanVar()
-create_checkbox("无Sample（需要使用finetune模型）", prompt_with_sample,
+create_checkbox("简单Sample（效果可能会下降）", prompt_with_sample,
                 GridRows.CHECKS, GridColumns.CONTENT_LEFT, 2)
 
 srtest_only = tk.BooleanVar()
-create_checkbox("只测试语音识别", srtest_only, GridRows.CHECKS2,
+create_checkbox("过滤模式(嘈杂环境)", srtest_only, GridRows.CHECKS2,
                 GridColumns.CONTENT_LEFT)
 
 package_mode = tk.BooleanVar(value=True)
