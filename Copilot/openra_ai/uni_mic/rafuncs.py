@@ -83,6 +83,11 @@ with open(simplest_prompt_path, 'r', encoding='utf-8') as file:
 simplest_prompt = f"""
 这是帮你回忆的接口api：
 {simplest_prompt_content}
+请牢记，你的输出应该符合以下格式：
+1.<code> 可执行的python代码 </code>
+2.<speech> 你对玩家说的话，会用语音给玩家播放，尽可能简洁 </speech>
+3.<title> 你正在运行的内容的标题 </title>
+4.<memory> 你新的记忆，筛去无用部分，根据新的内容修改</memory>
 """
 
 @time_it("get chat completion")

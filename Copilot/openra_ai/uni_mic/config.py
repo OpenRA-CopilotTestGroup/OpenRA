@@ -40,7 +40,8 @@ class StarterConfig:
     no_prompt: bool = False
     debug_mode: bool = False
     openai_response_mode: bool = False
-    openai_realtime_mode:bool = False
+    openai_realtime_mode: bool = False
+    use_simplest_prompt: bool = False
 
 
 @dataclass

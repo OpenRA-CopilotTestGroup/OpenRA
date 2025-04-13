@@ -2,18 +2,23 @@ from abc import ABC, abstractmethod
 from dataclasses import asdict
 from typing import Dict, Any
 from openai import OpenAI
+import re
 import OpenRA_Copilot_Library as OpenRA
 from OpenRA_Copilot_Library import *
 import os
 from .config import ConfigManager,base_path
+from concurrent.futures import ThreadPoolExecutor
 from .log_manager import LogManager
 from .prompt_manager import PromptManager
-from .prompt_context import PromptContext
+from .prompt_context import PromptContext, PlanItem
 import time
 import yaml
+import traceback
+import threading
 from .utils import parse_response, CODE_REGEX, SPEECH_REGEX, TITLE_REGEX, MEMORY_REGEX
 
 logger = LogManager.get_logger()
+api = GameAPI(host="localhost")
 
 class BaseAIAssistant(ABC):
     def __init__(self):
@@ -21,9 +26,11 @@ class BaseAIAssistant(ABC):
         self.client = self._create_client()
         self.prompt_manager = PromptManager()
         self.context = PromptContext()
+        self.current_input = ""
         self._init_context()
         self._load_noise_keywords()
         self.api = OpenRA.GameAPI("localhost")
+        self.executor = ThreadPoolExecutor(max_workers=10)
 
     def _init_context(self):
         # 初始化配置数据
@@ -84,6 +91,7 @@ class BaseAIAssistant(ABC):
                 "position": {"x": unit.position.x, "y": unit.position.y}
             }
             for unit in visible_units
+            if unit.faction != "中立"
         ]
 
     def update_memory(self, memory: str):
@@ -100,46 +108,86 @@ class BaseAIAssistant(ABC):
         pass
 
     @abstractmethod
-    def generate_response(self, user_input: str) -> str:
+    def generate_response(self) -> str:
         pass
     
     def handle_strategy_command(self, user_input=None, gui=None):
         """处理策略命令"""
         try:
+            # 更新计划状态到上下文
+            if gui:
+                self.context.game_state.plans = [
+                    PlanItem(
+                        name=plan['name'],
+                        status=plan['status'],
+                        timestamp=plan['timestamp']
+                    )
+                    for plan in gui.get_all_plans()
+                ]
+
             # 检查语音底噪
             if user_input and any(keyword in user_input for keyword in self.noise_keywords):
-                logger.info(f"检测到语音识别底噪，忽略指令: {user_input}")
+                logger.warning(f"检测到语音底噪，忽略指令: {user_input}")
+                print(f"检测到语音底噪，忽略指令: {user_input}")
                 return
 
+            # 设置当前输入
+            self.current_input = user_input if user_input else ""
+            
             # 生成响应
-            response = self.generate_response(user_input)
+            response = self.generate_response()
+            
+            if gui and self.current_input != "":
+                gui.add_player_dialog(self.current_input)
             
             # 解析响应内容
             code = CODE_REGEX.search(response)
             speech = SPEECH_REGEX.search(response)
             title = TITLE_REGEX.search(response)
             memory = MEMORY_REGEX.search(response)
-
             # 更新GUI显示
             if gui:
                 if speech:
                     gui.add_ai_dialog(speech.group(1))
                 if title:
-                    gui.add_plan_item(title.group(1), "进行中")
-
+                    plan = gui.add_plan_item(
+                        plan_name=title.group(1), status="进行中")
+                
             # 执行代码
-            if code and code.group(1).strip():
-                try:
-                    exec(code.group(1), {'api': self.api})
-                    if gui and title:
-                        gui.update_plan_item_status(title.group(1), "已完成")
-                except Exception as e:
-                    logger.error(f"代码执行错误: {str(e)}")
-                    if gui and title:
-                        gui.update_plan_item_status(title.group(1), "失败")
-                    raise
+            if code:
+                executable = code.group(1)
+                # 移除代码开头的import语句
+                executable = re.sub(
+                    r'^(import .*?\n|from .*? import .*?\n)*', '', executable.strip())
+                logger.info(f"可执行代码: {executable}")
+                def execute(command):
+                    try:
+                        if callable(command):
+                            command()
+                        else:
+                            exec(command)
+                        if gui and plan:
+                            gui.update_plan_item_status(plan, "已完成")
+                    except Exception as e:
+                        logger.error(f"执行代码出错: {str(e)}")
+                        traceback.print_exc()
+                        if gui and plan:
+                            gui.update_plan_item_status(plan, "失败")
+                            error_message = traceback.format_exception_only(type(e), e)
+                            last_line = "".join(error_message).strip()
+                            gui.add_ai_dialog(f"错误信息：{last_line}", False)
+                            
+                            # 添加错误信息到上下文
+                            error_info = {
+                                'timestamp': time.perf_counter() - self.context.game_state.start_time,
+                                'command': self.current_input,
+                                'error': last_line,
+                                'code': executable
+                            }
+                            self.context.add_error(error_info)
 
-            # 更新记忆
+                # 在线程池中执行代码
+                future = self.executor.submit(execute, executable)
             if memory:
                 self.update_memory(memory.group(1))
                 if gui:
@@ -155,12 +203,12 @@ class OpenAIAssistant(BaseAIAssistant):
         logger.debug("Initializing OpenAI client")
         return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
-    def generate_response(self, user_input: str) -> str:
-        self.update_game_state(self.api)  # 更新游戏状态
+    def generate_response(self) -> str:
+        self.update_game_state(self.api)
         static_prompt, dynamic_prompt = self.prompt_manager.get_prompts(self.context)
         messages = [
             {"role": "system", "content": static_prompt + dynamic_prompt},
-            {"role": "user", "content": user_input}
+            {"role": "user", "content": self.current_input}
         ]
         
         try:
@@ -192,16 +240,19 @@ class OpenAIResponseAIAssistant(BaseAIAssistant):
         logger.debug("Initializing OpenAI Response client")
         return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         
-    def generate_response(self, user_input: str) -> str:
-        self.update_game_state(self.api)  # 添加游戏状态更新
-        static_prompt, dynamic_prompt = self.prompt_manager.get_prompts(self.context)  # 修正参数
-        instructions = static_prompt + dynamic_prompt
-        if self.last_response_id:
+    def generate_response(self) -> str:
+        self.update_game_state(self.api)
+        static_prompt, dynamic_prompt = self.prompt_manager.get_prompts(self.context)
+        
+        # 根据配置决定使用哪种 prompt
+        if self.config.use_simplest_prompt and self.last_response_id:
             instructions = self.prompt_manager.get_simplest_prompt() + dynamic_prompt
+        else:
+            instructions = static_prompt + dynamic_prompt
 
         response = self.client.responses.create(
             model=self.config.gptmodel,
-            input=user_input,
+            input=self.current_input,
             instructions=instructions,
             previous_response_id=self.last_response_id,
             max_output_tokens=1500,
@@ -222,18 +273,17 @@ class OpenAIRealtimeAIAssistant(BaseAIAssistant):
         logger.debug("Initializing OpenAI Realtime client")
         return OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         
-    def generate_response(self, user_input: str) -> str:
-        self.update_game_state(self.api)  # 添加游戏状态更新
-        static_prompt, dynamic_prompt = self.prompt_manager.get_prompts(self.context)  # 修正参数
+    def generate_response(self) -> str:
+        self.update_game_state(self.api)
+        static_prompt, dynamic_prompt = self.prompt_manager.get_prompts(self.context)
         
         # 首先使用OpenAI提取玩家指令的意图
         messages = [
-            {"role": "system", "content": "你是一个指令提取助手。请从玩家的自然语言中提取出关键的游戏指令，用简洁的文字描述。"},
-            {"role": "user", "content": user_input}
+            {"role": "system", "content": "你是一个OpenRA游戏的指令提取助手。请从玩家的自然语言中提取出关键的游戏指令，或者对于游戏的指挥，命令等行为，复述即可，忽略对话内容，。如果没有识别到有效指令，输出 没有指令"},
+            {"role": "user", "content": self.current_input}
         ]
         
         try:
-            # 提取指令意图
             completion = self.client.chat.completions.create(
                 model=self.config.gptmodel,
                 messages=messages,
@@ -241,18 +291,34 @@ class OpenAIRealtimeAIAssistant(BaseAIAssistant):
                 temperature=0.7
             )
             extracted_command = completion.choices[0].message.content
+            logger.debug(f"OpenAI Realtime API response received: {extracted_command}")
             
+            if "没有" in extracted_command:
+                self.current_input = ""
+                return ""
+            
+            self.current_input = extracted_command.strip()
+            
+            static_prompt, dynamic_prompt = self.prompt_manager.get_prompts(self.context)
+            
+            # 根据配置决定使用哪种 prompt
+            if self.config.use_simplest_prompt and self.last_response_id:
+                instructions = self.prompt_manager.get_simplest_prompt() + dynamic_prompt
+            else:
+                instructions = static_prompt + dynamic_prompt
+                
             # 使用Response API生成具体执行代码
             response = self.client.responses.create(
                 model=self.config.gptmodel,
-                input=extracted_command,
-                instructions=self.prompt_manager.get_simplest_prompt() + dynamic_prompt,
+                input=self.current_input,
+                instructions=instructions,
                 previous_response_id=self.last_response_id,
                 max_output_tokens=1500,
                 temperature=1.0
             )
             
             self.last_response_id = response.id
+            logger.debug(f"OpenAI Response API response received: {response}")
             return response.output[0].content[0].text
             
         except Exception as e:

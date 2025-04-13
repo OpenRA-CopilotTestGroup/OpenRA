@@ -19,9 +19,19 @@ class PromptManager:
     #         self.game_config = yaml.safe_load(f)
 
     def _load_simplest_prompt(self):
-        prompt_path = os.path.join(base_path, 'OpenRA_Promt.py')
+        prompt_path = os.path.join(base_path, 'Simplest_Promt.py')
         with open(prompt_path, 'r', encoding='utf-8') as f:
-            self.simplest_prompt = f.read()
+            simplest_prompt_content = f.read()
+        self.simplest_prompt = f"""
+这是帮你回忆的接口api：
+{simplest_prompt_content}
+请牢记，你的输出应该符合以下格式：
+1.<code> 可执行的python代码 </code>
+2.<speech> 你对玩家说的话，会用语音给玩家播放，尽可能简洁 </speech>
+3.<title> 你正在运行的内容的标题 </title>
+4.<memory> 你新的记忆，筛去无用部分，根据新的内容修改</memory>
+"""
+
 
     def get_prompts(self, context: PromptContext):
         static_prompt = self._generate_static_prompt(context)
@@ -112,6 +122,18 @@ api是默认的OpenRA_Copilot_Library对象，你不用声明新的api对象
             for unit in (context.game_state.visible_units or [])
         )
 
+        # 添加计划状态信息
+        plans_str = "\n".join(
+            f"计划：{plan.name} - 状态：{plan.status} - 时间：{plan.timestamp - context.game_state.start_time:.2f}秒"
+            for plan in context.game_state.plans
+        ) if context.game_state.plans else "无"
+
+        # 添加错误信息
+        errors_str = "\n".join(
+            f"时间：{error['timestamp']:.2f}秒 - 指令：{error['command']} - 错误：{error['error']}"
+            for error in context.errors
+        ) if context.errors else "无"
+
         return f"""
         prompt part:当前正在执行的内容，这些都是正在运行的，你之前的代码
         无
@@ -121,6 +143,8 @@ api是默认的OpenRA_Copilot_Library对象，你不用声明新的api对象
         玩家持有资源：{context.game_state.cash + context.game_state.resources}
         玩家当前剩余电力：{context.game_state.power}
         屏幕内单位：\n{screen_units_str}
+        当前执行计划：\n{plans_str}
+        最近的错误记录，尽可能规避或尝试修复这些问题：\n{errors_str}
         prompt part 6:当前的时间戳
         当前是运行的第："{formatted_time}"秒
         """

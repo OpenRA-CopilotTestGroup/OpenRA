@@ -16,6 +16,7 @@ import pyaudio
 from playsound import playsound
 import tempfile
 import queue
+import time
 
 
 class TTSPlayer(threading.Thread):
@@ -192,6 +193,8 @@ class AIAssistantUI(QWidget):
         tick_timer.timeout.connect(lambda: self.qt_tick_signal.emit(self))
         tick_timer.start(100)
 
+        self.plan_items = {}  # 存储计划项和状态标签的映射
+
     def handle_send(self):
         user_input = self.input_field.text()
 
@@ -255,6 +258,12 @@ class AIAssistantUI(QWidget):
         self.set_status_label_color(status_label, status)
         layout.addWidget(status_label)
 
+        self.plan_items[plan_name] = {
+            'label': status_label,
+            'status': status,
+            'timestamp': time.time()
+        }
+
         widget.setLayout(layout)
         widget.setStyleSheet("border: 1px solid black; padding: 5px;")
 
@@ -268,6 +277,10 @@ class AIAssistantUI(QWidget):
     def update_plan_item_status(self, status_label, status):
         status_label.setText(status)
         self.set_status_label_color(status_label, status)
+        for plan_name, item in self.plan_items.items():
+            if item['label'] == status_label:
+                item['status'] = status
+                break
 
     def set_status_label_color(self, label, status):
         if status == "进行中":
@@ -293,6 +306,17 @@ class AIAssistantUI(QWidget):
         self.mic_state_signal.emit(self.mic_enabled)
         self.add_ai_dialog("麦克风已{}。".format(
             "开启" if self.mic_enabled else "关闭"), False)
+
+    def get_all_plans(self):
+        """获取所有计划及其状态"""
+        return [
+            {
+                'name': plan_name,
+                'status': item['status'],
+                'timestamp': item['timestamp']
+            }
+            for plan_name, item in self.plan_items.items()
+        ]
 
 
 def create_ai_assistant_ui_instance():
