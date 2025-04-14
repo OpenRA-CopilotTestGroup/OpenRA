@@ -1,3 +1,74 @@
+# OpenRA-Copilot
+OpenRA-Copilot 是一个基于 OpenRA 游戏引擎的智能助手工具。
+OpenRA使用 asr-llm-python_api-OpenRA的方式，使用大语言模型，协助玩家游玩OpenRA
+
+项目主要由两部分构成，OpenRA和AI副官
+
+## 主要功能
+
+* 根据玩家语音输入操控游戏
+* 协助获取游戏信息
+* 实时语音识别和指令执行
+* AI辅助决策和游戏建议
+* 多语言支持（中文/英文）
+
+## 安装教程
+
+1. 编译并运行OpenRA，推荐使用VS(Windows)，VS Code (MacOs/Linux)
+2. Copilot\openra_ai 文件夹为AI副官文件夹，执行以下命令安装依赖：
+   ```bash
+   pip install -r requirement.txt
+   ```
+
+## 启动教程
+
+### 方式一：使用启动器（仅Windows）
+Copilot\Starter 文件夹中提供了图形界面启动器
+
+### 方式二：命令行启动
+设置环境变量并启动：  
+假设用GPT-4o，并使用Response模式，简单Sample
+```bash
+export OPENAI_API_KEY="sk-xxxxxx"
+export DEEPSEEK_API_KEY="sk-xxxx"
+python3 -m uni_mic.cli --remote-asr --remote-type whisper --debug-mode --gptmodel gpt-4o --single-sample --openai-response-mode
+```
+
+## 参数说明
+
+### ASR（语音识别）相关参数
+- `--model`: 语音识别模型，默认值："base"
+- `--device`: 运行设备，默认值："cpu"
+- `--language`: 识别语言，默认值："zh"
+- `--remote-asr`: 是否使用远程ASR服务，默认：False
+- `--remote-type`: 远程ASR类型，可选："funasr"/"whisper"，默认："funasr"
+- `--remote-asr-url`: 远程ASR服务地址
+- `--hallucinate-threshold`: 幻听阈值，默认：400
+- `--phrase-time-limit`: 短语时间限制（秒），默认：10
+
+### 输入相关参数
+- `--input-mode`: 输入模式，默认："mic"
+- `--energy`: 音频能量阈值，默认：300
+- `--dynamic-energy`: 是否使用动态能量，默认：False
+- `--pause`: 停顿检测时间（秒），默认：1.2
+- `--save-file`: 是否保存音频文件，默认：False
+
+### 启动器相关参数
+- `--gui`: 是否使用图形界面，默认：True
+- `--logging-level`: 日志级别，默认："info"
+- `--verbose`: 是否显示详细日志，默认：False
+- `--gptmodel`: **使用的LLM模型**，默认："gpt-4o"
+- `--single-sample`: 单Sample模式，默认：False
+- `--debug-mode`: 调试模式，默认：False
+- `--openai-response-mode`: OpenAI响应模式，默认：False
+- `--openai-realtime-mode`: OpenAI过滤模式，默认：False
+- `--use-simplest-prompt`: 使用最简单的提示，默认：False
+
+## 许可证
+
+本项目采用与 OpenRA 相同的 [GPLv3 许可证](LICENSE)。
+
+
 # OpenRA
 
 A Libre/Free Real Time Strategy game engine supporting early Westwood classics.
