@@ -557,7 +557,7 @@ class GameAPI:
         # 根据UNIT_DEPENDENCIES找到依赖的建筑
         needed_buildings = self.UNIT_DEPENDENCIES.get(unit_name, [])
         for b in needed_buildings:
-            self.ensure_building_wait(b)
+            self.ensure_building_wait_buildself(b)
         # 如果依赖全部OK还是造不出来，可能是什么东西没修好，稍微等一下
         if not self.able_to_produce(unit_name):
             time.sleep(1)
