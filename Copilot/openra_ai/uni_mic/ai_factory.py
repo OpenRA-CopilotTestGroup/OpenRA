@@ -17,6 +17,9 @@ import traceback
 import threading
 from .utils import parse_response, CODE_REGEX, SPEECH_REGEX, TITLE_REGEX, MEMORY_REGEX
 
+# 全局配置
+MAX_OUTPUT_TOKENS = 3000
+
 logger = LogManager.get_logger()
 api = GameAPI(host="localhost")
 
@@ -215,7 +218,7 @@ class OpenAIAssistant(BaseAIAssistant):
             completion = self.client.chat.completions.create(
                 model=self.config.gptmodel,
                 messages=messages,
-                max_tokens=1500,
+                max_tokens=MAX_OUTPUT_TOKENS,
                 temperature=1.0
             )
             return completion.choices[0].message.content
@@ -255,7 +258,7 @@ class OpenAIResponseAIAssistant(BaseAIAssistant):
             input=self.current_input,
             instructions=instructions,
             previous_response_id=self.last_response_id,
-            max_output_tokens=1500,
+            max_output_tokens=MAX_OUTPUT_TOKENS,
             temperature=1.0,
         )
         
@@ -287,7 +290,7 @@ class OpenAIRealtimeAIAssistant(BaseAIAssistant):
             completion = self.client.chat.completions.create(
                 model=self.config.gptmodel,
                 messages=messages,
-                max_tokens=500,
+                max_tokens=MAX_OUTPUT_TOKENS,
                 temperature=0.7
             )
             extracted_command = completion.choices[0].message.content
@@ -313,7 +316,7 @@ class OpenAIRealtimeAIAssistant(BaseAIAssistant):
                 input=self.current_input,
                 instructions=instructions,
                 previous_response_id=self.last_response_id,
-                max_output_tokens=1500,
+                max_output_tokens=MAX_OUTPUT_TOKENS,
                 temperature=1.0
             )
             

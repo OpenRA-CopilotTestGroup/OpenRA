@@ -74,7 +74,8 @@ python3 -m uni_mic.cli --remote-asr --remote-type whisper --debug-mode --gptmode
 1.本Demo仅支持OpenRA-RedAlter模式，请选择该模式启动  
 2.本Demo仅支持玩家使用苏联系列阵营  
 3.暂时不支持友方，请全部敌对  
-4.支持局域网联机 ，可
+4.支持局域网联机 ，可双方都使用OpenRA-Copilot对战
+5.暂不支持超级武器的使用（建筑可以建造）
 
 ## 兵种 & 建筑基本名称
 
@@ -93,7 +94,7 @@ python3 -m uni_mic.cli --remote-asr --remote-type whisper --debug-mode --gptmode
 | 核电站 | 核电厂、大电、大电厂、高级电厂 |
 | 空军基地 | 机场、飞机场、航空站 |
 | 科技中心 | 高科技、高科技中心、研究中心、实验室 |
-| 军犬窝 | 狗屋、狗舍、狗棚、军犬训练所 |
+| 军犬窝 | 狗窝、狗屋、狗舍、狗棚、军犬训练所 |
 | 火焰塔 | 喷火塔、喷火碉堡、防御塔 |
 | 特斯拉塔 | 电塔、特斯拉线圈、高级防御塔 |
 | 防空导弹 | 防空塔、防空、山姆飞弹 |

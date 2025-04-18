@@ -34,6 +34,7 @@ class StarterConfig:
     logging_level: str = "info"
     verbose: bool = False
     gptmodel: str = "gpt-4o"
+    gptmodel_pre: str = "gpt-4o-mini"
     no_sample: bool = False
     single_sample: bool = False
     no_text_callback: bool = False
