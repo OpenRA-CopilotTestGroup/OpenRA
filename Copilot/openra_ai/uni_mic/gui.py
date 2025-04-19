@@ -17,6 +17,7 @@ from playsound import playsound
 import tempfile
 import queue
 import time
+from .tts_manager import TTSManager
 
 
 class TTSPlayer(threading.Thread):
@@ -107,19 +108,18 @@ class AIAssistantUI(QWidget):
     ai_dialog_signal = pyqtSignal(str, bool)  # (text, need_tts)
     plan_status_signal = pyqtSignal(object, str)  # (status_label, status)
 
-    # def closeEvent(self, event): 
-    #     try:
-    #         self.ui_exit_signal.emit(self)
-    #         if hasattr(self, 'tts_engine'):
-    #             self.tts_engine.stop()
-    #     except Exception as e:
-    #         print(f"Error during closeEvent: {e}")
+    def closeEvent(self, event):
+        try:
+            self.ui_exit_signal.emit(self)
+            self.tts.stop()
+        except Exception as e:
+            print(f"Error during closeEvent: {e}")
+        event.accept()
 
     def __init__(self):
         super().__init__()
 
-        self.tts = TTSPlayer()
-        self.tts.start()
+        self.tts = TTSManager()
         
         self.setWindowTitle("AI 副官")
         self.setGeometry(100, 100, 800, 600)

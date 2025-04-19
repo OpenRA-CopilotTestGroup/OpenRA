@@ -48,10 +48,24 @@ class StarterConfig:
 
 
 @dataclass
+class TTSConfig:
+    engine: str = "edge"  # edge, cosyvoice, minimax
+    voice: str = "zh-CN-XiaoxiaoNeural"  # edge tts voice
+    cosyvoice_model: str = "cosyvoice-v1"
+    cosyvoice_voice: str = "longxiaoxia"
+    minimax_voice: str = "male-qn-qingse"
+    volume: float = 1.0
+    rate: int = 150
+    retry_times: int = 3
+    fallback_to_edge: bool = True
+
+
+@dataclass
 class AppConfig:
     asr: 'ASRConfig' = field(default_factory=lambda: ASRConfig())
     input: 'InputConfig' = field(default_factory=lambda: InputConfig())
     starter: 'StarterConfig' = field(default_factory=lambda: StarterConfig())
+    tts: 'TTSConfig' = field(default_factory=lambda: TTSConfig())
 
 def add_options(dataclass_type):
     def decorator(f):
