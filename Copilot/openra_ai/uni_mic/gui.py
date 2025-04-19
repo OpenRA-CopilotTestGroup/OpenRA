@@ -104,6 +104,8 @@ class AIAssistantUI(QWidget):
     ui_exit_signal = pyqtSignal(object)
     qt_tick_signal = pyqtSignal(object)
     mic_state_signal = pyqtSignal(bool)
+    ai_dialog_signal = pyqtSignal(str, bool)  # (text, need_tts)
+    plan_status_signal = pyqtSignal(object, str)  # (status_label, status)
 
     # def closeEvent(self, event): 
     #     try:
@@ -195,6 +197,10 @@ class AIAssistantUI(QWidget):
 
         self.plan_items = {}  # 存储计划项和状态标签的映射
 
+        # 连接信号到槽
+        self.ai_dialog_signal.connect(self._add_ai_dialog_safe)
+        self.plan_status_signal.connect(self._update_plan_status_safe)
+
     def handle_send(self):
         user_input = self.input_field.text()
 
@@ -232,10 +238,15 @@ class AIAssistantUI(QWidget):
         self.append_dialog(text + " :玩家", align_right=True,
                            color=QColor("blue"))
 
-    def add_ai_dialog(self, text, NeedTTS: bool = True):
+    def add_ai_dialog(self, text, need_tts: bool = True):
+        """线程安全的添加AI对话"""
+        self.ai_dialog_signal.emit(text, need_tts)
+
+    def _add_ai_dialog_safe(self, text, need_tts):
+        """在主线程中实际执行添加对话的操作"""
         self.append_dialog("AI副官: " + text, align_right=False,
-                           color=QColor("green"))
-        if NeedTTS:
+                          color=QColor("green"))
+        if need_tts:
             self.speak_text(text)
 
     def speak_text(self, text):
@@ -275,6 +286,11 @@ class AIAssistantUI(QWidget):
         return status_label
 
     def update_plan_item_status(self, status_label, status):
+        """线程安全的更新计划状态"""
+        self.plan_status_signal.emit(status_label, status)
+
+    def _update_plan_status_safe(self, status_label, status):
+        """在主线程中实际执行更新状态的操作"""
         status_label.setText(status)
         self.set_status_label_color(status_label, status)
         for plan_name, item in self.plan_items.items():

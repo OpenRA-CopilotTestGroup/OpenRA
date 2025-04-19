@@ -33,8 +33,7 @@ class CLIManager:
         """处理文本输入的回调函数"""
         logger.info(f"Received text input: {repr(text)}")
         
-        if not is_from_ui and self.gui_window:
-            self.gui_window.add_player_dialog(text)
+
             
         # 直接使用AI Assistant处理命令
         self.ai_assistant.handle_strategy_command(

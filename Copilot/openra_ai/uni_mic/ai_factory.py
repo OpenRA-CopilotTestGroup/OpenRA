@@ -16,6 +16,7 @@ import yaml
 import traceback
 import threading
 from .utils import parse_response, CODE_REGEX, SPEECH_REGEX, TITLE_REGEX, MEMORY_REGEX
+from .error_handler import ErrorHandler, ErrorHandlerManager
 
 # 全局配置
 MAX_OUTPUT_TOKENS = 3000
@@ -188,6 +189,12 @@ class BaseAIAssistant(ABC):
                                 'code': executable
                             }
                             self.context.add_error(error_info)
+                            
+                            # 创建新的错误处理器处理错误
+                            initial_response_id = getattr(self, 'last_response_id', None)
+                            error_handler = ErrorHandlerManager().create_handler(self)
+                            error_id = error_handler.handle_error(error_info, gui, initial_response_id)
+                            logger.info(f"创建新的错误处理分支: {error_id}")
 
                 # 在线程池中执行代码
                 future = self.executor.submit(execute, executable)
@@ -200,6 +207,25 @@ class BaseAIAssistant(ABC):
             logger.error(f"处理策略命令时出错: {str(e)}")
             if gui:
                 gui.add_ai_dialog(f"执行出错: {str(e)}", False)
+
+    @abstractmethod
+    def handle_error_with_llm(self, error_info: Dict[Any, Any], prev_response_id: str = None) -> tuple[str, str]:
+        """
+        处理错误的基础方法
+        返回值: (response_text, response_id)
+        """
+        pass
+
+    def _get_error_prompt(self, error_info: Dict[Any, Any]) -> str:
+        """生成错误处理的提示"""
+        return f"""请分析以下代码执行错误并提供解决方案：
+错误信息：{error_info['error']}
+执行的命令：{error_info['command']}
+原始代码：
+{error_info['code']}
+
+请分析错误原因并生成修复后的代码。如果无法修复，请回复"没有解决方案"。
+"""
 
 class OpenAIAssistant(BaseAIAssistant):
     def _create_client(self):
@@ -225,6 +251,24 @@ class OpenAIAssistant(BaseAIAssistant):
         except Exception as e:
             logger.error(f"OpenAI API error: {str(e)}")
             raise
+
+    def handle_error_with_llm(self, error_info: Dict[Any, Any], prev_response_id: str = None) -> tuple[str, str]:
+        messages = [
+            {"role": "system", "content": self._get_error_prompt(error_info)},
+            {"role": "user", "content": "请提供修复方案"}
+        ]
+        
+        try:
+            completion = self.client.chat.completions.create(
+                model=self.config.gptmodel,
+                messages=messages,
+                max_tokens=MAX_OUTPUT_TOKENS,
+                temperature=0.7
+            )
+            return completion.choices[0].message.content, None  # chat模式没有response id
+        except Exception as e:
+            logger.error(f"Error handling failed: {str(e)}")
+            return "没有解决方案", None
 
 class DeepseekAIAssistant(OpenAIAssistant):
     def _create_client(self):
@@ -266,6 +310,21 @@ class OpenAIResponseAIAssistant(BaseAIAssistant):
         logger.debug(f"OpenAI Response API response received: {response}")
         return response.output[0].content[0].text
 
+    def handle_error_with_llm(self, error_info: Dict[Any, Any], prev_response_id: str = None) -> tuple[str, str]:
+        try:
+            response = self.client.responses.create(
+                model=self.config.gptmodel,
+                input="请提供修复方案",
+                instructions=self._get_error_prompt(error_info),
+                previous_response_id=prev_response_id,  # 使用错误分支的response id
+                max_output_tokens=MAX_OUTPUT_TOKENS,
+                temperature=0.7
+            )
+            return response.output[0].content[0].text, response.id
+        except Exception as e:
+            logger.error(f"Error handling failed: {str(e)}")
+            return "没有解决方案", None
+
 class OpenAIRealtimeAIAssistant(BaseAIAssistant):
     def __init__(self):
         super().__init__()
@@ -288,7 +347,7 @@ class OpenAIRealtimeAIAssistant(BaseAIAssistant):
         
         try:
             completion = self.client.chat.completions.create(
-                model=self.config.gptmodel,
+                model=self.config.gptmodel-pre,
                 messages=messages,
                 max_tokens=MAX_OUTPUT_TOKENS,
                 temperature=0.7
@@ -327,6 +386,38 @@ class OpenAIRealtimeAIAssistant(BaseAIAssistant):
         except Exception as e:
             logger.error(f"OpenAI API error in realtime mode: {str(e)}")
             raise
+
+    def handle_error_with_llm(self, error_info: Dict[Any, Any], prev_response_id: str = None) -> tuple[str, str]:
+        try:
+            # 首先提取错误信息的关键部分
+            messages = [
+                {"role": "system", "content": "提取错误信息中的关键内容，用简洁的语言描述"},
+                {"role": "user", "content": error_info['error']}
+            ]
+            
+            completion = self.client.chat.completions.create(
+                model=self.config.gptmodel_pre,
+                messages=messages,
+                max_tokens=MAX_OUTPUT_TOKENS,
+                temperature=0.7
+            )
+            
+            extracted_error = completion.choices[0].message.content
+            
+            # 然后使用Response API生成修复方案
+            response = self.client.responses.create(
+                model=self.config.gptmodel,
+                input=extracted_error,
+                instructions=self._get_error_prompt(error_info),
+                previous_response_id=prev_response_id,
+                max_output_tokens=MAX_OUTPUT_TOKENS,
+                temperature=0.7
+            )
+            
+            return response.output[0].content[0].text, response.id
+        except Exception as e:
+            logger.error(f"Error handling failed: {str(e)}")
+            return "没有解决方案", None
 
 class AIAssistantFactory:
     @staticmethod
