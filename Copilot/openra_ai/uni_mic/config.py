@@ -53,7 +53,7 @@ class TTSConfig:
     edge_voice: str = "zh-CN-XiaoxiaoNeural"  # edge tts voice
     cosyvoice_model: str = "cosyvoice-v1"
     cosyvoice_voice: str = "longxiaoxia"
-    minimax_voice: str = "male-qn-qingse"
+    minimax_voice: str = "female-shaonv"
     tts_volume: float = 1.0
     tts_rate: int = 150
     tts_retry_times: int = 3

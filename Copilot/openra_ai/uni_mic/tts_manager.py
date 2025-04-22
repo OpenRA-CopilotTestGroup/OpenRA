@@ -63,8 +63,11 @@ class MinimaxTTSEngine(BaseTTSEngine):
     def __init__(self, voice: str):
         self.voice = voice
         self.api_key = os.getenv("MINIMAX_API_KEY")
+        self.group_id = os.getenv("MINIMAX_GROUP_ID")
         if not self.api_key:
             raise ValueError("MINIMAX_API_KEY not set")
+        if not self.group_id:
+            raise ValueError("MINIMAX_GROUP_ID not set")
         
     async def synthesize(self, text: str) -> str:
         filename = f"tts_minimax_{uuid.uuid4().hex}.wav"
@@ -77,9 +80,11 @@ class MinimaxTTSEngine(BaseTTSEngine):
         }
         data = {
             "text": text,
-            "model": "speech-01",
-            "voice": self.voice,
-            "type": "wav"
+            "model": "speech-02-turbo",
+            "voice_id": self.voice,
+            "audio_type": "wav",
+            "group_id": self.group_id,
+            "stream": False,
         }
         
         response = requests.post(url, headers=headers, json=data)
