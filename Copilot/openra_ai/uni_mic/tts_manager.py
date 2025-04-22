@@ -13,6 +13,7 @@ from typing import Optional
 import requests
 from .log_manager import LogManager
 from .config import ConfigManager
+import traceback
 
 logger = LogManager.get_logger()
 
@@ -66,7 +67,7 @@ class MinimaxTTSEngine(BaseTTSEngine):
             raise ValueError("MINIMAX_API_KEY not set")
         
     async def synthesize(self, text: str) -> str:
-        filename = f"tts_minimax_{uuid.uuid4().hex}.mp3"
+        filename = f"tts_minimax_{uuid.uuid4().hex}.wav"
         path = os.path.join(tempfile.gettempdir(), filename)
         
         url = "https://api.minimax.chat/v1/text_to_speech"
@@ -77,7 +78,8 @@ class MinimaxTTSEngine(BaseTTSEngine):
         data = {
             "text": text,
             "model": "speech-01",
-            "voice": self.voice
+            "voice": self.voice,
+            "type": "wav"
         }
         
         response = requests.post(url, headers=headers, json=data)
@@ -106,27 +108,27 @@ class TTSManager:
     def _init_engines(self):
         """初始化TTS引擎"""
         try:
-            if self.config.engine == "edge":
-                self.current_engine = EdgeTTSEngine(self.config.voice)
-            elif self.config.engine == "cosyvoice":
+            if self.config.tts_engine == "edge":
+                self.current_engine = EdgeTTSEngine(self.config.edge_voice)
+            elif self.config.tts_engine == "cosyvoice":
                 self.current_engine = CosyVoiceTTSEngine(
                     self.config.cosyvoice_model,
                     self.config.cosyvoice_voice
                 )
-            elif self.config.engine == "minimax":
+            elif self.config.tts_engine == "minimax":
                 self.current_engine = MinimaxTTSEngine(self.config.minimax_voice)
             else:
-                raise ValueError(f"Unknown TTS engine: {self.config.engine}")
+                raise ValueError(f"Unknown TTS engine: {self.config.tts_engine}")
             
             # 初始化 fallback 引擎
-            if self.config.fallback_to_edge:
-                self.fallback_engine = EdgeTTSEngine(self.config.voice)
+            if self.config.tts_fallback_to_edge:
+                self.fallback_engine = EdgeTTSEngine(self.config.edge_voice)
                 
         except Exception as e:
             logger.error(f"Failed to initialize primary TTS engine: {e}")
-            if self.config.fallback_to_edge:
+            if self.config.tts_fallback_to_edge:
                 logger.info("Falling back to Edge TTS")
-                self.current_engine = EdgeTTSEngine(self.config.voice)
+                self.current_engine = EdgeTTSEngine(self.config.edge_voice)
 
     def _player_thread(self):
         """播放线程"""
@@ -138,18 +140,19 @@ class TTSManager:
             except queue.Empty:
                 continue
             except Exception as e:
+                traceback.print_exc()
                 logger.error(f"TTS player error: {e}")
 
     async def _play_text(self, text: str):
         """尝试播放文本"""
         audio_file = None
-        for attempt in range(self.config.retry_times):
+        for attempt in range(self.config.tts_retry_times):
             try:
                 audio_file = await self.current_engine.synthesize(text)
                 break
             except Exception as e:
                 logger.error(f"TTS synthesis failed (attempt {attempt + 1}): {e}")
-                if attempt == self.config.retry_times - 1 and self.fallback_engine:
+                if attempt == self.config.tts_retry_times - 1 and self.fallback_engine:
                     logger.info("Trying fallback engine")
                     try:
                         audio_file = await self.fallback_engine.synthesize(text)
@@ -161,6 +164,15 @@ class TTSManager:
             try:
                 playsound(audio_file)
             finally:
+                if ConfigManager.get_config().starter.debug_mode:
+                    # 在debug模式下，将文件复制到工作目录
+                    debug_filename = f"last_tts_{self.config.tts_engine}.wav"
+                    try:
+                        import shutil
+                        shutil.copy2(audio_file, debug_filename)
+                        logger.info(f"Debug: 已保存最后的TTS音频文件到 {debug_filename}")
+                    except Exception as e:
+                        logger.error(f"Debug: 保存音频文件失败: {e}")
                 os.remove(audio_file)
 
     def play(self, text: str):

@@ -39,7 +39,7 @@ class StarterConfig:
     single_sample: bool = False
     no_text_callback: bool = False
     no_prompt: bool = False
-    debug_mode: bool = False
+    debug_mode: bool = True
     openai_response_mode: bool = False
     openai_realtime_mode: bool = False
     use_simplest_prompt: bool = False
@@ -49,15 +49,15 @@ class StarterConfig:
 
 @dataclass
 class TTSConfig:
-    engine: str = "edge"  # edge, cosyvoice, minimax
-    voice: str = "zh-CN-XiaoxiaoNeural"  # edge tts voice
+    tts_engine: str = "minimax"  # edge, cosyvoice, minimax
+    edge_voice: str = "zh-CN-XiaoxiaoNeural"  # edge tts voice
     cosyvoice_model: str = "cosyvoice-v1"
     cosyvoice_voice: str = "longxiaoxia"
     minimax_voice: str = "male-qn-qingse"
-    volume: float = 1.0
-    rate: int = 150
-    retry_times: int = 3
-    fallback_to_edge: bool = True
+    tts_volume: float = 1.0
+    tts_rate: int = 150
+    tts_retry_times: int = 3
+    tts_fallback_to_edge: bool = True
 
 
 @dataclass
@@ -86,11 +86,17 @@ def add_options(dataclass_type):
 
 class ConfigManager:
     _instance = None
+    _default_config = AppConfig(
+        asr=ASRConfig(),
+        input=InputConfig(),
+        starter=StarterConfig(),
+        tts=TTSConfig()
+    )
 
     def __new__(cls, config=None):
         if cls._instance is None:
             cls._instance = super(ConfigManager, cls).__new__(cls)
-            cls._instance.config = config
+            cls._instance.config = config if config is not None else cls._default_config
         return cls._instance
 
     @classmethod
@@ -101,10 +107,19 @@ class ConfigManager:
 
     @classmethod
     def get_config(cls):
-        if cls._instance is None or cls._instance.config is None:
-            raise ValueError("ConfigManager 未初始化，请先调用 set_config() 设置 config")
+        if cls._instance is None:
+            # 如果实例不存在，创建一个带有默认配置的实例
+            cls._instance = cls()
+        if cls._instance.config is None:
+            # 如果配置为空，使用默认配置
+            cls._instance.config = cls._default_config
         return cls._instance.config
 
+    @classmethod
+    def reset_to_default(cls):
+        """重置为默认配置"""
+        if cls._instance is not None:
+            cls._instance.config = cls._default_config
 
 if hasattr(sys, '_MEIPASS'):
     base_path = os.getcwd()

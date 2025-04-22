@@ -16,7 +16,7 @@ from uni_mic.gui import create_ai_assistant_ui_instance
 from uni_mic.audio_listener import AudioListener
 from uni_mic.asr_manager import ASRManager
 from uni_mic.asr_module import WhisperASR, FunASRRemoteASR, WhisperAPIASR
-from uni_mic.config import AppConfig, ASRConfig, InputConfig, StarterConfig, ConfigManager
+from uni_mic.config import AppConfig, ASRConfig, InputConfig, StarterConfig, TTSConfig, ConfigManager
 from uni_mic.config import add_options
 from uni_mic.ai_factory import AIAssistantFactory
 from dataclasses import asdict
@@ -144,12 +144,14 @@ class CLIManager:
 @add_options(ASRConfig)
 @add_options(InputConfig)
 @add_options(StarterConfig)
+@add_options(TTSConfig)
 def main(**kwargs):
     # 创建配置
     config = AppConfig(
         asr=ASRConfig(**{k: v for k, v in kwargs.items() if k in asdict(ASRConfig())}),
         input=InputConfig(**{k: v for k, v in kwargs.items() if k in asdict(InputConfig())}),
-        starter=StarterConfig(**{k: v for k, v in kwargs.items() if k in asdict(StarterConfig())})
+        starter=StarterConfig(**{k: v for k, v in kwargs.items() if k in asdict(StarterConfig())}),
+        tts=TTSConfig(**{k: v for k, v in kwargs.items() if k in asdict(TTSConfig())}),
     )
     
     # 根据配置更新 LogManager
