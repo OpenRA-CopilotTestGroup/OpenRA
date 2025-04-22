@@ -39,7 +39,7 @@ class StarterConfig:
     single_sample: bool = False
     no_text_callback: bool = False
     no_prompt: bool = False
-    debug_mode: bool = True
+    debug_mode: bool = False
     openai_response_mode: bool = False
     openai_realtime_mode: bool = False
     use_simplest_prompt: bool = False
@@ -49,7 +49,7 @@ class StarterConfig:
 
 @dataclass
 class TTSConfig:
-    tts_engine: str = "minimax"  # edge, cosyvoice, minimax
+    tts_engine: str = "edge"  # edge, cosyvoice, minimax
     edge_voice: str = "zh-CN-XiaoxiaoNeural"  # edge tts voice
     cosyvoice_model: str = "cosyvoice-v1"
     cosyvoice_voice: str = "longxiaoxia"

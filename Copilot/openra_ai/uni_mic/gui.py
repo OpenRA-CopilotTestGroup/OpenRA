@@ -18,6 +18,7 @@ import tempfile
 import queue
 import time
 from .tts_manager import TTSManager
+from typing import Optional
 
 
 class TTSPlayer(threading.Thread):
@@ -107,6 +108,8 @@ class AIAssistantUI(QWidget):
     mic_state_signal = pyqtSignal(bool)
     ai_dialog_signal = pyqtSignal(str, bool)  # (text, need_tts)
     plan_status_signal = pyqtSignal(object, str)  # (status_label, status)
+    add_plan_item_signal = pyqtSignal(str, str, object)  # plan_name, status, callback
+    set_item_widget_signal = pyqtSignal(QListWidgetItem, QWidget)
 
     def closeEvent(self, event):
         try:
@@ -200,6 +203,10 @@ class AIAssistantUI(QWidget):
         # 连接信号到槽
         self.ai_dialog_signal.connect(self._add_ai_dialog_safe)
         self.plan_status_signal.connect(self._update_plan_status_safe)
+        self.add_plan_item_signal.connect(self._add_plan_item_safe)
+        self.set_item_widget_signal.connect(
+            lambda item, widget: self.plan_list.setItemWidget(item, widget)
+        )
 
     def handle_send(self):
         user_input = self.input_field.text()
@@ -253,6 +260,17 @@ class AIAssistantUI(QWidget):
         self.tts.play(text)
 
     def add_plan_item(self, plan_name: str, status: str = "未开始"):
+        """线程安全的添加计划项"""
+        if threading.current_thread() is not threading.main_thread():
+            # 如果不在主线程，使用信号
+            self.add_plan_item_signal.emit(plan_name, status, None)
+            return None
+        else:
+            # 如果在主线程，直接执行
+            return self._add_plan_item_safe(plan_name, status)
+
+    def _add_plan_item_safe(self, plan_name: str, status: str, callback=None) -> Optional[QLabel]:
+        """在主线程中安全地添加计划项"""
         widget = QWidget()
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -280,9 +298,14 @@ class AIAssistantUI(QWidget):
 
         item = QListWidgetItem(self.plan_list)
         item.setSizeHint(widget.sizeHint())
-        self.plan_list.insertItem(0, item)
-        self.plan_list.setItemWidget(item, widget)
+        
+        # 使用信号在主线程中设置widget
+        self.set_item_widget_signal.emit(item, widget)
+        
         self.plan_list.scrollToBottom()
+        
+        if callback:
+            callback(status_label)
         return status_label
 
     def update_plan_item_status(self, status_label, status):
