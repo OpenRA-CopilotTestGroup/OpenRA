@@ -1,3 +1,65 @@
+
+@dataclass
+class Location:
+    x: int
+    y: int
+
+# 查询目标的查询参数，用于查询符合条件的目标。
+@dataclass
+class TargetsQueryParam:
+    type: Optional[List[str]] = None
+    faction: Optional[str] = None
+    group_id: Optional[List[int]] = None
+    restrain: Optional[List[dict]] = None
+
+    location: Optional[Location] = None
+    direction: Optional[str] = None
+    range: Optional[str] = None
+
+    def to_dict(self):
+        pass
+
+
+@dataclass
+class Actor:
+    actor_id: int
+    type: Optional[str] = None
+    faction: Optional[str] = None
+    position: Optional[Location] = None
+    hppercent: Optional[int] = None
+
+# 地图信息查询返回结构体，IsVisible 是当前视野可见的部分为 True，IsExplored 是探索过的格子为 True。
+@dataclass
+class MapQueryResult:
+    MapWidth: int
+    MapHeight: int
+    Height: List[List[int]]
+    IsVisible: List[List[bool]]
+    IsExplored: List[List[bool]]
+    Terrain: List[List[str]]
+    ResourcesType: List[List[str]]
+    Resources: List[List[int]]
+
+    def get_value_at_location(self, grid_name: str, location: 'Location'):
+        # 根据位置获取指定网格中的值。
+        pass
+
+@dataclass
+class PlayerBaseInfo:
+    Cash: int
+    Resources: int
+    Power: int
+    PowerDrained: int
+    PowerProvided: int
+
+# 屏幕信息查询返回结果，Min 是屏幕左上角，Max 是右下角，MousePosition 是当前鼠标所在位置，Location 都是整数坐标。
+@dataclass
+class ScreenInfoResult:
+    ScreenMin: Location
+    ScreenMax: Location
+    IsMouseOnScreen: bool
+    MousePosition: Location
+
 class GameAPI:
     def move_camera_by_location(self, location: Location) -> None:
         pass
