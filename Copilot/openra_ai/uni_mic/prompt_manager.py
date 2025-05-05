@@ -61,7 +61,7 @@ prompt将分为几个部分：
 
 prompt part:python 库相关内容，包括数据结构，api以及一些sample code
 
-以下是参数列表：
+以下是参数列表，语音识别出来的结果可能不在这些列表里，你需要更正：
         ALL_ACTORS = {context.config_data.get('ALL_ACTORS')}
         ALL_DIRECTIONS = {context.config_data.get('ALL_DIRECTIONS')}
         ALL_GROUPS = {context.config_data.get('ALL_GROUPS')}
@@ -126,7 +126,7 @@ api是默认的OpenRA_Copilot_Library对象，你不用声明新的api对象
         # 添加计划状态信息
         plans_str = "\n".join(
             f"计划：{plan.name} - 状态：{plan.status} - 时间：{plan.timestamp:.2f}秒"
-            for plan in context.game_state.plans
+            for plan in context.game_state.plans[:-3]
         ) if context.game_state.plans else "无"
 
         # 添加错误信息
@@ -136,13 +136,13 @@ api是默认的OpenRA_Copilot_Library对象，你不用声明新的api对象
         ) if context.errors else "无"
 
         return f"""
-        prompt part:你的记忆
+        你的记忆:
         {context.game_state.memory}
-        prompt part:目前游戏的基本信息
-        玩家持有资源：{context.game_state.cash + context.game_state.resources}
-        玩家当前剩余电力：{f"{context.game_state.power}(电力不足，请尽快补充)" if context.game_state.power <= 0 else context.game_state.power}
-        屏幕内单位：\n{screen_units_str}
-        当前执行计划：\n{plans_str}
+        游戏基本信息:
+        玩家持有资源:{context.game_state.cash + context.game_state.resources}
+        玩家当前剩余电力:{f"{context.game_state.power}(电力不足，请尽快补充)" if context.game_state.power <= 0 else context.game_state.power}
+        屏幕内单位（重要信息）:\n{screen_units_str}
+        最近Task:\n{plans_str}
         
         prompt part 6:当前的时间戳
         当前是运行的第："{formatted_time}"秒

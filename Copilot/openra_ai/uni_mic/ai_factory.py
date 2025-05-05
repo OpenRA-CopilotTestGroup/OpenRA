@@ -20,6 +20,8 @@ from .utils import parse_response, CODE_REGEX, SPEECH_REGEX, TITLE_REGEX, MEMORY
 from .error_handler import ErrorHandler, ErrorHandlerManager
 from .ui_manager import UIManager
 import random
+import io
+import sys
 
 # 全局配置
 MAX_OUTPUT_TOKENS = 3000
@@ -181,53 +183,10 @@ class BaseAIAssistant(ABC):
             # 执行代码
             if code_match:
                 executable = code_match.group(1).strip()
-                # executable = re.sub(r'^(import .*?\n|from .*? import .*?\n)*', '', executable)
                 logger.info(f"准备执行代码:\n{executable}")
 
-                def execute_task(code_to_run, plan_name, local_ui_manager):
-                    target_label = None
-                    if local_ui_manager and plan_name:
-                        try:
-                            target_label = local_ui_manager.gui.plan_items.get(plan_name, {}).get('label')
-                            if not target_label:
-                                logger.warning(f"未找到计划 {plan_name} 的状态label，后续无法自动更新计划状态。")
-                        except Exception as find_e:
-                            logger.error(f"查找计划label时出错: {find_e}")
-
-                    try:
-                        logger.info(f"Executing code in thread: {threading.current_thread().name}")
-                        exec(code_to_run)
-                        logger.info("Code execution successful.")
-                        if local_ui_manager and target_label:
-                            local_ui_manager.post_update_plan_status(target_label, "已完成")
-                            logger.info(f"AI Update Plan Status: {plan_name} -> 已完成")
-                    except Exception as exec_e:
-                        logger.error(f"执行代码出错: {str(exec_e)}")
-                        logger.error(f"错误堆栈: {traceback.format_exc()}")
-                        if local_ui_manager:
-                            error_message_short = "".join(traceback.format_exception_only(type(exec_e), exec_e)).strip()
-                            if target_label:
-                                local_ui_manager.post_update_plan_status(target_label, "失败")
-                                logger.info(f"AI Update Plan Status: {plan_name} -> 失败")
-                            local_ui_manager.post_ai_dialog(f"错误信息：{error_message_short}", False)
-
-                            error_info = {
-                                'timestamp': time.perf_counter() - self.context.game_state.start_time,
-                                'command': self.current_input,
-                                'error': error_message_short,
-                                'code': code_to_run
-                            }
-                            self.context.add_error(error_info)
-
-                            logger.info("Initiating error handling...")
-                            initial_response_id = getattr(self, 'last_response_id', None)
-                            try:
-                                error_handler = ErrorHandlerManager().create_handler(self)
-                                error_handler.handle_error(error_info, local_ui_manager, initial_response_id)
-                            except Exception as eh_e:
-                                logger.error(f"Failed to initiate error handler: {eh_e}")
-
-                future = self.executor.submit(execute_task, executable, plan_name_for_lookup, manager)
+                # 直接异步调用run_code_with_capture
+                future = self.executor.submit(self.run_code_with_capture, executable, plan_name_for_lookup, manager)
                 logger.info("Code execution submitted.")
 
             elif plan_name_for_lookup and manager:
@@ -296,38 +255,9 @@ class BaseAIAssistant(ABC):
             if code_match:
                 executable = code_match.group(1).strip()
                 logger.info(f"准备执行修复代码:\n{executable}")
-                try:
-                    exec(executable)
-                    logger.info("修复代码执行成功。")
-                    # 修复成功，更新plan状态为已完成
-                    if ui_manager and plan_name_for_lookup:
-                        target_label = None
-                        try:
-                            target_label = ui_manager.gui.plan_items.get(plan_name_for_lookup, {}).get('label')
-                        except Exception as find_e:
-                            logger.error(f"查找修复计划label时出错: {find_e}")
-                        if target_label:
-                            ui_manager.post_update_plan_status(target_label, "已完成")
-                            logger.info(f"AI Update Plan Status: {plan_name_for_lookup} -> 已完成")
-                        else:
-                            logger.warning(f"修复成功但未找到计划 {plan_name_for_lookup} 的label，无法自动更新状态。")
-                    return True
-                except Exception as e:
-                    logger.error(f"修复代码执行失败: {str(e)}")
-                    if ui_manager:
-                        ui_manager.post_ai_dialog(f"修复失败: {str(e)}", False)
-                        if plan_name_for_lookup:
-                            target_label = None
-                            try:
-                                target_label = ui_manager.gui.plan_items.get(plan_name_for_lookup, {}).get('label')
-                            except Exception as find_e:
-                                logger.error(f"查找修复计划label时出错: {find_e}")
-                            if target_label:
-                                ui_manager.post_update_plan_status(target_label, "失败")
-                                logger.info(f"AI Update Plan Status: {plan_name_for_lookup} -> 失败")
-                            else:
-                                logger.warning(f"修复失败且未找到计划 {plan_name_for_lookup} 的label，无法自动更新状态。")
-                    return False
+                # 直接同步调用run_code_with_capture
+                success = self.run_code_with_capture(executable, plan_name_for_lookup, ui_manager,need_handle_error=False)
+                return success
             else:
                 logger.warning("修复响应中未找到可执行代码")
                 return False
@@ -335,6 +265,63 @@ class BaseAIAssistant(ABC):
             logger.error(f"处理修复响应时出错: {str(e)}")
             if ui_manager:
                 ui_manager.post_ai_dialog(f"处理修复响应时出错: {str(e)}", False)
+            return False
+
+    def run_code_with_capture(self, code_to_run, plan_name=None, local_ui_manager=None,need_handle_error:bool=True):
+        """
+        执行代码，捕获stdout，输出到logger和GUI，并自动更新plan状态
+        """
+        target_label = None
+        if local_ui_manager and plan_name:
+            try:
+                target_label = local_ui_manager.gui.plan_items.get(plan_name, {}).get('label')
+                if not target_label:
+                    logger.warning(f"未找到计划 {plan_name} 的状态label，后续无法自动更新计划状态。")
+            except Exception as find_e:
+                logger.error(f"查找计划label时出错: {find_e}")
+
+        try:
+            logger.info(f"Executing code in thread: {threading.current_thread().name}")
+            old_stdout = sys.stdout
+            sys.stdout = mystdout = io.StringIO()
+            try:
+                exec(code_to_run)
+            finally:
+                sys.stdout = old_stdout
+            output = mystdout.getvalue()
+            if output.strip():
+                logger.info(f"任务[{plan_name}]:{output}")
+                if local_ui_manager:
+                    local_ui_manager.post_ai_dialog(f"任务[{plan_name}]:{output}", False)
+            logger.info("Code execution successful.")
+            if local_ui_manager and target_label:
+                local_ui_manager.post_update_plan_status(target_label, "已完成")
+                logger.info(f"AI Update Plan Status: {plan_name} -> 已完成")
+            return True
+        except Exception as exec_e:
+            logger.error(f"执行代码出错: {str(exec_e)}")
+            logger.error(f"错误堆栈: {traceback.format_exc()}")
+            if local_ui_manager:
+                error_message_short = "".join(traceback.format_exception_only(type(exec_e), exec_e)).strip()
+                if target_label:
+                    local_ui_manager.post_update_plan_status(target_label, "失败")
+                    logger.info(f"AI Update Plan Status: {plan_name} -> 失败")
+                local_ui_manager.post_ai_dialog(f"错误信息：{error_message_short}", False)
+                if need_handle_error:
+                    error_info = {
+                        'timestamp': time.perf_counter() - self.context.game_state.start_time,
+                        'command': self.current_input,
+                        'error': error_message_short,
+                        'code': code_to_run
+                    }
+                    self.context.add_error(error_info)
+                    logger.info("Initiating error handling...")
+                    initial_response_id = getattr(self, 'last_response_id', None)
+                    try:
+                        error_handler = ErrorHandlerManager().create_handler(self)
+                        error_handler.handle_error(error_info, local_ui_manager, initial_response_id)
+                    except Exception as eh_e:
+                        logger.error(f"Failed to initiate error handler: {eh_e}")
             return False
 
 class OpenAIAssistant(BaseAIAssistant):
@@ -403,6 +390,7 @@ class OpenAIResponseAIAssistant(BaseAIAssistant):
     def __init__(self, ui_manager: Optional[UIManager] = None):
         super().__init__(ui_manager=ui_manager)
         self.last_response_id = None
+        self.remenber_cnt = 3
     
     def _create_client(self):
         logger.debug("Initializing OpenAI Response client")
@@ -413,7 +401,12 @@ class OpenAIResponseAIAssistant(BaseAIAssistant):
         static_prompt, dynamic_prompt = self.prompt_manager.get_prompts(self.context)
         
         if self.config.use_simplest_prompt and self.last_response_id:
-            instructions = self.prompt_manager.get_simplest_prompt() + dynamic_prompt
+            self.remenber_cnt -= 1
+            if self.remenber_cnt <= 0:
+                instructions = self.prompt_manager.get_simplest_prompt() + dynamic_prompt
+                self.remenber_cnt = 3
+            else:
+                instructions = dynamic_prompt
         else:
             instructions = static_prompt + dynamic_prompt
 
@@ -472,7 +465,7 @@ class OpenAIRealtimeAIAssistant(BaseAIAssistant):
         
         try:
             completion = self.client.chat.completions.create(
-                model=self.config.gptmodel-pre,
+                model=self.config.gptmodel_pre,
                 messages=messages,
                 max_tokens=MAX_OUTPUT_TOKENS,
                 temperature=0.7
