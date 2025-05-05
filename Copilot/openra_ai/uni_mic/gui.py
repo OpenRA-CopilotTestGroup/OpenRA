@@ -19,86 +19,7 @@ import queue
 import time
 from .tts_manager import TTSManager
 from typing import Optional
-
-
-class TTSPlayer(threading.Thread):
-    def __init__(self):
-        super().__init__(daemon=True)
-        self.q = queue.Queue()
-        self._stop = threading.Event()
-        self.loop = asyncio.new_event_loop()
-
-    def run(self):
-        asyncio.set_event_loop(self.loop)
-        self.loop.run_until_complete(self._main_loop())
-
-    async def _main_loop(self):
-        while not self._stop.is_set():
-            try:
-                text = self.q.get(timeout=0.5)
-                await self._play_tts(text)
-            except queue.Empty:
-                continue
-
-    async def _play_tts(self, text):
-        filename = f"tts_{uuid.uuid4().hex}.mp3"
-        path = os.path.join(tempfile.gettempdir(), filename)
-
-        tts = edge_tts.Communicate(text, voice="zh-CN-XiaoxiaoNeural")
-        await tts.save(path)
-        playsound(path)
-        os.remove(path)
-
-    def play(self, text):
-        self.q.put(text)
-
-    def stop(self):
-        self._stop.set()
-
-usenormalTTS = False
-
-dashscope.api_key = os.getenv("DASHSCOPE_API_KEY")
-
-if not dashscope.api_key:
-    print("Environment variable 'DASHSCOPE_API_KEY' is not set!")
-    usenormalTTS = True
-model = "cosyvoice-v1"
-voice = "longxiaoxia"
-
-
-class Callback(ResultCallback):
-    _player = None
-    _stream = None
-
-    def on_open(self):
-        self._player = pyaudio.PyAudio()
-        self._stream = self._player.open(
-            format=pyaudio.paInt16, channels=1, rate=22050, output=True, frames_per_buffer=22050
-        )
-
-    def on_close(self):
-        self._stream.stop_stream()
-        self._stream.close()
-        self._player.terminate()
-
-    def on_data(self, data: bytes) -> None:
-        print("audio result length:", len(data))
-        self._stream.write(data)
-
-
-def synthesizer_with_llm(text):
-    callback = Callback()
-    synthesizer = SpeechSynthesizer(
-        model=model,
-        voice=voice,
-        format=AudioFormat.PCM_22050HZ_MONO_16BIT,
-        callback=callback,
-    )
-
-    synthesizer.streaming_call(text)
-    synthesizer.streaming_complete()
-    print('requestId: ', synthesizer.get_last_request_id())
-
+from .error_handler import ErrorHandlerManager
 
 
 class AIAssistantUI(QWidget):
@@ -106,15 +27,13 @@ class AIAssistantUI(QWidget):
     ui_exit_signal = pyqtSignal(object)
     qt_tick_signal = pyqtSignal(object)
     mic_state_signal = pyqtSignal(bool)
-    ai_dialog_signal = pyqtSignal(str, bool)  # (text, need_tts)
-    plan_status_signal = pyqtSignal(object, str)  # (status_label, status)
-    add_plan_item_signal = pyqtSignal(str, str, object)  # plan_name, status, callback
-    set_item_widget_signal = pyqtSignal(QListWidgetItem, QWidget)
-
+    
     def closeEvent(self, event):
         try:
             self.ui_exit_signal.emit(self)
-            self.tts.stop()
+            if hasattr(self, 'tts') and self.tts:
+                self.tts.stop()
+            ErrorHandlerManager().stop_all()
         except Exception as e:
             print(f"Error during closeEvent: {e}")
         event.accept()
@@ -183,30 +102,13 @@ class AIAssistantUI(QWidget):
 
         self.setLayout(main_layout)
 
-        # TTS
-        #self.tts_engine = pyttsx3.init(driverName='espeak')
-        # self.tts_engine = pyttsx3.init()
-        
-        # self.tts_engine.setProperty('rate', 150)
-        # self.tts_engine.setProperty('volume', 0.9)
-
-        # self.tts_lock = threading.Lock()
-
-        self.mic_enabled = True  # Initial mic state
+        self.mic_enabled = True
 
         tick_timer = QTimer(self)
         tick_timer.timeout.connect(lambda: self.qt_tick_signal.emit(self))
         tick_timer.start(100)
 
-        self.plan_items = {}  # 存储计划项和状态标签的映射
-
-        # 连接信号到槽
-        self.ai_dialog_signal.connect(self._add_ai_dialog_safe)
-        self.plan_status_signal.connect(self._update_plan_status_safe)
-        self.add_plan_item_signal.connect(self._add_plan_item_safe)
-        self.set_item_widget_signal.connect(
-            lambda item, widget: self.plan_list.setItemWidget(item, widget)
-        )
+        self.plan_items = {}
 
     def handle_send(self):
         user_input = self.input_field.text()
@@ -216,10 +118,58 @@ class AIAssistantUI(QWidget):
             self.add_player_dialog(user_input)
             self.input_field.clear()
 
-            # ai_reply = "好的，正在执行..."
-            # self.add_ai_dialog(ai_reply)
+    def add_player_dialog(self, text):
+        self.__append_dialog_safe(text + " :玩家", True, QColor("blue"))
 
-    def append_dialog(self, text, align_right=False, color=QColor("black")):
+    def add_ai_dialog(self, text, need_tts: bool = True):
+        self.__append_dialog_safe("AI副官: " + text, False, QColor("green"))
+        if need_tts:
+            self.speak_text(text)
+
+    def add_plan_item(self, plan_name: str, status: str = "未开始") -> QLabel:
+        return self.__add_plan_item_safe(plan_name, status)
+
+    def update_plan_item_status(self, status_label: QLabel, status: str):
+        self.__update_plan_status_safe(status_label, status)
+
+    def set_memory_content(self, content: str):
+        self.__set_memory_content_safe(content)
+
+    def speak_text(self, text):
+        self.tts.play(text)
+
+    def set_status_label_color(self, label, status):
+        if status == "进行中":
+            label.setStyleSheet("color: green;")
+        elif status == "失败":
+            label.setStyleSheet("color: red;")
+        elif status == "已完成":
+            label.setStyleSheet("color: gray;")
+        else:
+            label.setStyleSheet("color: black;")
+
+    def get_memory_content(self):
+        return self.memory_text.toPlainText()
+
+    def toggle_mic(self):
+        self.mic_enabled = not self.mic_enabled
+        self.mic_button.setText(
+            "当前麦克风状态: 开启" if self.mic_enabled else "当前麦克风状态: 关闭")
+        self.mic_state_signal.emit(self.mic_enabled)
+        self.add_ai_dialog("麦克风已{}。".format(
+            "开启" if self.mic_enabled else "关闭"), False)
+
+    def get_all_plans(self):
+        return [
+            {
+                'name': plan_name,
+                'status': item['status'],
+                'timestamp': item['timestamp']
+            }
+            for plan_name, item in self.plan_items.items()
+        ]
+
+    def __append_dialog_safe(self, text, align_right, color):
         cursor = self.dialog_text.textCursor()
         cursor.movePosition(QTextCursor.End)
 
@@ -241,36 +191,7 @@ class AIAssistantUI(QWidget):
         self.dialog_text.setTextCursor(cursor)
         self.dialog_text.ensureCursorVisible()
 
-    def add_player_dialog(self, text):
-        self.append_dialog(text + " :玩家", align_right=True,
-                           color=QColor("blue"))
-
-    def add_ai_dialog(self, text, need_tts: bool = True):
-        """线程安全的添加AI对话"""
-        self.ai_dialog_signal.emit(text, need_tts)
-
-    def _add_ai_dialog_safe(self, text, need_tts):
-        """在主线程中实际执行添加对话的操作"""
-        self.append_dialog("AI副官: " + text, align_right=False,
-                          color=QColor("green"))
-        if need_tts:
-            self.speak_text(text)
-
-    def speak_text(self, text):
-        self.tts.play(text)
-
-    def add_plan_item(self, plan_name: str, status: str = "未开始"):
-        """线程安全的添加计划项"""
-        if threading.current_thread() is not threading.main_thread():
-            # 如果不在主线程，使用信号
-            self.add_plan_item_signal.emit(plan_name, status, None)
-            return None
-        else:
-            # 如果在主线程，直接执行
-            return self._add_plan_item_safe(plan_name, status)
-
-    def _add_plan_item_safe(self, plan_name: str, status: str, callback=None) -> Optional[QLabel]:
-        """在主线程中安全地添加计划项"""
+    def __add_plan_item_safe(self, plan_name: str, status: str) -> QLabel:
         widget = QWidget()
         layout = QHBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
@@ -296,66 +217,28 @@ class AIAssistantUI(QWidget):
         widget.setLayout(layout)
         widget.setStyleSheet("border: 1px solid black; padding: 5px;")
 
-        item = QListWidgetItem(self.plan_list)
+        item = QListWidgetItem()
+        self.plan_list.insertItem(0, item)
         item.setSizeHint(widget.sizeHint())
         
-        # 使用信号在主线程中设置widget
-        self.set_item_widget_signal.emit(item, widget)
+        self.plan_list.setItemWidget(item, widget) 
         
         self.plan_list.scrollToBottom()
-        
-        if callback:
-            callback(status_label)
         return status_label
 
-    def update_plan_item_status(self, status_label, status):
-        """线程安全的更新计划状态"""
-        self.plan_status_signal.emit(status_label, status)
-
-    def _update_plan_status_safe(self, status_label, status):
-        """在主线程中实际执行更新状态的操作"""
+    def __update_plan_status_safe(self, status_label: QLabel, status: str):
         status_label.setText(status)
         self.set_status_label_color(status_label, status)
-        for plan_name, item in self.plan_items.items():
-            if item['label'] == status_label:
-                item['status'] = status
+        for plan_name, item_data in self.plan_items.items():
+            if item_data['label'] == status_label:
+                item_data['status'] = status
                 break
 
-    def set_status_label_color(self, label, status):
-        if status == "进行中":
-            label.setStyleSheet("color: green;")
-        elif status == "失败":
-            label.setStyleSheet("color: red;")
-        elif status == "已完成":
-            label.setStyleSheet("color: gray;")
-        else:
-            label.setStyleSheet("color: black;")
-
-    def set_memory_content(self, content):
+    def __set_memory_content_safe(self, content: str):
         self.memory_text.setText(content)
 
-    def get_memory_content(self):
-        return self.memory_text.toPlainText()
-
-    def toggle_mic(self):
-        self.mic_enabled = not self.mic_enabled
-        self.mic_button.setText(
-            "当前麦克风状态: 开启" if self.mic_enabled else "当前麦克风状态: 关闭")
-        # Emit signal for state change
-        self.mic_state_signal.emit(self.mic_enabled)
-        self.add_ai_dialog("麦克风已{}。".format(
-            "开启" if self.mic_enabled else "关闭"), False)
-
-    def get_all_plans(self):
-        """获取所有计划及其状态"""
-        return [
-            {
-                'name': plan_name,
-                'status': item['status'],
-                'timestamp': item['timestamp']
-            }
-            for plan_name, item in self.plan_items.items()
-        ]
+    def __append_dialog_safe_wrapper_player(self, text):
+        self.add_player_dialog(text)
 
 
 def create_ai_assistant_ui_instance():

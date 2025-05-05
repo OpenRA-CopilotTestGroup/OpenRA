@@ -3,6 +3,9 @@ import threading
 from .log_manager import LogManager
 import time
 import uuid
+import traceback
+from .ui_manager import UIManager
+
 
 logger = LogManager.get_logger()
 
@@ -45,82 +48,86 @@ class ErrorHandlerManager:
         self.error_handlers[handler.handler_id] = handler
         return handler
 
-    def get_handler(self, handler_id: str) -> Optional['ErrorHandler']:
-        """获取错误处理器"""
-        return self.error_handlers.get(handler_id)
+    def stop_all(self):
+        """通知所有错误处理器终止"""
+        for handler in self.error_handlers.values():
+            handler.stop()
 
 class ErrorHandler:
     """错误处理器"""
     def __init__(self, ai_assistant):
         self.handler_id = str(uuid.uuid4())
+        if ai_assistant is None:
+             raise ValueError("ai_assistant cannot be None for ErrorHandler")
         self.ai_assistant = ai_assistant
         self.is_handling = False
         self.handling_thread = None
         self.created_at = time.time()
-        self.response_ids = {}  # Dict[error_id, response_id]
-        self.retry_counts = {}  # Dict[error_id, retry_count]
+        self.response_id = None  # 只保存当前错误的response_id
+        self.retry_count = 0  # 当前错误的重试次数
+        self._stop_event = threading.Event()  # 新增
 
-    def handle_error(self, error_info: Dict[Any, Any], gui=None, initial_response_id: Optional[str] = None):
-        """处理新的错误"""
-        if not self.ai_assistant.config.retry_when_failed or self.is_handling:
+    def stop(self):
+        """外部调用，通知线程终止"""
+        self._stop_event.set()
+
+    def handle_error(self, error_info: Dict[Any, Any], ui_manager: Optional[UIManager] = None, initial_response_id: Optional[str] = None):
+        """处理错误"""
+        if not getattr(self.ai_assistant.config, 'retry_when_failed', False) or self.is_handling:
+            logger.warning(f"错误处理已跳过。重试已启用: {getattr(self.ai_assistant.config, 'retry_when_failed', False)}, 正在处理中: {self.is_handling}")
             return
 
-        error_id = f"{error_info['timestamp']}_{error_info['command']}"
-        self.response_ids[error_id] = initial_response_id
-        self.retry_counts[error_id] = 0
-
+        self.response_id = initial_response_id
+        self.retry_count = 0
         self.is_handling = True
+
+        logger.info(f"开始异步错误处理 (Handler ID: {self.handler_id})")
         self.handling_thread = threading.Thread(
             target=self._handle_error_async,
-            args=(error_id, error_info, gui)
+            args=(error_info, ui_manager),
+            name=f"ErrorHandler-{self.handler_id[:10]}"
         )
         self.handling_thread.start()
-        return error_id
 
-    def _handle_error_async(self, error_id: str, error_info: Dict[Any, Any], gui):
+    def _handle_error_async(self, error_info: Dict[Any, Any], ui_manager: Optional[UIManager]):
         """异步处理错误"""
         try:
-            while self.retry_counts[error_id] < self.ai_assistant.config.max_retry_times:
-                current_try = self.retry_counts[error_id] + 1
-                logger.info(f"尝试修复错误 {error_id}，第{current_try}次尝试")
-                if gui:
-                    gui.add_ai_dialog(f"正在尝试修复错误，第{current_try}次尝试...", False)
+            max_retries = getattr(self.ai_assistant.config, 'max_retry_times', 1)
+            while self.retry_count < max_retries and not self._stop_event.is_set():
+                self.retry_count += 1
+                logger.info(f"第 {self.retry_count}/{max_retries} 次尝试修复...")
 
-                # 调用错误处理并获取新的response id
-                response, new_response_id = self.ai_assistant.handle_error_with_llm(
-                    error_info, 
-                    self.response_ids[error_id]
-                )
+                try:
+                    if ui_manager:
+                        ui_manager.post_ai_dialog(f"正在尝试修复错误 (尝试 {self.retry_count})...", False)
+                except Exception as e:
+                    logger.error(f"UI更新失败: {e}")
 
-                # 更新response id和重试次数
-                if new_response_id:
-                    self.response_ids[error_id] = new_response_id
-                self.retry_counts[error_id] += 1
-
-                if response and "没有解决方案" not in response:
-                    if gui:
-                        gui.add_ai_dialog("已找到可能的解决方案，正在尝试执行...", False)
-                    # 执行修复后的代码
-                    self.ai_assistant.handle_strategy_command(response, gui)
+                try:
+                    success, new_response_id = self.ai_assistant.handle_error_with_llm(
+                        error_info, 
+                        self.response_id
+                    )
+                    if success:
+                        logger.info("找到解决方案并已执行")
+                        break
+                    else:
+                        logger.info("未找到解决方案，继续尝试...")
+                        self.response_id = new_response_id
+                except Exception as e:
+                    logger.error(f"错误处理失败: {e}\n{traceback.format_exc()}")
                     break
 
-            if self.retry_counts[error_id] >= self.ai_assistant.config.max_retry_times:
-                if gui:
-                    gui.add_ai_dialog("已达到最大重试次数，无法修复错误。", False)
-                # 清理数据
-                self.response_ids.pop(error_id, None)
-                self.retry_counts.pop(error_id, None)
+                if self._stop_event.is_set():
+                    logger.info("收到终止信号，修复线程即将退出。")
+                    break
 
+            if self.retry_count >= max_retries:
+                logger.warning(f"达到最大重试次数 ({max_retries})，无法修复。")
+                if ui_manager:
+                    ui_manager.post_ai_dialog("已达到最大重试次数，无法修复错误。", False)
+                    ui_manager.post_ai_dialog(f"对不起，我未能修复错误。")
+        except Exception as e:
+            logger.error(f"错误处理线程发生未捕获异常: {e}\n{traceback.format_exc()}")
         finally:
-            self.is_handling = False
-
-    def get_error_status(self, error_id: str) -> Optional[Dict[str, Any]]:
-        """获取错误处理状态"""
-        if error_id in self.retry_counts:
-            return {
-                "error_id": error_id,
-                "retry_count": self.retry_counts[error_id],
-                "response_id": self.response_ids.get(error_id),
-                "is_handling": self.is_handling
-            }
-        return None 
+            self.is_handling = False 

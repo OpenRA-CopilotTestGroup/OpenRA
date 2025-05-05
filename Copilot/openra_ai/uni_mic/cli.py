@@ -7,12 +7,13 @@ import sys
 import queue
 import threading
 from uni_mic.log_manager import LogManager
+from typing import Optional
 
 # 在导入其他模块之前初始化 LogManager
 LogManager(log_level="info")
 logger = LogManager.get_logger()
 
-from uni_mic.gui import create_ai_assistant_ui_instance
+from uni_mic.gui import create_ai_assistant_ui_instance, AIAssistantUI
 from uni_mic.audio_listener import AudioListener
 from uni_mic.asr_manager import ASRManager
 from uni_mic.asr_module import WhisperASR, FunASRRemoteASR, WhisperAPIASR
@@ -20,42 +21,77 @@ from uni_mic.config import AppConfig, ASRConfig, InputConfig, StarterConfig, TTS
 from uni_mic.config import add_options
 from uni_mic.ai_factory import AIAssistantFactory
 from dataclasses import asdict
+from .ui_manager import UIManager
 
 class CLIManager:
     def __init__(self, config: AppConfig):
         self.config = config
-        self.ai_assistant = AIAssistantFactory.create_assistant(config)
-        self.text_callback_queue = queue.Queue()
-        self.gui_window = None
+        self.ui_manager: Optional[UIManager] = None
+        self.gui_window: Optional[AIAssistantUI] = None
         self.gui_app = None
 
-    def text_callback(self, text: str, is_from_ui: bool = False):
-        """处理文本输入的回调函数"""
-        logger.info(f"Received text input: {repr(text)}")
-        
+        self.ai_assistant = None
+        self.text_callback_queue = queue.Queue()
 
+    def initialize_gui(self):
+        """初始化GUI和UIManager"""
+        if self.config.starter.gui and not self.gui_app:
+            logger.info("Initializing GUI and UIManager...")
+            self.gui_app, self.gui_window = create_ai_assistant_ui_instance()
+            self.ui_manager = UIManager(self.gui_window)
+            logger.info("GUI and UIManager initialized.")
+
+            self.ai_assistant = AIAssistantFactory.create_assistant(self.config, self.ui_manager)
+            logger.info("AI Assistant created.")
+
+            self.gui_window.player_dialog_signal.connect(self.gui_input_callback)
+            self.gui_window.ui_exit_signal.connect(self.handle_exit)
+            self.gui_window.qt_tick_signal.connect(self.process_queue)
+            self.gui_window.mic_state_signal.connect(self.handle_mic_toggle)
+
+    def text_callback(self, text: str):
+        """处理来自ASR或键盘的文本输入"""
+        logger.info(f"Received text input for processing: {repr(text)}")
+        if not self.ai_assistant:
+            logger.error("AI Assistant not initialized. Cannot handle command.")
+            return
             
-        # 直接使用AI Assistant处理命令
-        self.ai_assistant.handle_strategy_command(
-            user_input=text,
-            gui=self.gui_window
-        )
+        try:
+            self.ai_assistant.handle_strategy_command(user_input=text, ui_manager=None)
+        except Exception as e:
+            logger.error(f"Error calling handle_strategy_command: {e}")
+            logger.error(traceback.format_exc())
+            if self.ui_manager:
+                self.ui_manager.post_ai_dialog(f"处理内部错误: {e}", False)
 
-    def text_callback_async(self, text: str, is_from_ui: bool = False):
-        """异步处理文本输入"""
-        self.text_callback_queue.put((text, is_from_ui))
+    def gui_input_callback(self, gui_instance, player_input):
+        """处理来自GUI输入框的文本"""
+        logger.info(f"Received GUI input: {repr(player_input)}")
+        self.text_callback(player_input)
+
+    def text_callback_async(self, text: str):
+        """异步处理来自ASR的文本输入"""
+        self.text_callback_queue.put(text)
 
     def process_queue(self):
-        """处理队列中的文本输入"""
+        """处理队列中的ASR文本输入"""
+        processed = False
         while not self.text_callback_queue.empty():
             try:
-                text, is_from_ui = self.text_callback_queue.get_nowait()
-                self.text_callback(text, is_from_ui)
+                text = self.text_callback_queue.get_nowait()
+                self.text_callback(text)
+                processed = True
             except queue.Empty:
                 break
+            except Exception as e:
+                logger.error(f"Error processing text queue: {e}")
 
     def handle_keyboard_input(self):
-        """处理键盘输入"""
+        """处理键盘输入 (如果非GUI模式)"""
+        if not self.ai_assistant:
+            self.ai_assistant = AIAssistantFactory.create_assistant(self.config, None)
+            logger.info("AI Assistant created for keyboard mode.")
+
         logger.info("Starting keyboard input mode")
         while True:
             try:
@@ -67,16 +103,19 @@ class CLIManager:
             except KeyboardInterrupt:
                 logger.info("Keyboard input interrupted by user")
                 break
+            except EOFError:
+                logger.info("EOF detected, exiting keyboard input mode.")
+                break
 
     def handle_mic_input(self):
-        """处理麦克风输入"""
+        """处理麦克风输入 (如果非键盘模式)"""
         logger.info("Initializing microphone input mode")
         audio_queue = queue.Queue()
         result_queue = queue.Queue()
         stop_event = threading.Event()
+        self.audio_listener = None
 
         try:
-            # 初始化ASR模块
             if self.config.asr.remote_asr:
                 if self.config.asr.remote_type == "whisper":
                     asr_module = WhisperAPIASR(self.config.asr)
@@ -89,11 +128,11 @@ class CLIManager:
                 asr_module = WhisperASR(self.config.asr)
 
             asr_manager = ASRManager(asr_module, audio_queue, result_queue, stop_event)
-            audio_listener = AudioListener(asr_manager, stop_event)
+            self.audio_listener = AudioListener(asr_manager, stop_event)
 
             logger.info(f"Starting ASR system: {asr_module.__class__.__name__}")
             asr_manager.start()
-            audio_listener.start()
+            self.audio_listener.start()
 
             def process_results():
                 while not asr_manager.stop_event.is_set():
@@ -103,42 +142,52 @@ class CLIManager:
                             self.text_callback_async(result)
                     except queue.Empty:
                         continue
+                    except Exception as e:
+                        logger.error(f"Error processing ASR result queue: {e}")
 
-            result_thread = threading.Thread(target=process_results, daemon=True)
+            result_thread = threading.Thread(target=process_results, daemon=True, name="ASRResultProcessor")
             result_thread.start()
 
-            try:
-                if self.gui_window:
-                    self.gui_window.qt_tick_signal.connect(lambda: self.process_queue())
-                    self.gui_window.mic_state_signal.connect(
-                        lambda is_on: audio_listener.resume_listening() if is_on else audio_listener.pause_listening()
-                    )
-                    self.gui_app.exec_()
-                else:
-                    while True:
-                        self.process_queue()
-                        time.sleep(0.1)
-            except KeyboardInterrupt:
-                logger.info("Microphone input interrupted by user")
-            finally:
-                logger.info("Shutting down ASR system")
-                asr_manager.stop()
-                audio_listener.stop()
+            if self.gui_app:
+                logger.info("Starting Qt application event loop.")
+                exit_code = self.gui_app.exec_()
+                logger.info(f"Qt application event loop finished with code {exit_code}.")
+            else:
+                logger.info("Running in non-GUI mode. Press Ctrl+C to exit.")
+                while True:
+                    self.process_queue()
+                    time.sleep(0.1)
 
+        except KeyboardInterrupt:
+            logger.info("Microphone input interrupted by user (Ctrl+C)")
         except Exception as e:
             logger.error(f"Error in mic input handling: {str(e)}")
+            logger.error(traceback.format_exc())
+        finally:
+            logger.info("Shutting down ASR system...")
+            stop_event.set()
+            if self.audio_listener:
+                self.audio_listener.stop()
+            logger.info("ASR system shutdown complete.")
 
-    def initialize_gui(self):
-        """初始化GUI"""
-        if self.config.starter.gui:
-            logger.info("Initializing GUI mode")
-            self.gui_app, self.gui_window = create_ai_assistant_ui_instance()
-            
-            def gui_input_callback(gui, player_input):
-                self.text_callback(player_input, True)
-                
-            self.gui_window.player_dialog_signal.connect(gui_input_callback)
-            self.gui_window.ui_exit_signal.connect(lambda: sys.exit(0))
+    def handle_mic_toggle(self, is_on):
+        """Handles mic toggle signal from GUI"""
+        if self.audio_listener:
+            if is_on:
+                logger.info("Resuming audio listening based on GUI toggle.")
+                self.audio_listener.resume_listening()
+            else:
+                logger.info("Pausing audio listening based on GUI toggle.")
+                self.audio_listener.pause_listening()
+        else:
+            logger.warning("Received mic toggle signal, but AudioListener is not initialized.")
+
+    def handle_exit(self, source=None):
+        """Handles exit signal"""
+        logger.info(f"Exit signal received from {source}. Shutting down.")
+        if self.gui_app:
+            self.gui_app.quit()
+        sys.exit(0)
 
 @click.command()
 @add_options(ASRConfig)
@@ -146,7 +195,6 @@ class CLIManager:
 @add_options(StarterConfig)
 @add_options(TTSConfig)
 def main(**kwargs):
-    # 创建配置
     config = AppConfig(
         asr=ASRConfig(**{k: v for k, v in kwargs.items() if k in asdict(ASRConfig())}),
         input=InputConfig(**{k: v for k, v in kwargs.items() if k in asdict(InputConfig())}),
@@ -154,31 +202,30 @@ def main(**kwargs):
         tts=TTSConfig(**{k: v for k, v in kwargs.items() if k in asdict(TTSConfig())}),
     )
     
-    # 根据配置更新 LogManager
     LogManager(
         log_level=config.starter.logging_level,
         debug_mode=config.starter.debug_mode
     )
     
-    # 设置配置管理器
     ConfigManager.set_config(config)
 
-    # 设置API密钥
     if config.asr.api_key is None and config.asr.remote_type == "whisper":
         config.asr.api_key = os.getenv("OPENAI_API_KEY")
 
-    # 创建CLI管理器
     cli_manager = CLIManager(config)
     
-    # 初始化GUI（如果需要）
     if config.starter.gui:
         cli_manager.initialize_gui()
+    else:
+        cli_manager.ai_assistant = AIAssistantFactory.create_assistant(config, None)
+        logger.info("AI Assistant created for non-GUI mode.")
 
-    # 根据输入模式处理输入
     if config.input.input_mode == "mic":
         cli_manager.handle_mic_input()
     elif config.input.input_mode == "keyboard":
         cli_manager.handle_keyboard_input()
+    else:
+        logger.error(f"Unsupported input mode: {config.input.input_mode}")
 
 import traceback
 def handle_exception(exc_type, exc_value, exc_traceback):
