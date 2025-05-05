@@ -274,8 +274,8 @@ units:
         transport
         carrier
     ftrk:
-        防空炮车
         防空车
+        防空炮车
         移动防空车
         flak truck
         mobile anti-air
@@ -464,3 +464,23 @@ nickname:
         apc
         ttnk
         qtnk
+    建筑:
+        powr
+        tent
+        barr
+        proc
+        weap
+        dome
+        fix
+        silo
+        apwr
+        afld
+        stek
+        kennel
+        ftur
+        tsla
+        sam
+        iron
+        mslo
+        fact
+        oilb
