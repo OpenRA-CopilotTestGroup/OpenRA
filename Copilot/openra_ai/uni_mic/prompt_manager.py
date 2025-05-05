@@ -4,6 +4,7 @@ from .config import ConfigManager,base_path
 import sys
 import time
 from .prompt_context import PromptContext
+from typing import Dict, Any
 
 
 
@@ -23,11 +24,12 @@ class PromptManager:
         with open(prompt_path, 'r', encoding='utf-8') as f:
             simplest_prompt_content = f.read()
         self.simplest_prompt = f"""
+你继续当 OpenRA（红色警戒）游戏的战略AI指挥副官。输出python代码与游戏交互，我们会执行你输出的代码
 这是帮你回忆的接口api：
 {simplest_prompt_content}
 请牢记，你的输出应该符合以下格式：
-1.<code> 可执行的python代码 </code>
-2.<speech> 你对玩家说的话，会用语音给玩家播放，尽可能简洁 </speech>
+1.<code> 可执行的python代码,api是默认的OpenRA_Copilot_Library.GameAPI对象，你不用声明新的api对象,异常情况应该全部raise,而不是print </code>
+2.<speech> 你对玩家说的话，会用语音给玩家播放，尽可能简洁，由于任务可能失败，因此不要直接说做了什么，而是说尝试做了什么 </speech>
 3.<title> 你正在运行的内容的标题 </title>
 4.<memory> 你新的记忆，筛去无用部分，根据新的内容修改</memory>
 """
@@ -50,9 +52,9 @@ prompt将分为几个部分：
 5.当前的时间戳，RTS游戏是有很强时效性的
 
 你的输出也要分为4个部分：
-1.<code> 可执行的python代码 </code>
-2.<speech> 你对玩家说的话，包括解释你做了什么，以及为什么，这一部分对玩家可见，会用语音给玩家播放 </speech>
-3.<title> 你正在运行的内容的标题，应该简洁明了，这个是给你自己看的 </title>
+1.<code> 可执行的python代码,api是默认的OpenRA_Copilot_Library.GameAPI对象，你不用声明新的api对象,异常情况应该全部raise </code>
+2.<speech> 你对玩家说的话，包括解释你做了什么，以及为什么，这一部分对玩家可见，会用语音给玩家播放，由于任务可能失败，因此不要直接说做了什么，而是说尝试做了什么 </speech>
+3.<title> 你正在运行的内容的标题，应该简洁明了 </title>
 4.<memory> 你新的记忆，筛去无用部分，根据新的内容修改，可以参考时间戳来决定 </memory>
 
 注意，不同部分需要用不同的尖括号框起来
@@ -123,7 +125,7 @@ api是默认的OpenRA_Copilot_Library对象，你不用声明新的api对象
 
         # 添加计划状态信息
         plans_str = "\n".join(
-            f"计划：{plan.name} - 状态：{plan.status} - 时间：{plan.timestamp - context.game_state.start_time:.2f}秒"
+            f"计划：{plan.name} - 状态：{plan.status} - 时间：{plan.timestamp:.2f}秒"
             for plan in context.game_state.plans
         ) if context.game_state.plans else "无"
 
@@ -134,19 +136,42 @@ api是默认的OpenRA_Copilot_Library对象，你不用声明新的api对象
         ) if context.errors else "无"
 
         return f"""
-        prompt part:当前正在执行的内容，这些都是正在运行的，你之前的代码
-        无
         prompt part:你的记忆
         {context.game_state.memory}
         prompt part:目前游戏的基本信息
         玩家持有资源：{context.game_state.cash + context.game_state.resources}
-        玩家当前剩余电力：{context.game_state.power}
+        玩家当前剩余电力：{f"{context.game_state.power}(电力不足，请尽快补充)" if context.game_state.power <= 0 else context.game_state.power}
         屏幕内单位：\n{screen_units_str}
         当前执行计划：\n{plans_str}
-        最近的错误记录，尽可能规避或尝试修复这些问题：\n{errors_str}
+        
         prompt part 6:当前的时间戳
         当前是运行的第："{formatted_time}"秒
         """
+        #最近的错误记录，尽可能规避或尝试修复这些问题：\n{errors_str}
+
+    def _generate_error_prompt(self, error_info: Dict[Any, Any], context: PromptContext) -> str:
+        """生成错误处理的提示"""
+        return f"""
+你是一个OpenRA游戏的AI副官，现在遇到了一个错误，需要你修复。
+
+错误信息：{error_info['error']}
+执行的命令：{error_info['command']}
+原始代码：
+{error_info['code']}
+
+当前游戏状态：
+- 玩家资源：{context.game_state.cash + context.game_state.resources}
+- 玩家电力：{context.game_state.power}
+- 屏幕内单位：{len(context.game_state.visible_units)}
+- 当前时间：{time.perf_counter() - context.game_state.start_time:.2f}秒
+
+请生成修复后的代码。如果无法修复，不需要遵循格式，直接回复"没有解决方案"。
+
+你的输出必须包含以下标签：
+1.<code> 修复后的可执行的python代码,api是默认的OpenRA_Copilot_Library.GameAPI对象，你不用声明新的api对象 </code>
+2.<speech> 对玩家说的话，包含错误的总结，由于修复可能失败，因此不要直接说完成了什么，而是说尝试做了什么  </speech>
+3.<title> 重新修复后运行的内容的标题，应该简洁明了 </title>
+"""
 
     def get_simplest_prompt(self):
         return self.simplest_prompt

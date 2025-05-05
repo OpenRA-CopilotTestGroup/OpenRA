@@ -52,7 +52,7 @@ if api.ensure_can_produce_unit("步兵"):
         api.wait(p)
         print("步兵生产完成")
 else:
-    print("无法生产步兵，可能资源不足或其它未知原因")
+    raise RuntimeError("无法生产步兵，可能资源不足或其它未知原因")
 
 
 # 步兵编成组1去探索周边地图
@@ -125,7 +125,7 @@ if api.ensure_can_produce_unit("防空车"):
         api.wait(wtank, maxWaitTime=30)
         print("防空车已生产完毕")
 else:
-    print("无法生产防空车")
+    raise RuntimeError("无法生产防空车")
 
 
 # 防空车编成两组，两路夹击进攻敌方基地
