@@ -401,12 +401,7 @@ class OpenAIResponseAIAssistant(BaseAIAssistant):
         static_prompt, dynamic_prompt = self.prompt_manager.get_prompts(self.context)
         
         if self.config.use_simplest_prompt and self.last_response_id:
-            self.remenber_cnt -= 1
-            if self.remenber_cnt <= 0:
-                instructions = self.prompt_manager.get_simplest_prompt() + dynamic_prompt
-                self.remenber_cnt = 3
-            else:
-                instructions = dynamic_prompt
+            instructions = self.prompt_manager.get_simplest_prompt() + dynamic_prompt
         else:
             instructions = static_prompt + dynamic_prompt
 

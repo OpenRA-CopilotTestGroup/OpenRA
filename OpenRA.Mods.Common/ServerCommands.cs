@@ -929,7 +929,8 @@ namespace OpenRA.Mods.Common.Commands
 			var tar = Target.FromActor(target);
 			tar.Recalculate(attacker.Owner, out var targetIsHiddenActor);
 			if (targetIsHiddenActor || !target.CanBeViewedByPlayer(attacker.Owner))
-				throw new NotImplementedException("Target is hidden now");
+				return "Target is hidden now";
+				// throw new NotImplementedException("Target is hidden now");
 			world.IssueOrder(new Order("Attack", attacker, tar, Queued));
 
 			return "Attack action executed.";
