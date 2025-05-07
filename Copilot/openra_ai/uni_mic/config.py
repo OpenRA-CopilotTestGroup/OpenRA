@@ -44,7 +44,7 @@ class StarterConfig:
     openai_realtime_mode: bool = False
     use_simplest_prompt: bool = False
     retry_when_failed: bool = True
-    max_retry_times: int = 2
+    max_retry_times: int = 1
 
 
 @dataclass

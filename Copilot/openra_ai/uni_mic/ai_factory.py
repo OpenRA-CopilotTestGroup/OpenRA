@@ -22,6 +22,7 @@ from .ui_manager import UIManager
 import random
 import io
 import sys
+import contextlib
 
 # 全局配置
 MAX_OUTPUT_TOKENS = 3000
@@ -185,8 +186,8 @@ class BaseAIAssistant(ABC):
                 executable = code_match.group(1).strip()
                 logger.info(f"准备执行代码:\n{executable}")
 
-                # 直接异步调用run_code_with_capture
-                future = self.executor.submit(self.run_code_with_capture, executable, plan_name_for_lookup, manager)
+                # 直接异步调用run_code_and_update_plan
+                future = self.executor.submit(self.run_code_and_update_plan, executable, plan_name_for_lookup, manager)
                 logger.info("Code execution submitted.")
 
             elif plan_name_for_lookup and manager:
@@ -255,8 +256,10 @@ class BaseAIAssistant(ABC):
             if code_match:
                 executable = code_match.group(1).strip()
                 logger.info(f"准备执行修复代码:\n{executable}")
-                # 直接同步调用run_code_with_capture
-                success = self.run_code_with_capture(executable, plan_name_for_lookup, ui_manager,need_handle_error=False)
+                # 直接同步调用run_code_and_update_plan
+                # 直接调用有可能上面的post_plan_item没准备好,sleep 100ms
+                time.sleep(0.1)
+                success = self.run_code_and_update_plan(executable, plan_name_for_lookup, ui_manager, need_handle_error=False)
                 return success
             else:
                 logger.warning("修复响应中未找到可执行代码")
@@ -267,9 +270,9 @@ class BaseAIAssistant(ABC):
                 ui_manager.post_ai_dialog(f"处理修复响应时出错: {str(e)}", False)
             return False
 
-    def run_code_with_capture(self, code_to_run, plan_name=None, local_ui_manager=None,need_handle_error:bool=True):
+    def run_code_and_update_plan(self, code_to_run, plan_name=None, local_ui_manager=None, need_handle_error:bool=True):
         """
-        执行代码，捕获stdout，输出到logger和GUI，并自动更新plan状态
+        执行代码，并自动更新plan状态
         """
         target_label = None
         if local_ui_manager and plan_name:
@@ -282,17 +285,7 @@ class BaseAIAssistant(ABC):
 
         try:
             logger.info(f"Executing code in thread: {threading.current_thread().name}")
-            old_stdout = sys.stdout
-            sys.stdout = mystdout = io.StringIO()
-            try:
-                exec(code_to_run)
-            finally:
-                sys.stdout = old_stdout
-            output = mystdout.getvalue()
-            if output.strip():
-                logger.info(f"任务[{plan_name}]:{output}")
-                if local_ui_manager:
-                    local_ui_manager.post_ai_dialog(f"任务[{plan_name}]:{output}", False)
+            exec(code_to_run)
             logger.info("Code execution successful.")
             if local_ui_manager and target_label:
                 local_ui_manager.post_update_plan_status(target_label, "已完成")
