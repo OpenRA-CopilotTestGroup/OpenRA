@@ -12,7 +12,7 @@
 
 比如，下令的右键左键在：WorldInteractionControllerWidget中
 
-然后会在OrderManager内，localOrder存储，然后发到服务端，服务端在ProcessOrders中处理，但是我发现都在主线程，可能是有多种方式，我本地跑就在一个线程
+>  然后会在OrderManager内，localOrder存储，然后发到服务端，服务端在ProcessOrders中处理，但是我发现都在主线程，可能是有多种方式，我本地跑就在一个线程
 
 比如移动，最后会在Mobile中的ResolveOrder解析
 
