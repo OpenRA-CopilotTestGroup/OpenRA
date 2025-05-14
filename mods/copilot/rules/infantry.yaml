@@ -4,7 +4,7 @@ DOG:
 		Queue: Infantry
 		BuildAtProductionType: Dog
 		BuildPaletteOrder: 50
-		Prerequisites: ~kenn, ~techlevel.infonly
+		Prerequisites: ~never-build
 		Description: actor-dog.description
 	Valued:
 		Cost: 200
@@ -86,7 +86,7 @@ E1:
 	UpdatesPlayerStatistics:
 		AddToArmyValue: true
 	Health:
-		HP: 5000
+		HP: 15000
 	Armament@PRIMARY:
 		Weapon: M1Carbine
 	Armament@GARRISONED:
@@ -128,7 +128,7 @@ E2:
 		Queue: Infantry
 		BuildAtProductionType: Soldier
 		BuildPaletteOrder: 40
-		Prerequisites: ~barr, ~techlevel.infonly
+		Prerequisites: ~never-build
 		Description: actor-e2.description
 	Valued:
 		Cost: 160
@@ -137,7 +137,7 @@ E2:
 	UpdatesPlayerStatistics:
 		AddToArmyValue: true
 	Health:
-		HP: 5000
+		HP: 15000
 	Mobile:
 		Speed: 68
 	Armament@PRIMARY:
@@ -239,7 +239,7 @@ E4:
 		Queue: Infantry
 		BuildAtProductionType: Soldier
 		BuildPaletteOrder: 70
-		Prerequisites: ~barr, ftur, ~techlevel.low
+		Prerequisites: ~\1
 		Description: actor-e4.description
 	Valued:
 		Cost: 300
@@ -283,7 +283,7 @@ E6:
 		Queue: Infantry
 		BuildAtProductionType: Soldier
 		BuildPaletteOrder: 60
-		Prerequisites: ~barracks, ~techlevel.infonly
+		Prerequisites: ~never-build
 		Description: actor-e6.description
 	Valued:
 		Cost: 400
@@ -403,7 +403,7 @@ E7:
 		Queue: Infantry
 		BuildAtProductionType: Soldier
 		BuildPaletteOrder: 120
-		Prerequisites: ~tent, atek, ~techlevel.high
+		Prerequisites: ~tent, atek, ~techlevel.high, ~never-build
 		BuildLimit: 1
 		Description: actor-e7.description
 	Valued:
@@ -624,7 +624,7 @@ THF:
 		Queue: Infantry
 		BuildAtProductionType: Soldier
 		BuildPaletteOrder: 110
-		Prerequisites: ~barr, dome, ~techlevel.medium
+		Prerequisites: ~barr, dome, ~techlevel.medium, ~never-build
 		Description: actor-thf.description
 	Valued:
 		Cost: 500
@@ -680,7 +680,7 @@ SHOK:
 		Queue: Infantry
 		BuildAtProductionType: Soldier
 		BuildPaletteOrder: 130
-		Prerequisites: ~barr, stek, tsla, ~infantry.russia, ~techlevel.high
+		Prerequisites: ~barr, stek, tsla, ~infantry.russia, ~techlevel.high, ~never-build
 		Description: actor-shok.description
 	Valued:
 		Cost: 350

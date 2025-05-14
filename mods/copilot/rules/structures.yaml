@@ -11,7 +11,7 @@ MSLO:
 	Buildable:
 		Queue: Defense
 		BuildPaletteOrder: 140
-		Prerequisites: techcenter, ~techlevel.unrestricted
+		Prerequisites: techcenter, ~techlevel.unrestricted, ~never-build
 		BuildLimit: 1
 		Description: actor-mslo.description
 	Building:
@@ -137,7 +137,7 @@ SPEN:
 	Buildable:
 		Queue: Building
 		BuildPaletteOrder: 50
-		Prerequisites: anypower, ~structures.soviet, ~techlevel.low
+		Prerequisites: anypower, ~structures.soviet, ~techlevel.low, ~never-build
 		Description: actor-spen.description
 	Targetable:
 		TargetTypes: WaterActor, Structure, C4, DetonateAttack, SpyInfiltrate
@@ -400,7 +400,7 @@ IRON:
 	Buildable:
 		Queue: Defense
 		BuildPaletteOrder: 130
-		Prerequisites: stek, ~structures.soviet, ~techlevel.unrestricted
+		Prerequisites: stek, ~structures.soviet, ~techlevel.unrestricted, ~never-build
 		BuildLimit: 1
 		Description: actor-iron.description
 	Valued:
@@ -577,7 +577,7 @@ TSLA:
 		Bounds: 1024, 1024
 		DecorationBounds: 1024, 1706, 0, -341
 	Health:
-		HP: 40000
+		HP: 120000
 	Armor:
 		Type: Heavy
 	RevealsShroud:
@@ -679,7 +679,7 @@ DOME:
 	Targetable:
 		TargetTypes: GroundActor, Structure, C4, DetonateAttack, SpyInfiltrate
 	Health:
-		HP: 100000
+		HP: 300000
 	Armor:
 		Type: Wood
 	RevealsShroud:
@@ -892,7 +892,7 @@ FTUR:
 		Name: actor-ftur.name
 	Building:
 	Health:
-		HP: 40000
+		HP: 120000
 	Armor:
 		Type: Heavy
 	RevealsShroud:
@@ -947,7 +947,7 @@ SAM:
 		Footprint: xx
 		Dimensions: 2,1
 	Health:
-		HP: 40000
+		HP: 120000
 	Armor:
 		Type: Heavy
 	RevealsShroud:
@@ -1188,7 +1188,7 @@ FACT:
 		Factions: ukraine
 		Prerequisite: structures.ukraine
 	Health:
-		HP: 150000
+		HP: 450000
 	Armor:
 		Type: Wood
 	RevealsShroud:
@@ -1282,7 +1282,7 @@ PROC:
 	Targetable:
 		TargetTypes: GroundActor, Structure, C4, DetonateAttack, ThiefInfiltrate, SpyInfiltrate
 	Health:
-		HP: 90000
+		HP: 270000
 	Armor:
 		Type: Wood
 	RevealsShroud:
@@ -1297,7 +1297,7 @@ PROC:
 		DockAngle: 256
 		DockOffset: 0, 1c0, 0
 	StoresPlayerResources:
-		Capacity: 2000
+		Capacity: 200000
 	CustomSellValue:
 		Value: 300
 	FreeActor:
@@ -1353,7 +1353,7 @@ SILO:
 	Buildable:
 		Queue: Defense
 		BuildPaletteOrder: 35
-		Prerequisites: proc, ~techlevel.infonly
+		Prerequisites: proc, ~techlevel.infonly, ~never-build
 		Description: actor-silo.description
 	Valued:
 		Cost: 150
@@ -1364,7 +1364,7 @@ SILO:
 	-GivesBuildableArea:
 	-MustBeDestroyed:
 	Health:
-		HP: 30000
+		HP: 90000
 	Armor:
 		Type: Wood
 	RevealsShroud:
@@ -1498,7 +1498,7 @@ AFLD:
 		Prerequisites: dome, ~structures.soviet, ~techlevel.medium, ~!structures.ukraine
 		Description: actor-afld.description
 	Valued:
-		Cost: 500
+		Cost: 400
 	Tooltip:
 		Name: actor-afld.name
 	Selectable:
@@ -1508,7 +1508,7 @@ AFLD:
 		Footprint: xxx xxx
 		Dimensions: 3,2
 	Health:
-		HP: 100000
+		HP: 300000
 	Armor:
 		Type: Wood
 	RevealsShroud:
@@ -1554,7 +1554,7 @@ AFLD:
 		Prerequisite: aircraft.ukraine
 	AirstrikePower@spyplane:
 		OrderName: SovietSpyPlane
-		Prerequisites: aircraft.soviet
+		Prerequisites: aircraft.soviet, ~never-build
 		Icon: spyplane
 		ChargeInterval: 3750
 		Name: actor-afld.airstrikepower-spyplane-name
@@ -1577,7 +1577,7 @@ AFLD:
 		SupportPowerPaletteOrder: 60
 	ParatroopersPower@paratroopers:
 		OrderName: SovietParatroopers
-		Prerequisites: aircraft.soviet
+		Prerequisites: aircraft.soviet, ~never-build
 		Icon: paratroopers
 		ChargeInterval: 7500
 		Name: actor-afld.paratrooperspower-paratroopers-name
@@ -1600,7 +1600,7 @@ AFLD:
 		SupportPowerPaletteOrder: 50
 	AirstrikePower@parabombs:
 		OrderName: UkraineParabombs
-		Prerequisites: aircraft.ukraine
+		Prerequisites: aircraft.ukraine, ~never-build
 		Icon: parabombs
 		ChargeInterval: 7500
 		Name: actor-afld.airstrikepower-parabombs-name
@@ -1670,7 +1670,7 @@ POWR:
 		Dimensions: 2,3
 		LocalCenterOffset: 0,-512,0
 	Health:
-		HP: 40000
+		HP: 120000
 	Armor:
 		Type: Wood
 	RevealsShroud:
@@ -1710,7 +1710,7 @@ APWR:
 		Bounds: 3072, 2048
 		DecorationBounds: 3072, 2901, 0, -426
 	Health:
-		HP: 70000
+		HP: 210000
 	Armor:
 		Type: Wood
 	RevealsShroud:
@@ -1748,7 +1748,7 @@ STEK:
 		Dimensions: 3,3
 		LocalCenterOffset: 0,-512,0
 	Health:
-		HP: 80000
+		HP: 240000
 	Armor:
 		Type: Wood
 	RevealsShroud:
@@ -1785,7 +1785,7 @@ BARR:
 		Dimensions: 2,3
 		LocalCenterOffset: 0,-512,0
 	Health:
-		HP: 60000
+		HP: 180000
 	Armor:
 		Type: Wood
 	RevealsShroud:
@@ -1859,7 +1859,7 @@ KENN:
 	Buildable:
 		Queue: Building
 		BuildPaletteOrder: 175
-		Prerequisites: anypower, ~structures.soviet, ~techlevel.infonly
+		Prerequisites: anypower, ~structures.soviet, ~techlevel.infonly, ~never-build
 		Description: actor-kenn.description
 	Valued:
 		Cost: 200
@@ -2043,7 +2043,7 @@ FIX:
 		Bounds: 2901, 1450, 0, 128
 		DecorationBounds: 3072, 2048
 	Health:
-		HP: 80000
+		HP: 240000
 	Armor:
 		Type: Wood
 	RevealsShroud:
@@ -2081,7 +2081,7 @@ SBAG:
 	Buildable:
 		Queue: Defense
 		BuildPaletteOrder: 10
-		Prerequisites: fact, ~structures.allies, ~techlevel.low
+		Prerequisites: fact, ~structures.allies, ~techlevel.low, ~never-build
 		Description: actor-sbag.description
 	Valued:
 		Cost: 30
@@ -2105,7 +2105,7 @@ FENC:
 	Buildable:
 		Queue: Defense
 		BuildPaletteOrder: 20
-		Prerequisites: fact, ~structures.soviet, ~techlevel.low
+		Prerequisites: fact, ~structures.soviet, ~techlevel.low, ~never-build
 		Description: actor-fenc.description
 	Valued:
 		Cost: 30
@@ -2129,7 +2129,7 @@ BRIK:
 	Buildable:
 		Queue: Defense
 		BuildPaletteOrder: 30
-		Prerequisites: fact, ~techlevel.medium
+		Prerequisites: fact, ~techlevel.medium, ~never-build
 		Description: actor-brik.description
 	Valued:
 		Cost: 200

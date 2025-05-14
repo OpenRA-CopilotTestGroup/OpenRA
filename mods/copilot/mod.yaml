@@ -1,9 +1,10 @@
 Metadata:
-	Title: Red Alert
+  
+	Title: Red Alert Copilot
 	Version: {DEV_VERSION}
 	Website: https://www.openra.net
 	WebIcon32: https://www.openra.net/images/icons/ra_32x32.png
-	WindowTitle: OpenRA - Red Alert
+	WindowTitle: OpenRA - Red Alert Copilot
 
 PackageFormats: Mix
 
@@ -14,6 +15,7 @@ Packages:
 	~^SupportDir|Content/ra/v2/movies
 	^EngineDir
 	$ra: ra
+	$copilot: copilot
 	^EngineDir|mods/common: common
 	~main.mix
 	~conquer.mix
@@ -47,15 +49,15 @@ Rules:
 	ra|rules/ai.yaml
 	ra|rules/player.yaml
 	ra|rules/palettes.yaml
-	ra|rules/world.yaml
-	ra|rules/defaults.yaml
-	ra|rules/vehicles.yaml
+	copilot|rules/world.yaml
+	copilot|rules/defaults.yaml
+	copilot|rules/vehicles.yaml
 	ra|rules/husks.yaml
-	ra|rules/structures.yaml
-	ra|rules/infantry.yaml
+	copilot|rules/structures.yaml
+	copilot|rules/infantry.yaml
 	ra|rules/civilian.yaml
 	ra|rules/decoration.yaml
-	ra|rules/aircraft.yaml
+	copilot|rules/aircraft.yaml
 	ra|rules/ships.yaml
 	ra|rules/fakes.yaml
 

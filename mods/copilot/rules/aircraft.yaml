@@ -77,7 +77,7 @@ MIG:
 	UpdatesPlayerStatistics:
 		AddToArmyValue: true
 	Health:
-		HP: 8000
+		HP: 24000
 	RevealsShroud:
 		MinRange: 11c0
 		Range: 13c0
@@ -155,7 +155,7 @@ YAK:
 	UpdatesPlayerStatistics:
 		AddToArmyValue: true
 	Health:
-		HP: 6000
+		HP: 18000
 	RevealsShroud:
 		MinRange: 9c0
 		Range: 11c0

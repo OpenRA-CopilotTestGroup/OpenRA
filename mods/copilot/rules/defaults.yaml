@@ -742,8 +742,8 @@
 	CapturableProgressBar:
 	CapturableProgressBlink:
 	SpawnActorsOnSell:
-		ActorTypes: e1,e1,e1,tecn,tecn2
-		GuaranteedActorTypes: e1
+		ActorTypes: 
+		GuaranteedActorTypes: 
 	MustBeDestroyed:
 		RequiredForShortGame: true
 	GpsDot:
@@ -764,7 +764,7 @@
 ^ScienceBuilding:
 	Inherits: ^Building
 	SpawnActorsOnSell:
-		ActorTypes: e1,e1,e1,e1,tecn,tecn2,tecn,tecn2,tecn,tecn2,tecn,tecn2,tecn,tecn2,e6,e6,e6,e6,e6,c10,c10,c10,c10
+		ActorTypes: 
 
 ^Defense:
 	Inherits: ^Building
