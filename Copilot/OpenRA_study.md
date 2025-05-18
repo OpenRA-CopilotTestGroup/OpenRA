@@ -56,6 +56,12 @@ Order是指令，会被解析为Activity
 
 Actor会执行一个(?)Activity，会有Tick
 
+采矿车采矿的指令是：Harvest，target是个wpos
+回去储存的指令是：ForceDock，target是harv类型的actor
+开始建造是：StartProduction，sub是player
+设置集结点是：SetRallyPoint，sub是设置的单位，target还没看
+放置建筑是：PlaceBuilding，sub是player，location有值
+
 ## Game
 
 Game是全局变量，可以直接获取，里面有渲染相关WorldRenderer，鼠标的CursorManager，音频等等

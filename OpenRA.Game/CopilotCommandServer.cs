@@ -15,9 +15,9 @@ namespace OpenRA
 		readonly int port;
 		readonly World world;
 		bool isRunning;
+		private const string CurrentApiVersion = "1.0";
 
 		public delegate string CommandHandler(JObject json, World world);
-
 		public delegate JObject QueryHandler(JObject json, World world);
 
 		public Dictionary<string, CommandHandler> CommandHandlers = new();
@@ -70,85 +70,142 @@ namespace OpenRA
 
 		async void HandleClient(Socket clientSocket)
 		{
-			try
+			using (clientSocket)
 			{
-				if (clientSocket == null)
-				{
-					throw new ArgumentException("clientSocket Uninit");
-				}
-
-				var buffer = new byte[16384];
-				var received = await clientSocket.ReceiveAsync(buffer, SocketFlags.None);
-				var jsonString = Encoding.UTF8.GetString(buffer, 0, received);
-				Console.WriteLine("Recieved:" + jsonString);
-				JObject json;
 				try
 				{
-					json = JObject.Parse(jsonString);
-				}
-				catch (JsonReaderException)
-				{
-					SendResponse(clientSocket, "Invalid JSON format");
-					return;
-				}
+					if (clientSocket == null)
+					{
+						throw new ArgumentException("clientSocket Uninit");
+					}
 
-				var command = json["command"]?.ToString();
-				string result = null;
-				JObject resultJson = null;
+					var buffer = new byte[16384];
+					var received = await clientSocket.ReceiveAsync(buffer, SocketFlags.None);
+					var jsonString = Encoding.UTF8.GetString(buffer, 0, received);
+					Console.WriteLine("Received:" + jsonString);
 
-				if (CommandHandlers.TryGetValue(command, out var commandHandler))
-				{
-					result = commandHandler?.Invoke(json, world);
-				}
-				else if (QueryHandlers.TryGetValue(command, out var queryHandler))
-				{
-					resultJson = queryHandler?.Invoke(json, world);
-				}
-				else
-				{
-					SendResponse(clientSocket, "Unknown command");
-				}
+					MCPRequest request;
+					try
+					{
+						request = JsonConvert.DeserializeObject<MCPRequest>(jsonString);
+					}
+					catch (JsonException)
+					{
+						SendErrorResponse(clientSocket, new MCPError
+						{
+							Code = MCPErrorCodes.InvalidRequest,
+							Message = "无效的JSON格式"
+						});
+						return;
+					}
 
-				if (resultJson != null)
-				{
-					SendJsonResponse(clientSocket, resultJson);
+					// 验证请求
+					var (isValid, validationError) = MCPValidator.ValidateRequest(request);
+					if (!isValid)
+					{
+						SendErrorResponse(clientSocket, validationError);
+						return;
+					}
+
+					// 验证API版本
+					if (request.ApiVersion != CurrentApiVersion)
+					{
+						SendErrorResponse(clientSocket, new MCPError
+						{
+							Code = MCPErrorCodes.InvalidVersion,
+							Message = $"不支持的API版本，当前版本: {CurrentApiVersion}"
+						});
+						return;
+					}
+
+					// 验证命令参数
+					var (isParamsValid, paramsError) = MCPValidator.ValidateCommandParams(request.Command, request.Params);
+					if (!isParamsValid)
+					{
+						SendErrorResponse(clientSocket, paramsError);
+						return;
+					}
+
+					// 处理命令
+					if (CommandHandlers.TryGetValue(request.Command, out var commandHandler))
+					{
+						try
+						{
+							var result = commandHandler?.Invoke(request.Params, world);
+							SendSuccessResponse(clientSocket, result, request.RequestId);
+						}
+						catch (Exception ex)
+						{
+							SendErrorResponse(clientSocket, new MCPError
+							{
+								Code = MCPErrorCodes.CommandExecutionError,
+								Message = "命令执行失败",
+								Details = new JObject { ["error"] = ex.Message }
+							}, request.RequestId);
+						}
+					}
+					else if (QueryHandlers.TryGetValue(request.Command, out var queryHandler))
+					{
+						try
+						{
+							var resultJson = queryHandler?.Invoke(request.Params, world);
+							SendSuccessResponse(clientSocket, null, request.RequestId, resultJson);
+						}
+						catch (Exception ex)
+						{
+							SendErrorResponse(clientSocket, new MCPError
+							{
+								Code = MCPErrorCodes.CommandExecutionError,
+								Message = "查询执行失败",
+								Details = new JObject { ["error"] = ex.Message }
+							}, request.RequestId);
+						}
+					}
+					else
+					{
+						SendErrorResponse(clientSocket, new MCPError
+						{
+							Code = MCPErrorCodes.InvalidCommand,
+							Message = "未知的命令"
+						}, request.RequestId);
+					}
 				}
-				else if (result != null)
+				catch (Exception ex)
 				{
-					SendResponse(clientSocket, result);
+					SendErrorResponse(clientSocket, new MCPError
+					{
+						Code = MCPErrorCodes.InternalError,
+						Message = "服务器内部错误",
+						Details = new JObject { ["error"] = ex.Message }
+					});
 				}
-				else
-				{
-					SendResponse(clientSocket, "Command not implemented", -5);
-				}
-			}
-			catch (Exception ex)
-			{
-				SendResponse(clientSocket, $"Internal Server Error: {ex.Message}", -1);
-			}
-			finally
-			{
-				clientSocket.Close();
 			}
 		}
 
-		static void SendResponse(Socket clientSocket, string message, int status = 1)
+		static void SendSuccessResponse(Socket clientSocket, string message = null, string requestId = null, JObject data = null)
 		{
-			// var buffer = Encoding.UTF8.GetBytes(message);
-			// clientSocket.Send(buffer);
-			var responseJson = new JObject
+			var response = new MCPResponse
 			{
-				["response"] = message,
-				["status"] = status
+				Status = 1,
+				RequestId = requestId,
+				Response = message,
+				Data = data
 			};
-			var buffer = Encoding.UTF8.GetBytes(responseJson.ToString());
+
+			var buffer = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(response));
 			clientSocket.Send(buffer);
 		}
 
-		static void SendJsonResponse(Socket clientSocket, JObject json, int status = 1)
+		static void SendErrorResponse(Socket clientSocket, MCPError error, string requestId = null)
 		{
-			json["status"] = status;
-			var buffer = Encoding.UTF8.GetBytes(json.ToString());
+			var response = new MCPResponse
+			{
+				Status = -1,
+				RequestId = requestId,
+				Error = error
+			};
+
+			var buffer = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(response));
 			clientSocket.Send(buffer);
 		}
 
