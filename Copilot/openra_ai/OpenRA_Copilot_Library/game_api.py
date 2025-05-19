@@ -24,13 +24,74 @@ class GameAPI:
     MAX_RETRIES = 3
     RETRY_DELAY = 0.5
 
-    def __init__(self, host, port=7445):
+    @staticmethod
+    def is_server_running(host="localhost", port=7445, timeout=2.0) -> bool:
+        '''检查游戏服务器是否已启动并可访问
+
+        Args:
+            host (str): 游戏服务器地址，默认为"localhost"。
+            port (int): 游戏服务器端口，默认为 7445。
+            timeout (float): 连接超时时间（秒），默认为 2.0 秒。
+
+        Returns:
+            bool: 服务器是否已启动并可访问
+        '''
+        try:
+            request_data = {
+                "apiVersion": GameAPI.API_VERSION,
+                "requestId": str(uuid.uuid4()),
+                "command": "ping",
+                "params": {},
+                "language": "zh"
+            }
+            
+            with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+                sock.settimeout(timeout)
+                sock.connect((host, port))
+                
+                # 发送请求
+                json_data = json.dumps(request_data)
+                sock.sendall(json_data.encode('utf-8'))
+                
+                # 接收响应
+                chunks = []
+                while True:
+                    try:
+                        chunk = sock.recv(4096)
+                        if not chunk:
+                            break
+                        chunks.append(chunk)
+                    except socket.timeout:
+                        if chunks:
+                            break
+                        return False
+                
+                data = b''.join(chunks).decode('utf-8')
+                
+                try:
+                    response = json.loads(data)
+                    if response.get("status", 0) > 0 and "data" in response:
+                        ping_data = response.get("data", {})
+                        return ping_data.get("status") == "ok"
+                    return False
+                except json.JSONDecodeError:
+                    return False
+                
+        except (socket.error, ConnectionRefusedError, OSError):
+            return False
+            
+        except Exception:
+            return False
+
+    def __init__(self, host, port=7445, language="zh"):
         self.server_address = (host, port)
+        self.language = language
         '''初始化 GameAPI 类
 
         Args:
             host (str): 游戏服务器地址，本地就填"localhost"。
             port (int): 游戏服务器端口，默认为 7445。
+            language (str): 接口返回语言，默认为 "zh"，支持 "zh" 和 "en"。
         '''
 
     def _generate_request_id(self) -> str:
@@ -57,7 +118,7 @@ class GameAPI:
             "requestId": request_id,
             "command": command,
             "params": params,
-            "language": "zh-CN"
+            "language": self.language
         }
 
         retries = 0
@@ -79,11 +140,13 @@ class GameAPI:
                         
                         # 验证响应格式
                         if not isinstance(response, dict):
-                            raise GameAPIError("INVALID_RESPONSE", "服务器返回的响应格式无效")
+                            raise GameAPIError("INVALID_RESPONSE", 
+                                             "服务器返回的响应格式无效")
                             
                         # 检查请求ID匹配
                         if response.get("requestId") != request_id:
-                            raise GameAPIError("REQUEST_ID_MISMATCH", "响应的请求ID不匹配")
+                            raise GameAPIError("REQUEST_ID_MISMATCH", 
+                                             "响应的请求ID不匹配")
                             
                         # 处理错误响应
                         if response.get("status", 0) < 0:
@@ -97,19 +160,22 @@ class GameAPI:
                         return response
                         
                     except json.JSONDecodeError:
-                        raise GameAPIError("INVALID_JSON", "服务器返回的不是有效的JSON格式")
+                        raise GameAPIError("INVALID_JSON", 
+                                         "服务器返回的不是有效的JSON格式")
                         
             except (socket.timeout, ConnectionError) as e:
                 retries += 1
                 if retries >= self.MAX_RETRIES:
-                    raise GameAPIError("CONNECTION_ERROR", f"连接服务器失败: {str(e)}")
+                    raise GameAPIError("CONNECTION_ERROR", 
+                                     "连接服务器失败: {0}".format(str(e)))
                 time.sleep(self.RETRY_DELAY)
                 
             except GameAPIError:
                 raise
                 
             except Exception as e:
-                raise GameAPIError("UNEXPECTED_ERROR", f"发生未预期的错误: {str(e)}")
+                raise GameAPIError("UNEXPECTED_ERROR", 
+                                 "发生未预期的错误: {0}".format(str(e)))
 
     def _receive_data(self, sock: socket.socket) -> str:
         """从socket接收完整的响应数据"""
@@ -122,14 +188,16 @@ class GameAPI:
                 chunks.append(chunk)
             except socket.timeout:
                 if not chunks:
-                    raise GameAPIError("TIMEOUT", "接收响应超时")
+                    raise GameAPIError("TIMEOUT", 
+                                     "接收响应超时")
                 break
         return b''.join(chunks).decode('utf-8')
 
     def _handle_response(self, response: dict, error_msg: str) -> Any:
         """处理API响应，提取所需数据或抛出异常"""
         if response is None:
-            raise GameAPIError("NO_RESPONSE", error_msg)
+            raise GameAPIError("NO_RESPONSE", 
+                             "{0}".format(error_msg))
         return response.get("data") if "data" in response else response
 
     def move_camera_by_location(self, location: Location) -> None:
@@ -147,7 +215,8 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("CAMERA_MOVE_ERROR", f"移动相机时发生错误: {str(e)}")
+            raise GameAPIError("CAMERA_MOVE_ERROR", 
+                             "移动相机时发生错误: {0}".format(str(e)))
 
     def move_camera_by_direction(self, direction: str, distance: int) -> None:
         '''向某个方向移动相机
@@ -168,7 +237,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("CAMERA_MOVE_ERROR", f"移动相机时发生错误: {str(e)}")
+            raise GameAPIError("CAMERA_MOVE_ERROR", "移动相机时发生错误: {0}".format(str(e)))
 
     def can_produce(self, unit_type: str) -> bool:
         '''检查是否可以生产指定类型的Actor
@@ -191,7 +260,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("PRODUCE_QUERY_ERROR", f"查询生产能力时发生错误: {str(e)}")
+            raise GameAPIError("PRODUCE_QUERY_ERROR", "查询生产能力时发生错误: {0}".format(str(e)))
 
     def produce(self, unit_type: str, quantity: int, auto_place_building: bool = False) -> Optional[int]:
         '''生产指定数量的Actor
@@ -220,7 +289,7 @@ class GameAPI:
                 return None
             raise
         except Exception as e:
-            raise GameAPIError("PRODUCTION_ERROR", f"执行生产命令时发生错误: {str(e)}")
+            raise GameAPIError("PRODUCTION_ERROR", "执行生产命令时发生错误: {0}".format(str(e)))
 
     def produce_wait(self, unit_type: str, quantity: int, auto_place_building: bool = False) -> None:
         '''生产指定数量的Actor并等待生产完成
@@ -238,11 +307,12 @@ class GameAPI:
             if wait_id is not None:
                 self.wait(wait_id, 20 * quantity)
             else:
-                raise GameAPIError("PRODUCTION_FAILED", "生产任务创建失败")
+                raise GameAPIError("PRODUCTION_FAILED", 
+                                 "生产任务创建失败")
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("PRODUCTION_WAIT_ERROR", f"生产并等待过程中发生错误: {str(e)}")
+            raise GameAPIError("PRODUCTION_WAIT_ERROR", "生产并等待过程中发生错误: {0}".format(str(e)))
 
     def is_ready(self, wait_id: int) -> bool:
         '''检查生产任务是否完成
@@ -263,7 +333,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("WAIT_STATUS_ERROR", f"查询任务状态时发生错误: {str(e)}")
+            raise GameAPIError("WAIT_STATUS_ERROR", "查询任务状态时发生错误: {0}".format(str(e)))
 
     def wait(self, wait_id: int, max_wait_time: float = 20.0) -> bool:
         '''等待生产任务完成
@@ -298,7 +368,7 @@ class GameAPI:
                 return True  # 特殊情况：如果命令执行错误，可能是任务已完成
             raise
         except Exception as e:
-            raise GameAPIError("WAIT_ERROR", f"等待任务完成时发生错误: {str(e)}")
+            raise GameAPIError("WAIT_ERROR", "等待任务完成时发生错误: {0}".format(str(e)))
 
     def move_units_by_location(self, actors: List[Actor], location: Location, attack_move: bool = False) -> None:
         '''移动单位到指定位置
@@ -321,7 +391,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("MOVE_UNITS_ERROR", f"移动单位时发生错误: {str(e)}")
+            raise GameAPIError("MOVE_UNITS_ERROR", "移动单位时发生错误: {0}".format(str(e)))
 
     def move_units_by_direction(self, actors: List[Actor], direction: str, distance: int) -> None:
         '''向指定方向移动单位
@@ -344,7 +414,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("MOVE_UNITS_ERROR", f"移动单位时发生错误: {str(e)}")
+            raise GameAPIError("MOVE_UNITS_ERROR", "移动单位时发生错误: {0}".format(str(e)))
 
     def move_units_by_path(self, actors: List[Actor], path: List[Location]) -> None:
         '''沿路径移动单位
@@ -367,7 +437,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("MOVE_UNITS_ERROR", f"移动单位时发生错误: {str(e)}")
+            raise GameAPIError("MOVE_UNITS_ERROR", "移动单位时发生错误: {0}".format(str(e)))
 
     def select_units(self, query_params: TargetsQueryParam) -> None:
         '''选中符合条件的Actor，指的是游戏中的选中操作
@@ -386,7 +456,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("SELECT_UNITS_ERROR", f"选择单位时发生错误: {str(e)}")
+            raise GameAPIError("SELECT_UNITS_ERROR", "选择单位时发生错误: {0}".format(str(e)))
 
     def form_group(self, actors: List[Actor], group_id: int) -> None:
         '''将Actor编成编组
@@ -407,7 +477,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("FORM_GROUP_ERROR", f"编组时发生错误: {str(e)}")
+            raise GameAPIError("FORM_GROUP_ERROR", "编组时发生错误: {0}".format(str(e)))
 
     def query_actor(self, query_params: TargetsQueryParam) -> List[Actor]:
         '''查询符合条件的Actor，获取Actor应该使用的接口
@@ -446,14 +516,14 @@ class GameAPI:
                     )
                     actors.append(actor)
                 except KeyError as e:
-                    raise GameAPIError("INVALID_ACTOR_DATA", f"Actor数据格式无效: {str(e)}")
+                    raise GameAPIError("INVALID_ACTOR_DATA", "Actor数据格式无效: {0}".format(str(e)))
                     
             return actors
             
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("QUERY_ACTOR_ERROR", f"查询Actor时发生错误: {str(e)}")
+            raise GameAPIError("QUERY_ACTOR_ERROR", "查询Actor时发生错误: {0}".format(str(e)))
 
     def find_path(self, actors: List[Actor], destination: Location, method: str) -> List[Location]:
         '''为Actor找到到目标的路径
@@ -480,12 +550,12 @@ class GameAPI:
             try:
                 return [Location(step["x"], step["y"]) for step in result["path"]]
             except (KeyError, TypeError) as e:
-                raise GameAPIError("INVALID_PATH_DATA", f"路径数据格式无效: {str(e)}")
+                raise GameAPIError("INVALID_PATH_DATA", "路径数据格式无效: {0}".format(str(e)))
                 
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("FIND_PATH_ERROR", f"寻路时发生错误: {str(e)}")
+            raise GameAPIError("FIND_PATH_ERROR", "寻路时发生错误: {0}".format(str(e)))
 
     def get_actor_by_id(self, actor_id: int) -> Optional[Actor]:
         '''获取指定 ID 的Actor，这是根据ActorID获取Actor的接口，只有已知ActorID是才能调用这个接口
@@ -508,7 +578,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("GET_ACTOR_ERROR", f"获取Actor时发生错误: {str(e)}")
+            raise GameAPIError("GET_ACTOR_ERROR", "获取Actor时发生错误: {0}".format(str(e)))
 
     def update_actor(self, actor: Actor) -> bool:
         '''更新Actor信息，如果时间改变了，需要调用这个来更新Actor的各种属性（位置等）。
@@ -548,7 +618,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("UPDATE_ACTOR_ERROR", f"更新Actor信息时发生错误: {str(e)}")
+            raise GameAPIError("UPDATE_ACTOR_ERROR", "更新Actor信息时发生错误: {0}".format(str(e)))
 
     def deploy_units(self, actors: List[Actor]) -> None:
         '''部署/展开 Actor
@@ -567,7 +637,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("DEPLOY_UNITS_ERROR", f"部署单位时发生错误: {str(e)}")
+            raise GameAPIError("DEPLOY_UNITS_ERROR", "部署单位时发生错误: {0}".format(str(e)))
 
     def move_camera_to(self, actor: Actor) -> None:
         '''将相机移动到指定Actor位置
@@ -584,7 +654,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("CAMERA_MOVE_ERROR", f"移动相机时发生错误: {str(e)}")
+            raise GameAPIError("CAMERA_MOVE_ERROR", "移动相机时发生错误: {0}".format(str(e)))
 
     def occupy_units(self, occupiers: List[Actor], targets: List[Actor]) -> None:
         '''占领目标
@@ -605,7 +675,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("OCCUPY_ERROR", f"占领行动时发生错误: {str(e)}")
+            raise GameAPIError("OCCUPY_ERROR", "占领行动时发生错误: {0}".format(str(e)))
 
     def attack_target(self, attacker: Actor, target: Actor) -> bool:
         '''攻击指定目标
@@ -632,7 +702,7 @@ class GameAPI:
                 return False
             raise
         except Exception as e:
-            raise GameAPIError("ATTACK_ERROR", f"攻击命令执行时发生错误: {str(e)}")
+            raise GameAPIError("ATTACK_ERROR", "攻击命令执行时发生错误: {0}".format(str(e)))
 
     def can_attack_target(self, attacker: Actor, target: Actor) -> bool:
         '''检查是否可以攻击目标
@@ -659,7 +729,7 @@ class GameAPI:
         except GameAPIError:
             return False
         except Exception as e:
-            raise GameAPIError("CHECK_ATTACK_ERROR", f"检查攻击能力时发生错误: {str(e)}")
+            raise GameAPIError("CHECK_ATTACK_ERROR", "检查攻击能力时发生错误: {0}".format(str(e)))
 
     def repair_units(self, actors: List[Actor]) -> None:
         '''修复Actor
@@ -678,7 +748,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("REPAIR_ERROR", f"修复命令执行时发生错误: {str(e)}")
+            raise GameAPIError("REPAIR_ERROR", "修复命令执行时发生错误: {0}".format(str(e)))
 
     def stop(self, actors: List[Actor]) -> None:
         '''停止Actor当前行动
@@ -697,7 +767,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("STOP_ERROR", f"停止命令执行时发生错误: {str(e)}")
+            raise GameAPIError("STOP_ERROR", "停止命令执行时发生错误: {0}".format(str(e)))
 
     def visible_query(self, location: Location) -> bool:
         '''查询位置是否可见
@@ -720,7 +790,7 @@ class GameAPI:
         except GameAPIError:
             return False
         except Exception as e:
-            raise GameAPIError("VISIBILITY_QUERY_ERROR", f"查询可见性时发生错误: {str(e)}")
+            raise GameAPIError("VISIBILITY_QUERY_ERROR", "查询可见性时发生错误: {0}".format(str(e)))
 
     def explorer_query(self, location: Location) -> bool:
         '''查询位置是否已探索
@@ -743,7 +813,7 @@ class GameAPI:
         except GameAPIError:
             return False
         except Exception as e:
-            raise GameAPIError("EXPLORER_QUERY_ERROR", f"查询探索状态时发生错误: {str(e)}")
+            raise GameAPIError("EXPLORER_QUERY_ERROR", "查询探索状态时发生错误: {0}".format(str(e)))
 
     def query_production_queue(self, queue_type: str) -> dict:
         '''查询指定类型的生产队列
@@ -785,8 +855,7 @@ class GameAPI:
         if queue_type not in ['Building', 'Defense', 'Infantry', 'Vehicle', 'Aircraft', 'Naval']:
             raise GameAPIError(
                 "INVALID_QUEUE_TYPE", 
-                "队列类型必须是以下值之一: 'Building', 'Defense', 'Infantry', 'Vehicle', 'Aircraft', 'Naval'"
-            )
+                "队列类型必须是以下值之一: 'Building', 'Defense', 'Infantry', 'Vehicle', 'Aircraft', 'Naval'")
             
         try:
             response = self._send_request('query_production_queue', {
@@ -796,7 +865,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("PRODUCTION_QUEUE_QUERY_ERROR", f"查询生产队列时发生错误: {str(e)}")
+            raise GameAPIError("PRODUCTION_QUEUE_QUERY_ERROR", "查询生产队列时发生错误: {0}".format(str(e)))
 
     def place_building(self, actor: Actor, location: Location, queue_type: str = None) -> None:
         '''放置建造队列顶端已就绪的建筑
@@ -822,7 +891,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("PLACE_BUILDING_ERROR", f"放置建筑时发生错误: {str(e)}")
+            raise GameAPIError("PLACE_BUILDING_ERROR", "放置建筑时发生错误: {0}".format(str(e)))
 
     def manage_production(self, actor: Actor, action: str, queue_type: str = None) -> None:
         '''管理生产队列中的项目（暂停/取消/继续）
@@ -851,7 +920,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("MANAGE_PRODUCTION_ERROR", f"管理生产队列时发生错误: {str(e)}")
+            raise GameAPIError("MANAGE_PRODUCTION_ERROR", "管理生产队列时发生错误: {0}".format(str(e)))
 
     # ===== 依赖关系表 =====
 
@@ -1019,7 +1088,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("ATTRIBUTE_QUERY_ERROR", f"查询Actor属性时发生错误: {str(e)}")
+            raise GameAPIError("ATTRIBUTE_QUERY_ERROR", "查询Actor属性时发生错误: {0}".format(str(e)))
 
     # 保留旧方法作为兼容性别名，调用新的合并方法
     def unit_range_query(self, actors: List[Actor]) -> List[int]:
@@ -1067,7 +1136,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("MAP_QUERY_ERROR", f"查询地图信息时发生错误: {str(e)}")
+            raise GameAPIError("MAP_QUERY_ERROR", "查询地图信息时发生错误: {0}".format(str(e)))
 
     def player_base_info_query(self) -> PlayerBaseInfo:
         '''查询玩家基地信息
@@ -1092,7 +1161,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("BASE_INFO_QUERY_ERROR", f"查询玩家基地信息时发生错误: {str(e)}")
+            raise GameAPIError("BASE_INFO_QUERY_ERROR", "查询玩家基地信息时发生错误: {0}".format(str(e)))
 
     def screen_info_query(self) -> ScreenInfoResult:
         '''查询当前玩家看到的屏幕信息
@@ -1125,13 +1194,13 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("SCREEN_INFO_QUERY_ERROR", f"查询屏幕信息时发生错误: {str(e)}")
+            raise GameAPIError("SCREEN_INFO_QUERY_ERROR", "查询屏幕信息时发生错误: {0}".format(str(e)))
 
-    def set_rally_point(self, actor: Actor, target_location: Location) -> None:
+    def set_rally_point(self, actors: list[Actor], target_location: Location) -> None:
         '''设置建筑的集结点
 
         Args:
-            actor (Actor): 要设置集结点的建筑（必须有且仅有一个）
+            actors (list[Actor]): 要设置集结点的建筑列表
             target_location (Location): 集结点目标位置
 
         Raises:
@@ -1139,11 +1208,11 @@ class GameAPI:
         '''
         try:
             response = self._send_request('set_rally_point', {
-                "targets": {"actorId": [actor.actor_id]},
+                "targets": {"actorId": [actor.actor_id for actor in actors]},
                 "location": target_location.to_dict()
             })
             self._handle_response(response, "设置集结点失败")
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("SET_RALLY_POINT_ERROR", f"设置集结点时发生错误: {str(e)}")
+            raise GameAPIError("SET_RALLY_POINT_ERROR", "设置集结点时发生错误: {0}".format(str(e)))

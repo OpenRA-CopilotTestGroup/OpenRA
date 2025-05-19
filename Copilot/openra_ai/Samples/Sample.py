@@ -8,34 +8,40 @@ import threading
 # 创建GameAPI实例
 api = OpenRA.GameAPI("localhost")
 
-screen_info = api.screen_info_query()
-mouse_position = screen_info.MousePosition
+base = api.query_actor(TargetsQueryParam(type=["基地"], faction="己方"))
+barr =  api.query_actor(TargetsQueryParam(type=["兵营"], faction="己方"))
 
-# 查询所有战斗单位（排除非战斗单位，如矿车、基地车等）
-query_params = TargetsQueryParam(
-    type=['步兵', '导弹兵', '炮兵', '轻坦克', '重坦', '犀牛', 'V2', '猛犸', '磁能坦克', '特斯拉坦克', '地震车'],
-    faction='己方'
-)
-battle_units = api.query_actor(query_params)
+# 设置到基地的左上角
+api.set_rally_point(barr, base[0].position + Location(-5, -5))
 
-# 如果没有找到战斗单位，则什么也不做
-if not battle_units:
-    raise ValueError("未找到战斗单位。")
+# screen_info = api.screen_info_query()
+# mouse_position = screen_info.MousePosition
 
-# 为这些战斗单位找到到目标的两条路径：左路和右路
-left_path = api.find_path(battle_units, mouse_position, method="左路")
-right_path = api.find_path(battle_units, mouse_position, method="右路")
+# # 查询所有战斗单位（排除非战斗单位，如矿车、基地车等）
+# query_params = TargetsQueryParam(
+#     type=['步兵', '导弹兵', '炮兵', '轻坦克', '重坦', '犀牛', 'V2', '猛犸', '磁能坦克', '特斯拉坦克', '地震车'],
+#     faction='己方'
+# )
+# battle_units = api.query_actor(query_params)
 
-# 把单位分成两组，分别采用不同路径移动进行夹击
-half_point = len(battle_units) // 2
-left_units = battle_units[:half_point]
-right_units = battle_units[half_point:]
+# # 如果没有找到战斗单位，则什么也不做
+# if not battle_units:
+#     raise ValueError("未找到战斗单位。")
 
-# 沿途攻击移动
-if left_units:
-    api.move_units_by_path(left_units, left_path)
-if right_units:
-    api.move_units_by_path(right_units, right_path)
+# # 为这些战斗单位找到到目标的两条路径：左路和右路
+# left_path = api.find_path(battle_units, mouse_position, method="左路")
+# right_path = api.find_path(battle_units, mouse_position, method="右路")
+
+# # 把单位分成两组，分别采用不同路径移动进行夹击
+# half_point = len(battle_units) // 2
+# left_units = battle_units[:half_point]
+# right_units = battle_units[half_point:]
+
+# # 沿途攻击移动
+# if left_units:
+#     api.move_units_by_path(left_units, left_path)
+# if right_units:
+#     api.move_units_by_path(right_units, right_path)
 
 # # 确保车间建成，开始生产防空车
 # api.ensure_building_wait("车间")

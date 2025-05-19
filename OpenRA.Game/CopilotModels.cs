@@ -20,7 +20,7 @@ namespace OpenRA
         public JObject Params { get; set; }
 
         [JsonProperty("language")]
-        public string Language { get; set; } = "zh-CN";
+        public string Language { get; set; } = "zh";
     }
 
     public class MCPResponse
@@ -120,7 +120,7 @@ namespace OpenRA
             {
                 return (false, new MCPError 
                 { 
-                    Code = MCPErrorCodes.InvalidParams,
+                    Code = "INVALID_PARAMS_MOVE_ACTOR",
                     Message = "移动命令参数不能为空"
                 });
             }
@@ -130,7 +130,7 @@ namespace OpenRA
             {
                 return (false, new MCPError 
                 { 
-                    Code = MCPErrorCodes.InvalidParams,
+                    Code = "MISSING_TARGETS",
                     Message = "缺少targets参数"
                 });
             }
@@ -146,7 +146,7 @@ namespace OpenRA
             {
                 return (false, new MCPError 
                 { 
-                    Code = MCPErrorCodes.InvalidParams,
+                    Code = "INVALID_PARAMS_ATTACK",
                     Message = "攻击命令参数不能为空"
                 });
             }
@@ -156,7 +156,7 @@ namespace OpenRA
             {
                 return (false, new MCPError 
                 { 
-                    Code = MCPErrorCodes.InvalidParams,
+                    Code = "MISSING_ATTACKERS_OR_TARGETS",
                     Message = "缺少attackers或targets参数"
                 });
             }

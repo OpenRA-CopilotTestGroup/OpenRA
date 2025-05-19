@@ -1,11 +1,11 @@
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Threading.Tasks;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
 
 namespace OpenRA
 {
@@ -15,13 +15,82 @@ namespace OpenRA
 		readonly int port;
 		readonly World world;
 		bool isRunning;
-		private const string CurrentApiVersion = "1.0";
+		const string CurrentApiVersion = "1.0";
 
 		public delegate string CommandHandler(JObject json, World world);
 		public delegate JObject QueryHandler(JObject json, World world);
 
 		public Dictionary<string, CommandHandler> CommandHandlers = new();
 		public Dictionary<string, QueryHandler> QueryHandlers = new();
+
+		// 错误信息的多语言支持
+		static readonly Dictionary<string, Dictionary<string, string>> ErrorMessages = new()
+		{
+			["INVALID_REQUEST"] = new()
+			{
+				["en"] = "Invalid JSON format",
+				["zh"] = "无效的JSON格式"
+			},
+			["INVALID_VERSION"] = new()
+			{
+				["en"] = "Unsupported API version, current version: {0}",
+				["zh"] = "不支持的API版本，当前版本: {0}"
+			},
+			["COMMAND_EXECUTION_ERROR"] = new()
+			{
+				["en"] = "Command execution failed",
+				["zh"] = "命令执行失败"
+			},
+			["QUERY_EXECUTION_ERROR"] = new()
+			{
+				["en"] = "Query execution failed",
+				["zh"] = "查询执行失败"
+			},
+			["INVALID_COMMAND"] = new()
+			{
+				["en"] = "Unknown command",
+				["zh"] = "未知的命令"
+			},
+			["INTERNAL_ERROR"] = new()
+			{
+				["en"] = "Server internal error",
+				["zh"] = "服务器内部错误"
+			},
+
+			// 新增参数验证相关的错误码
+			["INVALID_PARAMS_MOVE_ACTOR"] = new()
+			{
+				["en"] = "Move command parameters cannot be empty",
+				["zh"] = "移动命令参数不能为空"
+			},
+			["MISSING_TARGETS"] = new()
+			{
+				["en"] = "Missing targets parameter",
+				["zh"] = "缺少targets参数"
+			},
+			["INVALID_PARAMS_ATTACK"] = new()
+			{
+				["en"] = "Attack command parameters cannot be empty",
+				["zh"] = "攻击命令参数不能为空"
+			},
+			["MISSING_ATTACKERS_OR_TARGETS"] = new()
+			{
+				["en"] = "Missing attackers or targets parameter",
+				["zh"] = "缺少attackers或targets参数"
+			}
+		};
+
+		// 获取指定语言和错误码的错误信息
+		static string GetErrorMessage(string errorCode, string language, params object[] args)
+		{
+			if (string.IsNullOrEmpty(language) || !ErrorMessages.ContainsKey(errorCode) || !ErrorMessages[errorCode].ContainsKey(language))
+			{
+				language = "zh"; // 默认使用中文
+			}
+
+			var messageTemplate = ErrorMessages[errorCode][language];
+			return string.Format(messageTemplate, args);
+		}
 
 		public CopilotCommandServer(int port, World world)
 		{
@@ -41,7 +110,7 @@ namespace OpenRA
 			isRunning = true;
 			Console.WriteLine($"Listening for connections on port {port}");
 
-			Task.Run(async () =>
+			_ = Task.Run(async () =>
 			{
 				while (isRunning)
 				{
@@ -94,15 +163,23 @@ namespace OpenRA
 						SendErrorResponse(clientSocket, new MCPError
 						{
 							Code = MCPErrorCodes.InvalidRequest,
-							Message = "无效的JSON格式"
+							Message = GetErrorMessage("INVALID_REQUEST", "zh")
 						});
 						return;
+					}
+
+					// 使用请求中的语言或默认为中文
+					var language = request.Language ?? "zh";
+					if (language is not "en" and not "zh")
+					{
+						language = "zh"; // 如果不是支持的语言，默认使用中文
 					}
 
 					// 验证请求
 					var (isValid, validationError) = MCPValidator.ValidateRequest(request);
 					if (!isValid)
 					{
+						validationError.Message = GetErrorMessage(validationError.Code, language);
 						SendErrorResponse(clientSocket, validationError);
 						return;
 					}
@@ -113,7 +190,7 @@ namespace OpenRA
 						SendErrorResponse(clientSocket, new MCPError
 						{
 							Code = MCPErrorCodes.InvalidVersion,
-							Message = $"不支持的API版本，当前版本: {CurrentApiVersion}"
+							Message = GetErrorMessage("INVALID_VERSION", language, CurrentApiVersion)
 						});
 						return;
 					}
@@ -122,6 +199,7 @@ namespace OpenRA
 					var (isParamsValid, paramsError) = MCPValidator.ValidateCommandParams(request.Command, request.Params);
 					if (!isParamsValid)
 					{
+						paramsError.Message = GetErrorMessage(paramsError.Code, language);
 						SendErrorResponse(clientSocket, paramsError);
 						return;
 					}
@@ -139,7 +217,7 @@ namespace OpenRA
 							SendErrorResponse(clientSocket, new MCPError
 							{
 								Code = MCPErrorCodes.CommandExecutionError,
-								Message = "命令执行失败",
+								Message = GetErrorMessage("COMMAND_EXECUTION_ERROR", language),
 								Details = new JObject { ["error"] = ex.Message }
 							}, request.RequestId);
 						}
@@ -156,7 +234,7 @@ namespace OpenRA
 							SendErrorResponse(clientSocket, new MCPError
 							{
 								Code = MCPErrorCodes.CommandExecutionError,
-								Message = "查询执行失败",
+								Message = GetErrorMessage("QUERY_EXECUTION_ERROR", language),
 								Details = new JObject { ["error"] = ex.Message }
 							}, request.RequestId);
 						}
@@ -166,7 +244,7 @@ namespace OpenRA
 						SendErrorResponse(clientSocket, new MCPError
 						{
 							Code = MCPErrorCodes.InvalidCommand,
-							Message = "未知的命令"
+							Message = GetErrorMessage("INVALID_COMMAND", language)
 						}, request.RequestId);
 					}
 				}
@@ -175,7 +253,7 @@ namespace OpenRA
 					SendErrorResponse(clientSocket, new MCPError
 					{
 						Code = MCPErrorCodes.InternalError,
-						Message = "服务器内部错误",
+						Message = GetErrorMessage("INTERNAL_ERROR", "zh"),
 						Details = new JObject { ["error"] = ex.Message }
 					});
 				}
@@ -193,7 +271,7 @@ namespace OpenRA
 			};
 
 			var buffer = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(response));
-			clientSocket.Send(buffer);
+			_ = clientSocket.Send(buffer);
 		}
 
 		static void SendErrorResponse(Socket clientSocket, MCPError error, string requestId = null)
@@ -206,7 +284,7 @@ namespace OpenRA
 			};
 
 			var buffer = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(response));
-			clientSocket.Send(buffer);
+			_ = clientSocket.Send(buffer);
 		}
 
 		public static string CustomJsonFormat(string json)
@@ -221,12 +299,12 @@ namespace OpenRA
 				{
 					if (arrayLevel == 0)
 					{
-						stringBuilder.AppendLine(new string(' ', indent) + ch);
+						_ = stringBuilder.AppendLine(new string(' ', indent) + ch);
 						indent += 2;
 					}
 					else
 					{
-						stringBuilder.Append(ch);
+						_ = stringBuilder.Append(ch);
 					}
 
 					arrayLevel++;
@@ -237,32 +315,32 @@ namespace OpenRA
 					if (arrayLevel == 0)
 					{
 						indent -= 2;
-						stringBuilder.AppendLine().Append(new string(' ', indent) + ch);
+						_ = stringBuilder.AppendLine().Append(new string(' ', indent) + ch);
 					}
 					else
 					{
-						stringBuilder.Append(ch);
+						_ = stringBuilder.Append(ch);
 					}
 				}
 				else if (ch == ',')
 				{
-					stringBuilder.Append(ch);
+					_ = stringBuilder.Append(ch);
 					if (arrayLevel == 1)
 					{
-						stringBuilder.AppendLine();
-						stringBuilder.Append(new string(' ', indent));
+						_ = stringBuilder.AppendLine();
+						_ = stringBuilder.Append(new string(' ', indent));
 					}
 					else
 					{
-						stringBuilder.Append(' ');
+						_ = stringBuilder.Append(' ');
 					}
 				}
 				else
 				{
-					if (ch == '\n' || ch == '\r' || ch == ' ')
+					if (ch is '\n' or '\r' or ' ')
 						continue;
 
-					stringBuilder.Append(ch);
+					_ = stringBuilder.Append(ch);
 				}
 			}
 
