@@ -268,7 +268,7 @@ class GameAPI:
         Args:
             unit_type (str): Actor类型
             quantity (int): 生产数量
-            auto_place_building (bool, optional): 是否自动放置建筑，仅对建筑类型有效
+            auto_place_building (bool, optional): 是否在生产完成后使用随机位置自动放置建筑，仅对建筑类型有效
 
         Returns:
             int: 生产任务的 waitId
@@ -291,13 +291,13 @@ class GameAPI:
         except Exception as e:
             raise GameAPIError("PRODUCTION_ERROR", "执行生产命令时发生错误: {0}".format(str(e)))
 
-    def produce_wait(self, unit_type: str, quantity: int, auto_place_building: bool = False) -> None:
+    def produce_wait(self, unit_type: str, quantity: int, auto_place_building: bool = True) -> None:
         '''生产指定数量的Actor并等待生产完成
 
         Args:
             unit_type (str): Actor类型
             quantity (int): 生产数量
-            auto_place_building (bool, optional): 是否自动放置建筑，仅对建筑类型有效
+            auto_place_building (bool, optional): 是否在生产完成后使用随机位置自动放置建筑，仅对建筑类型有效
 
         Raises:
             GameAPIError: 当生产或等待过程中发生错误时

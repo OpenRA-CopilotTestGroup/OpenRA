@@ -1,3 +1,6 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using OpenRA.Graphics;
@@ -5,9 +8,6 @@ using OpenRA.Mods.Common.Activities;
 using OpenRA.Mods.Common.Traits;
 using OpenRA.Mods.Common.Widgets;
 using OpenRA.Traits;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 namespace OpenRA.Mods.Common.Commands
 {
 	[TraitLocation(SystemActors.World)]
@@ -527,10 +527,7 @@ namespace OpenRA.Mods.Common.Commands
 				{
 					var validUnit = validUnits[0];
 
-					// 设置自动建造标记
-					var isCopilotOrder = autoPlace && validUnit.unitName.Contains("building");
-
-					world.IssueOrder(Order.StartProduction(validUnit.queue.Actor, validUnit.unitName, quantity.Value, true, isCopilotOrder));
+					world.IssueOrder(Order.StartProduction(validUnit.queue.Actor, validUnit.unitName, quantity.Value, true, autoPlace));
 
 					ret_str += $"{unitName} built.\n";
 					var newWait = Tuple.Create(unitName, quantity.Value);
@@ -1253,8 +1250,6 @@ namespace OpenRA.Mods.Common.Commands
 			return retstr;
 		}
 
-		/*
-
 		public static JObject QueryProductionQueueCommand(JObject json, World world)
 		{
 			var player = world.LocalPlayer;
@@ -1263,11 +1258,44 @@ namespace OpenRA.Mods.Common.Commands
 			var queueType = json.TryGetFieldValue("queueType")?.ToString();
 			if (string.IsNullOrEmpty(queueType))
 				throw new ArgumentException("必须指定queueType参数，可选值：'Building', 'Defense', 'Infantry', 'Vehicle', 'Aircraft', 'Naval'");
-
+			queueType = queueType.ToLowerInvariant();
+			var buildingName = null;
+			switch (queueType)
+			{
+				case "building":
+				case "base":
+				case "建筑":
+					buildingName = "base";
+					break;
+				case "defense":
+				case "防御":
+					buildingName = "base";
+					break;
+				case "infantry":
+				case "兵营":
+				case "步兵":
+					buildingName = "barr";
+					break;
+				case "vehicle":
+				case "车辆":
+				case "载具":
+					buildingName = "fact";
+					break;
+				case "aircraft":
+				case "飞机":
+				case "机场":
+					buildingName = "afld";
+					break;
+				case "naval":
+				case "海军":
+				case "船只":
+					buildingName = "dock";
+					break;
+			}
 			// 获取玩家所有的生产队列
 			var allQueues = world.ActorsWithTrait<ProductionQueue>()
 				.Where(q => q.Actor.Owner == player)
-				.Where(q => q.Trait.Info.Type == queueType)
+				.Where(q => q.Actor.Info.Name == buildingName)
 				.Select(q => q.Trait)
 				.ToList();
 
@@ -1437,7 +1465,6 @@ namespace OpenRA.Mods.Common.Commands
 			}
 		}
 
-		*/
 
 		public void WorldLoaded(World w, WorldRenderer wr)
 		{
@@ -1456,13 +1483,14 @@ namespace OpenRA.Mods.Common.Commands
 				w.CopilotServer.CommandHandlers["stop"] = StopCommand;
 				w.CopilotServer.CommandHandlers["set_rally_point"] = SetRallyPointCommand;
 
-				// w.CopilotServer.CommandHandlers["place_building"] = PlaceBuildingCommand;
-				// w.CopilotServer.CommandHandlers["manage_production"] = ManageProductionCommand;
+				w.CopilotServer.CommandHandlers["place_building"] = PlaceBuildingCommand;
+				w.CopilotServer.CommandHandlers["manage_production"] = ManageProductionCommand;
 				w.CopilotServer.QueryHandlers["start_production"] = StartProductionCommand;
 				w.CopilotServer.QueryHandlers["query_actor"] = ActorQueryCommand;
 				w.CopilotServer.QueryHandlers["query_wait_info"] = WaitQueryCommand;
 				w.CopilotServer.QueryHandlers["query_path"] = PathQueryCommand;
 				w.CopilotServer.QueryHandlers["query_can_produce"] = QueryCanProduceCommand;
+				w.CopilotServer.QueryHandlers["query_production_queue"] = QueryProductionQueueCommand;
 				w.CopilotServer.QueryHandlers["map_query"] = MapQueryCommand;
 				w.CopilotServer.QueryHandlers["fog_query"] = FogQueryCommand;
 				w.CopilotServer.QueryHandlers["unit_attribute_query"] = UnitAttributeQueryCommand;
@@ -1470,7 +1498,6 @@ namespace OpenRA.Mods.Common.Commands
 				w.CopilotServer.QueryHandlers["screen_info_query"] = ScreenInfoQueryCommand;
 				w.CopilotServer.QueryHandlers["ping"] = PingCommand;
 
-				// w.CopilotServer.QueryHandlers["query_production_queue"] = QueryProductionQueueCommand;
 				CopilotsConfig.LoadConfig();
 				CopilotsUtils.WaitInit();
 			}

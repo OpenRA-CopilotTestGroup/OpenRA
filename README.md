@@ -1,6 +1,6 @@
 # OpenRA-Copilot
 OpenRA-Copilot 是一个基于 OpenRA 游戏引擎的智能助手工具。
-OpenRA使用 asr-llm-python_api-OpenRA的方式，使用大语言模型，协助玩家游玩OpenRA
+OpenRA-Copilot 使用 asr -> llm -> python_api -> OpenRA 的方式，使用大语言模型，协助玩家游玩OpenRA
 
 项目主要由两部分构成，OpenRA和AI副官
 
@@ -9,7 +9,7 @@ OpenRA使用 asr-llm-python_api-OpenRA的方式，使用大语言模型，协助
 * 根据玩家语音输入操控游戏
 * 协助获取游戏信息
 * 实时语音识别和指令执行
-* AI辅助决策和游戏建议
+* AI执行决策和游戏建议
 * 多语言支持（中文/英文）
 
 ## 安装教程
@@ -17,6 +17,7 @@ OpenRA使用 asr-llm-python_api-OpenRA的方式，使用大语言模型，协助
 1. 编译并运行OpenRA，推荐使用VS(Windows)，VS Code (MacOs/Linux)
 2. Copilot\openra_ai 文件夹为AI副官文件夹，执行以下命令安装依赖：
    ```bash
+   cd Copilot/openra_ai
    pip install -r requirement.txt
    ```
 
