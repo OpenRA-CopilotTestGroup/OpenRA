@@ -1258,15 +1258,13 @@ namespace OpenRA.Mods.Common.Commands
 			var queueType = json.TryGetFieldValue("queueType")?.ToString();
 			if (string.IsNullOrEmpty(queueType))
 				throw new ArgumentException("必须指定queueType参数，可选值：'Building', 'Defense', 'Infantry', 'Vehicle', 'Aircraft', 'Naval'");
-			queueType = queueType.ToLowerInvariant();
-			var buildingName = null;
+			/*queueType = queueType.ToLowerInvariant();
+			var buildingName = "";
 			switch (queueType)
 			{
 				case "building":
 				case "base":
 				case "建筑":
-					buildingName = "base";
-					break;
 				case "defense":
 				case "防御":
 					buildingName = "base";
@@ -1291,11 +1289,17 @@ namespace OpenRA.Mods.Common.Commands
 				case "船只":
 					buildingName = "dock";
 					break;
-			}
-			// 获取玩家所有的生产队列
-			var allQueues = world.ActorsWithTrait<ProductionQueue>()
-				.Where(q => q.Actor.Owner == player)
-				.Where(q => q.Actor.Info.Name == buildingName)
+			}*/
+
+			// 获取所有带有 ProductionQueue trait 的 actor
+			var allWithProduction = world.ActorsWithTrait<ProductionQueue>();
+
+			// 过滤出指定玩家且类型为指定建筑的 actor
+			var filteredByOwnerAndName = allWithProduction
+				.Where(q => q.Actor.Owner == player && q.Trait.Info.Type == queueType);
+
+			// 提取出对应的 ProductionQueue trait
+			var allQueues = filteredByOwnerAndName
 				.Select(q => q.Trait)
 				.ToList();
 
@@ -1388,7 +1392,7 @@ namespace OpenRA.Mods.Common.Commands
 			{
 				TargetString = readyItem.Item,
 				ExtraLocation = location.Value,
-				TargetActor = building
+				//ExtraActors = building
 			});
 
 			return "已下达放置建筑的命令";
