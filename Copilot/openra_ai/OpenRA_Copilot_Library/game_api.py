@@ -44,15 +44,15 @@ class GameAPI:
                 "params": {},
                 "language": "zh"
             }
-            
+
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                 sock.settimeout(timeout)
                 sock.connect((host, port))
-                
+
                 # 发送请求
                 json_data = json.dumps(request_data)
                 sock.sendall(json_data.encode('utf-8'))
-                
+
                 # 接收响应
                 chunks = []
                 while True:
@@ -65,9 +65,9 @@ class GameAPI:
                         if chunks:
                             break
                         return False
-                
+
                 data = b''.join(chunks).decode('utf-8')
-                
+
                 try:
                     response = json.loads(data)
                     if response.get("status", 0) > 0 and "data" in response:
@@ -76,10 +76,10 @@ class GameAPI:
                     return False
                 except json.JSONDecodeError:
                     return False
-                
+
         except (socket.error, ConnectionRefusedError, OSError):
             return False
-            
+
         except Exception:
             return False
 
@@ -127,27 +127,27 @@ class GameAPI:
                 with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
                     sock.settimeout(10)  # 设置超时时间
                     sock.connect(self.server_address)
-                    
+
                     # 发送请求
                     json_data = json.dumps(request_data)
                     sock.sendall(json_data.encode('utf-8'))
-                    
+
                     # 接收响应
                     response_data = self._receive_data(sock)
-                    
+
                     try:
                         response = json.loads(response_data)
-                        
+
                         # 验证响应格式
                         if not isinstance(response, dict):
-                            raise GameAPIError("INVALID_RESPONSE", 
+                            raise GameAPIError("INVALID_RESPONSE",
                                              "服务器返回的响应格式无效")
-                            
+
                         # 检查请求ID匹配
                         if response.get("requestId") != request_id:
-                            raise GameAPIError("REQUEST_ID_MISMATCH", 
+                            raise GameAPIError("REQUEST_ID_MISMATCH",
                                              "响应的请求ID不匹配")
-                            
+
                         # 处理错误响应
                         if response.get("status", 0) < 0:
                             error = response.get("error", {})
@@ -156,25 +156,25 @@ class GameAPI:
                                 error.get("message", "未知错误"),
                                 error.get("details")
                             )
-                            
+
                         return response
-                        
+
                     except json.JSONDecodeError:
-                        raise GameAPIError("INVALID_JSON", 
+                        raise GameAPIError("INVALID_JSON",
                                          "服务器返回的不是有效的JSON格式")
-                        
+
             except (socket.timeout, ConnectionError) as e:
                 retries += 1
                 if retries >= self.MAX_RETRIES:
-                    raise GameAPIError("CONNECTION_ERROR", 
+                    raise GameAPIError("CONNECTION_ERROR",
                                      "连接服务器失败: {0}".format(str(e)))
                 time.sleep(self.RETRY_DELAY)
-                
+
             except GameAPIError:
                 raise
-                
+
             except Exception as e:
-                raise GameAPIError("UNEXPECTED_ERROR", 
+                raise GameAPIError("UNEXPECTED_ERROR",
                                  "发生未预期的错误: {0}".format(str(e)))
 
     def _receive_data(self, sock: socket.socket) -> str:
@@ -188,7 +188,7 @@ class GameAPI:
                 chunks.append(chunk)
             except socket.timeout:
                 if not chunks:
-                    raise GameAPIError("TIMEOUT", 
+                    raise GameAPIError("TIMEOUT",
                                      "接收响应超时")
                 break
         return b''.join(chunks).decode('utf-8')
@@ -196,7 +196,7 @@ class GameAPI:
     def _handle_response(self, response: dict, error_msg: str) -> Any:
         """处理API响应，提取所需数据或抛出异常"""
         if response is None:
-            raise GameAPIError("NO_RESPONSE", 
+            raise GameAPIError("NO_RESPONSE",
                              "{0}".format(error_msg))
         return response.get("data") if "data" in response else response
 
@@ -215,7 +215,7 @@ class GameAPI:
         except GameAPIError:
             raise
         except Exception as e:
-            raise GameAPIError("CAMERA_MOVE_ERROR", 
+            raise GameAPIError("CAMERA_MOVE_ERROR",
                              "移动相机时发生错误: {0}".format(str(e)))
 
     def move_camera_by_direction(self, direction: str, distance: int) -> None:
@@ -307,7 +307,7 @@ class GameAPI:
             if wait_id is not None:
                 self.wait(wait_id, 20 * quantity)
             else:
-                raise GameAPIError("PRODUCTION_FAILED", 
+                raise GameAPIError("PRODUCTION_FAILED",
                                  "生产任务创建失败")
         except GameAPIError:
             raise
@@ -354,15 +354,15 @@ class GameAPI:
             while True:
                 response = self._send_request('query_wait_info', {"waitId": wait_id})
                 result = self._handle_response(response, "等待任务完成失败")
-                
+
                 if result.get("waitStatus") == "success":
                     return True
-                    
+
                 time.sleep(step_time)
                 wait_time += step_time
                 if wait_time > max_wait_time:
                     return False
-                    
+
         except GameAPIError as e:
             if e.code == "COMMAND_EXECUTION_ERROR":
                 return True  # 特殊情况：如果命令执行错误，可能是任务已完成
@@ -496,10 +496,10 @@ class GameAPI:
                 "targets": query_params.to_dict()
             })
             result = self._handle_response(response, "查询Actor失败")
-            
+
             actors = []
             actors_data = result.get("actors", [])
-            
+
             for data in actors_data:
                 try:
                     actor = Actor(data["id"])
@@ -517,9 +517,9 @@ class GameAPI:
                     actors.append(actor)
                 except KeyError as e:
                     raise GameAPIError("INVALID_ACTOR_DATA", "Actor数据格式无效: {0}".format(str(e)))
-                    
+
             return actors
-            
+
         except GameAPIError:
             raise
         except Exception as e:
@@ -546,12 +546,12 @@ class GameAPI:
                 "method": method
             })
             result = self._handle_response(response, "寻路失败")
-            
+
             try:
                 return [Location(step["x"], step["y"]) for step in result["path"]]
             except (KeyError, TypeError) as e:
                 raise GameAPIError("INVALID_PATH_DATA", "路径数据格式无效: {0}".format(str(e)))
-                
+
         except GameAPIError:
             raise
         except Exception as e:
@@ -597,7 +597,7 @@ class GameAPI:
                 "targets": {"actorId": [actor.actor_id]}
             })
             result = self._handle_response(response, "更新Actor信息失败")
-            
+
             try:
                 actor_data = result["actors"][0]
                 position = Location(
@@ -614,7 +614,7 @@ class GameAPI:
                 return True
             except (IndexError, KeyError) as e:
                 return False
-                
+
         except GameAPIError:
             raise
         except Exception as e:
@@ -823,7 +823,7 @@ class GameAPI:
                 'Building' - 建筑
                 'Defense' - 防御
                 'Infantry' - 士兵
-                'Vehicle' - 载具 
+                'Vehicle' - 载具
                 'Aircraft' - 飞机
                 'Naval' - 海军
 
@@ -854,9 +854,9 @@ class GameAPI:
         '''
         if queue_type not in ['Building', 'Defense', 'Infantry', 'Vehicle', 'Aircraft', 'Naval']:
             raise GameAPIError(
-                "INVALID_QUEUE_TYPE", 
+                "INVALID_QUEUE_TYPE",
                 "队列类型必须是以下值之一: 'Building', 'Defense', 'Infantry', 'Vehicle', 'Aircraft', 'Naval'")
-            
+
         try:
             response = self._send_request('query_production_queue', {
                 "queueType": queue_type
@@ -885,7 +885,7 @@ class GameAPI:
             }
             if queue_type:
                 params["queueType"] = queue_type
-                
+
             response = self._send_request('place_building', params)
             self._handle_response(response, "放置建筑失败")
         except GameAPIError:
@@ -906,7 +906,7 @@ class GameAPI:
         '''
         if action not in ['pause', 'cancel', 'resume']:
             raise GameAPIError("INVALID_ACTION", "action参数必须是 'pause', 'cancel', 或 'resume'")
-            
+
         try:
             params = {
                 "targets": {"actorId": [actor.actor_id]},
@@ -914,7 +914,7 @@ class GameAPI:
             }
             if queue_type:
                 params["queueType"] = queue_type
-                
+
             response = self._send_request('manage_production', params)
             self._handle_response(response, "管理生产队列失败")
         except GameAPIError:
@@ -995,7 +995,7 @@ class GameAPI:
             self.ensure_building_wait_buildself(dep)
 
         if self.can_produce(building_name):
-            wait_id = self.produce(building_name, 1)
+            wait_id = self.produce(building_name, 1, True)
             if wait_id:
                 self.wait(wait_id)
                 return True
@@ -1122,7 +1122,7 @@ class GameAPI:
         try:
             response = self._send_request('map_query', {})
             result = self._handle_response(response, "查询地图信息失败")
-            
+
             return MapQueryResult(
                 MapWidth=result.get('MapWidth', 0),
                 MapHeight=result.get('MapHeight', 0),
@@ -1150,7 +1150,7 @@ class GameAPI:
         try:
             response = self._send_request('player_baseinfo_query', {})
             result = self._handle_response(response, "查询玩家基地信息失败")
-            
+
             return PlayerBaseInfo(
                 Cash=result.get('Cash', 0),
                 Resources=result.get('Resources', 0),
@@ -1175,7 +1175,7 @@ class GameAPI:
         try:
             response = self._send_request('screen_info_query', {})
             result = self._handle_response(response, "查询屏幕信息失败")
-            
+
             return ScreenInfoResult(
                 ScreenMin=Location(
                     result['ScreenMin']['X'],
