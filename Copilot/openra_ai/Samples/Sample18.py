@@ -2,6 +2,40 @@
 import OpenRA_Copilot_Library as OpenRA
 from OpenRA_Copilot_Library import TargetsQueryParam
 import time
+import json
+
+def format_production_queue(queue_info):
+    """格式化生产队列信息，使其更易读"""
+    if not queue_info:
+        return "队列为空"
+    
+    status_map = {
+        "completed": "已完成",
+        "paused": "暂停中",
+        "in_progress": "进行中",
+        "waiting": "等待中"
+    }
+    
+    result = []
+    result.append(f"队列类型: {queue_info['queue_type']}")
+    result.append(f"是否有就绪项目: {'是' if queue_info['has_ready_item'] else '否'}")
+    result.append("\n队列项目:")
+    
+    for idx, item in enumerate(queue_info['queue_items'], 1):
+        status = status_map.get(item['status'], "未知状态")
+        progress = f"{item['progress_percent']}%" if not item['done'] else "100%"
+        
+        item_info = [
+            f"  {idx}. {item['chineseName']} ({item['name']})",
+            f"     状态: {status}",
+            f"     进度: {progress}",
+            f"     剩余时间: {item['remaining_time']}/{item['total_time']}",
+            f"     剩余成本: {item['remaining_cost']}/{item['total_cost']}",
+            f"     所有者ID: {item['owner_actor_id']}"
+        ]
+        result.extend(item_info)
+    
+    return "\n".join(result)
 
 api = OpenRA.GameAPI("localhost")
 
@@ -23,7 +57,24 @@ if not api.ensure_can_build_wait("兵营"):
 # 2. 测试查询生产队列
 print("\n测试查询生产队列...")
 building_queue = api.query_production_queue("Building")
-print(f"建筑队列信息: {building_queue}")
+print("建筑队列信息:")
+print(format_production_queue(building_queue))
+
+# 检查是否有已完成的建筑需要放置
+if building_queue.get("has_ready_item"):
+    print("\n发现已完成的建筑，尝试放置...")
+    # 获取所有建筑
+    buildings = api.query_actor(TargetsQueryParam(type=["电厂", "兵营", "矿场", "车间", "雷达", "维修中心", "核电", "科技中心", "机场"], faction="自己"))
+    if buildings:
+        # 使用第一个建筑的生产队列来放置
+        try:
+            # 不指定位置，让服务器随机选择位置
+            api.place_building(buildings[0])
+            print("建筑已放置")
+        except Exception as e:
+            print(f"放置建筑失败: {str(e)}")
+    else:
+        print("未找到合适的建筑来放置")
 
 # 3. 测试生产队列管理
 print("\n测试生产队列管理...")
@@ -39,21 +90,24 @@ api.produce("步兵", 3)
 
 # 查询步兵队列
 infantry_queue = api.query_production_queue("Infantry")
-print(f"步兵队列信息: {infantry_queue}")
+print("步兵队列信息:")
+print(format_production_queue(infantry_queue))
 
 # 暂停生产
 print("\n暂停生产...")
 api.manage_production(barracks[0], "pause", "Infantry")
 time.sleep(1)
 infantry_queue = api.query_production_queue("Infantry")
-print(f"暂停后的队列信息: {infantry_queue}")
+print("暂停后的队列信息:")
+print(format_production_queue(infantry_queue))
 
 # 继续生产
 print("\n继续生产...")
 api.manage_production(barracks[0], "resume", "Infantry")
 time.sleep(1)
 infantry_queue = api.query_production_queue("Infantry")
-print(f"继续后的队列信息: {infantry_queue}")
+print("继续后的队列信息:")
+print(format_production_queue(infantry_queue))
 
 # 4. 测试放置建筑
 print("\n测试放置建筑...")
@@ -84,6 +138,7 @@ time.sleep(1)
 print("取消生产...")
 api.manage_production(barracks[0], "cancel", "Building")
 building_queue = api.query_production_queue("Building")
-print(f"取消后的队列信息: {building_queue}")
+print("取消后的队列信息:")
+print(format_production_queue(building_queue))
 
 print("\n测试完成!")

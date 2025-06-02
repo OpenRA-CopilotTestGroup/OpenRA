@@ -842,7 +842,12 @@ class GameAPI:
                             "paused": 是否暂停,
                             "done": 是否完成,
                             "progress_percent": 完成百分比,
-                            "owner_actor_id": 所属建筑的ActorID
+                            "owner_actor_id": 所属建筑的ActorID,
+                            "status": "项目状态，可能的值：
+                                'completed' - 已完成
+                                'paused' - 已暂停
+                                'in_progress' - 正在建造（队列中第一个项目）
+                                'waiting' - 等待中（队列中其他项目）"
                         },
                         ...
                     ],
@@ -867,12 +872,12 @@ class GameAPI:
         except Exception as e:
             raise GameAPIError("PRODUCTION_QUEUE_QUERY_ERROR", "查询生产队列时发生错误: {0}".format(str(e)))
 
-    def place_building(self, actor: Actor, location: Location, queue_type: str = None) -> None:
+    def place_building(self, actor: Actor, location: Location = None, queue_type: str = None) -> None:
         '''放置建造队列顶端已就绪的建筑
 
         Args:
             actor (Actor): 有生产队列的建筑（必须有且仅有一个）
-            location (Location): 放置建筑的位置
+            location (Location, optional): 放置建筑的位置，如果不指定则使用随机位置
             queue_type (str, optional): 队列类型，不指定则使用默认队列
 
         Raises:
@@ -880,9 +885,10 @@ class GameAPI:
         '''
         try:
             params = {
-                "targets": {"actorId": [actor.actor_id]},
-                "location": location.to_dict()
+                "targets": {"actorId": [actor.actor_id]}
             }
+            if location:
+                params["location"] = location.to_dict()
             if queue_type:
                 params["queueType"] = queue_type
 

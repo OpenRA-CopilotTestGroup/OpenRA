@@ -1309,7 +1309,7 @@ namespace OpenRA.Mods.Common.Commands
 			// 从所有队列中获取项目信息
 			var allItems = allQueues.SelectMany(queue => queue.AllQueued()).ToList();
 
-			var itemsInfo = allItems.Select(item => new JObject
+			var itemsInfo = allItems.Select((item, index) => new JObject
 			{
 				["name"] = item.Item,
 				["chineseName"] = CopilotsConfig.GetChineseByConfigName(item.Item),
@@ -1321,7 +1321,10 @@ namespace OpenRA.Mods.Common.Commands
 				["done"] = item.Done,
 				["progress_percent"] = item.TotalCost > 0 ?
 					(int)((item.TotalCost - item.RemainingCost) * 100 / item.TotalCost) : 0,
-				["owner_actor_id"] = item.Queue.Actor.ActorID
+				["owner_actor_id"] = item.Queue.Actor.ActorID,
+				["status"] = item.Done ? "completed" : 
+					item.Paused ? "paused" : 
+					index == 0 ? "in_progress" : "waiting"
 			}).ToArray();
 
 			var result = new JObject
@@ -1332,6 +1335,32 @@ namespace OpenRA.Mods.Common.Commands
 			};
 
 			return result;
+		}
+
+		static CPos? GetRandomValidBuildingLocation(World world, ActorInfo actorInfo, BuildingInfo buildingInfo, Player player)
+		{
+			var map = world.Map;
+			var validLocations = new List<CPos>();
+			
+			// 遍历地图寻找可行位置
+			for (var x = 0; x < map.MapSize.X; x++)
+			{
+				for (var y = 0; y < map.MapSize.Y; y++)
+				{
+					var pos = new CPos(x, y);
+					if (world.CanPlaceBuilding(pos, actorInfo, buildingInfo, null))
+					{
+						validLocations.Add(pos);
+					}
+				}
+			}
+
+			if (validLocations.Count == 0)
+				return null;
+
+			// 随机选择一个位置
+			var random = new Random();
+			return validLocations[random.Next(validLocations.Count)];
 		}
 
 		public static string PlaceBuildingCommand(JObject json, World world)
@@ -1369,10 +1398,25 @@ namespace OpenRA.Mods.Common.Commands
 
 			// 获取放置位置
 			var locationToken = json.TryGetFieldValue("location");
-			if (locationToken == null)
-				throw new ArgumentException("缺少location参数");
+			CPos? location = null;
+			
+			if (locationToken != null)
+			{
+				location = GetTargetLocation(locationToken, world, player);
+			}
+			else
+			{
+				// 如果没有指定位置，尝试获取随机位置
+				var actorInfo = world.Map.Rules.Actors[readyItem.Item];
+				var buildingInfo = actorInfo.TraitInfoOrDefault<BuildingInfo>();
+				if (buildingInfo == null)
+					throw new ArgumentException("队列中的项目不是建筑");
+					
+				location = GetRandomValidBuildingLocation(world, actorInfo, buildingInfo, player);
+				if (location == null)
+					return "找不到合适的建筑位置";
+			}
 
-			var location = GetTargetLocation(locationToken, world, player);
 			if (location == null)
 				throw new ArgumentException("无效的建筑位置");
 
@@ -1392,7 +1436,6 @@ namespace OpenRA.Mods.Common.Commands
 			{
 				TargetString = readyItem.Item,
 				ExtraLocation = location.Value,
-				//ExtraActors = building
 			});
 
 			return "已下达放置建筑的命令";
