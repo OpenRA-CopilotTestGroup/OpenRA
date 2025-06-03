@@ -4,27 +4,28 @@ from OpenRA_Copilot_Library import TargetsQueryParam
 import time
 import json
 
+
 def format_production_queue(queue_info):
     """格式化生产队列信息，使其更易读"""
     if not queue_info:
         return "队列为空"
-    
+
     status_map = {
         "completed": "已完成",
         "paused": "暂停中",
         "in_progress": "进行中",
         "waiting": "等待中"
     }
-    
+
     result = []
     result.append(f"队列类型: {queue_info['queue_type']}")
     result.append(f"是否有就绪项目: {'是' if queue_info['has_ready_item'] else '否'}")
     result.append("\n队列项目:")
-    
+
     for idx, item in enumerate(queue_info['queue_items'], 1):
         status = status_map.get(item['status'], "未知状态")
         progress = f"{item['progress_percent']}%" if not item['done'] else "100%"
-        
+
         item_info = [
             f"  {idx}. {item['chineseName']} ({item['name']})",
             f"     状态: {status}",
@@ -34,8 +35,9 @@ def format_production_queue(queue_info):
             f"     所有者ID: {item['owner_actor_id']}"
         ]
         result.extend(item_info)
-    
+
     return "\n".join(result)
+
 
 api = OpenRA.GameAPI("localhost")
 
@@ -51,14 +53,24 @@ if mcv:
 print("确保有电厂和兵营...")
 if not api.ensure_can_build_wait("电厂"):
     print("警告：无法建造电厂，可能已经存在")
+if not api.query_actor(TargetsQueryParam(type=["电厂"], faction="自己")):
+    api.produce("电厂", 1, True)
 if not api.ensure_can_build_wait("兵营"):
     print("警告：无法建造兵营，可能已经存在")
+if not api.query_actor(TargetsQueryParam(type=["兵营"], faction="自己")):
+    api.produce("兵营", 1, True)
+
+# 塞两个电厂
+api.produce("电厂", 1)
+api.produce("电厂", 1)
 
 # 2. 测试查询生产队列
 print("\n测试查询生产队列...")
 building_queue = api.query_production_queue("Building")
 print("建筑队列信息:")
 print(format_production_queue(building_queue))
+
+time.sleep(5)
 
 # 检查是否有已完成的建筑需要放置
 if building_queue.get("has_ready_item"):
@@ -80,7 +92,7 @@ if not barracks:
 
 # 开始生产步兵
 print("开始生产步兵...")
-api.produce("步兵", 3)
+api.produce("步兵", 10)
 
 # 查询步兵队列
 infantry_queue = api.query_production_queue("Infantry")
@@ -94,6 +106,7 @@ time.sleep(1)
 infantry_queue = api.query_production_queue("Infantry")
 print("暂停后的队列信息:")
 print(format_production_queue(infantry_queue))
+time.sleep(10)
 
 # 继续生产
 print("\n继续生产...")
@@ -105,10 +118,15 @@ print(format_production_queue(infantry_queue))
 
 # 4. 测试放置建筑
 print("\n测试放置建筑...")
+
+building_queue = api.query_production_queue("Building")
+for idx, item in enumerate(building_queue['queue_items'], 1):
+    api.manage_production("Building", "cancel")
+
 # 开始生产矿场
 print("开始生产矿场...")
 api.produce("矿场", 1)
-time.sleep(2)  # 等待生产完成
+time.sleep(7)  # 等待生产完成
 
 # 获取生产完成的矿场
 building_queue = api.query_production_queue("Building")

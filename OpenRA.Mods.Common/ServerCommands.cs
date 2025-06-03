@@ -1258,38 +1258,6 @@ namespace OpenRA.Mods.Common.Commands
 			var queueType = json.TryGetFieldValue("queueType")?.ToString();
 			if (string.IsNullOrEmpty(queueType))
 				throw new ArgumentException("必须指定queueType参数，可选值：'Building', 'Defense', 'Infantry', 'Vehicle', 'Aircraft', 'Naval'");
-			/*queueType = queueType.ToLowerInvariant();
-			var buildingName = "";
-			switch (queueType)
-			{
-				case "building":
-				case "base":
-				case "建筑":
-				case "defense":
-				case "防御":
-					buildingName = "base";
-					break;
-				case "infantry":
-				case "兵营":
-				case "步兵":
-					buildingName = "barr";
-					break;
-				case "vehicle":
-				case "车辆":
-				case "载具":
-					buildingName = "fact";
-					break;
-				case "aircraft":
-				case "飞机":
-				case "机场":
-					buildingName = "afld";
-					break;
-				case "naval":
-				case "海军":
-				case "船只":
-					buildingName = "dock";
-					break;
-			}*/
 
 			// 获取所有带有 ProductionQueue trait 的 actor
 			var allWithProduction = world.ActorsWithTrait<ProductionQueue>();
@@ -1357,11 +1325,12 @@ namespace OpenRA.Mods.Common.Commands
 				throw new ArgumentException($"玩家没有类型为 {queueType} 的生产队列建筑");
 
 			// 查找有就绪项目的队列
-			var readyBuilding = validBuildings.FirstOrDefault(b => b.Queue.AllQueued().Any(item => item.Done));
+			ProductionQueue queue = validBuildings.FirstOrDefault().Queue;
+			var readyBuilding = queue.AllQueued().Any(item => item.Done);
 			if (readyBuilding == null)
 				return "没有就绪的建筑可以放置";
 
-			var readyItem = readyBuilding.Queue.AllQueued().First(item => item.Done);
+			var readyItem = queue.AllQueued().First(item => item.Done);
 
 			// 获取放置位置
 			var locationToken = json.TryGetFieldValue("location");
@@ -1374,33 +1343,8 @@ namespace OpenRA.Mods.Common.Commands
 
 			if (location == null)
 			{
-				// 使用自动放置逻辑
-				var actorInfo = world.Map.Rules.Actors[readyItem.Item];
-				var buildingInfo = actorInfo.TraitInfoOrDefault<BuildingInfo>();
-				if (buildingInfo == null)
-					throw new ArgumentException("队列中的项目不是建筑");
-
-				// 尝试找到合适的位置放置建筑
-				var validLocations = new List<CPos>();
-				for (var x = 0; x < world.Map.MapSize.X; x++)
-				{
-					for (var y = 0; y < world.Map.MapSize.Y; y++)
-					{
-						var testPos = new CPos(x, y);
-						if (world.CanPlaceBuilding(testPos, actorInfo, buildingInfo, null))
-						{
-							validLocations.Add(testPos);
-						}
-					}
-				}
-
-				if (validLocations.Count == 0)
-					return "找不到合适的位置放置建筑";
-
-				// 选择离基地最近的位置
-				var baseCenter = player.HomeLocation;
-				location = validLocations.OrderBy(pos => 
-					Math.Abs(pos.X - baseCenter.X) + Math.Abs(pos.Y - baseCenter.Y)).First();
+				CopilotsUtils.TryBuild(world, readyItem.Item, player.PlayerActor, queue);
+				
 			}
 
 			// 检查位置是否可建造
