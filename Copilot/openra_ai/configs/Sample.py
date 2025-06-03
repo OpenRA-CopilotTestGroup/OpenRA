@@ -1,6 +1,6 @@
 # 这个是一个示例文件，展示了如何使用OpenRA_Copilot_Library库，尽可能详细的包含了库中的所有功能，可以作为参考
 
-# 该代码对应指令为：展开基地车，建造电厂，兵营，轻坦克去敌方基地兜一圈，造一些步兵编成组1去探索，再补矿场，车间，来几个防空车编成组2和组3两路迂回到敌方基地，遇见步兵优先打步兵，并尝试进攻敌方基地，打不过就撤退，没血的车可以修一下，摄像机跟随组2防空车
+# 该代码对应指令为：展开基地车，建造电厂，兵营，防空车去敌方基地兜一圈，造一些步兵编成组1去探索，再补矿场，车间，来几个防空车编成组2和组3两路迂回到敌方基地，遇见步兵优先打步兵，并尝试进攻敌方基地，打不过就撤退，没血的车可以修一下，摄像机跟随组2防空车
 
 import OpenRA_Copilot_Library as OpenRA
 from OpenRA_Copilot_Library import *
@@ -16,31 +16,51 @@ print("基地车已展开完毕")
 
 # 建造电厂和兵营
 api.ensure_can_build_wait("电厂")
-build = api.produce_wait("电厂", 1)
+build = api.produce_wait("电厂", 1, True)
 # 因为电厂本来就是兵营前置了，所以先电厂后兵营
 api.ensure_can_build_wait("兵营")
-build = api.produce_wait("兵营", 1)
+build = api.produce_wait("兵营", 1, True)
 
 
-# 轻坦克去敌方基地兜一圈
-# 这里已经知道轻坦克的actor_id是23
+# 建造"矿场"、"车间"以便生产载具
+
+api.ensure_can_build_wait("矿场")
+api.produce_wait("矿场", 1)
+api.ensure_can_build_wait("车间")
+api.produce_wait("车间", 1)
+
+# 生产4个防空车
+
+if api.ensure_can_produce_unit("防空车"):
+    print("开始生产4辆防空车...")
+    wtank = api.produce("防空车", 4)
+    if wtank:
+        api.wait(wtank, max_wait_time=30)
+        print("防空车已生产完毕")
+else:
+    raise RuntimeError("无法生产防空车")
+
+
+# 防空车去敌方基地兜一圈
+# 这里已经知道防空车的actor_id是23
 def move_light_tank_around_enemy_base(api, tank_actor_id):
-    ltank = api.getactor_by_id(tank_actor_id)
-    if not ltank:
-        raise RuntimeError("未找到轻坦克")
+    ftrks = api.getactor_by_id(tank_actor_id)
+    if not ftrks:
+        raise RuntimeError("未找到防空车")
     enemy_bases = api.query_actor(TargetsQueryParam(type=["基地"], faction="敌方"))
     if not enemy_bases:
         raise RuntimeError("未找到敌方基地")
     enemy_base = enemy_bases[0]
-    original_position = ltank.position
-    api.move_units_by_location([ltank], enemy_base.position)
-    while ltank.position.manhattan_distance(enemy_base.position) > 5:
+    original_position = ftrks.position
+    api.move_units_by_location([ftrks], enemy_base.position)
+    while ftrks.position.manhattan_distance(enemy_base.position) > 5:
         time.sleep(0.5)
-        api.update_actor(ltank)
-    print("轻坦克已到达敌方基地附近")
-    api.move_units_by_location([ltank], original_position)
+        api.update_actor(ftrks)
+    print("防空车已到达敌方基地附近")
+    api.move_units_by_location([ftrks], original_position)
 
-move_light_tank_around_enemy_base(23)
+
+move_light_tank_around_enemy_base(301)
 
 
 # 确保能生产"步兵"，然后生产一些
@@ -57,14 +77,15 @@ else:
 
 # 步兵编成组1去探索周边地图
 def explore_with_infantry(api):
-    infantry_list = api.query_actor(TargetsQueryParam(type=["步兵"], faction="自己"))
+    infantry_list = api.query_actor(
+        TargetsQueryParam(type=["步兵"], faction="自己"))
     if infantry_list:
         api.form_group(infantry_list, group_id=1)
         FirstTime = True
         # 限制探索次数，避免无限循环
         max_explore_attempts = 15
         explore_count = 0
-        
+
         while explore_count < max_explore_attempts:
             map_data = api.map_query()
             for infantry in infantry_list:
@@ -76,33 +97,29 @@ def explore_with_infantry(api):
                 break
             # 第一次可以适当扩大范围，比如 8 格，否则 5 格
             search_range = 10 if FirstTime else 5
-            unexplored = api.get_unexplored_nearby_positions(map_data, infantry_list[0].position, search_range)
+            unexplored = api.get_unexplored_nearby_positions(
+                map_data, infantry_list[0].position, search_range)
             FirstTime = False
             # 如果找不到，再试大一点
             if not unexplored:
-                unexplored = api.get_unexplored_nearby_positions(map_data, infantry_list[0].position, search_range * 2)
+                unexplored = api.get_unexplored_nearby_positions(
+                    map_data, infantry_list[0].position, search_range * 2)
             if not unexplored:
                 print("附近都探索完了")
                 break
 
             target_loc = random.choice(unexplored)
             print(f"前往({target_loc.x},{target_loc.y})...")
-            arrived = api.move_units_by_location_and_wait(infantry_list, target_loc, max_wait_time=10.0, tolerance_dis=2)
+            arrived = api.move_units_by_location_and_wait(
+                infantry_list, target_loc, max_wait_time=10.0, tolerance_dis=2)
             if not arrived:
                 print("步兵似乎在路途中卡住了，再换个位置试试")
                 continue
             time.sleep(0.5)
             explore_count += 1
 
-# 直接调用探索函数，不再使用线程
+
 explore_with_infantry(api)
-
-# 建造"矿场"、"车间"以便生产载具
-
-api.ensure_can_build_wait("矿场")
-api.produce_wait("矿场", 1)
-api.ensure_can_build_wait("车间")
-api.produce_wait("车间", 1)
 
 # 确保一下还有电
 playerinfo = api.player_base_info_query()
@@ -116,16 +133,6 @@ while playerinfo.Power <= 0:
     time.sleep(0.5)
     playerinfo = api.player_base_info_query()
 
-# 生产4个防空车
-
-if api.ensure_can_produce_unit("防空车"):
-    print("开始生产4辆防空车...")
-    wtank = api.produce("防空车", 4)
-    if wtank:
-        api.wait(wtank, maxWaitTime=30)
-        print("防空车已生产完毕")
-else:
-    raise RuntimeError("无法生产防空车")
 
 
 # 防空车编成两组，两路夹击进攻敌方基地
@@ -178,7 +185,8 @@ while active_units:
             camera_moved = True
         # 优先打步兵
         current_position = unit.position
-        near_ememies = api.query_actor(TargetsQueryParam(type=["士兵"], faction="敌方", location=current_position, restrain=[{"distance": 6},{"visible": True}]))
+        near_ememies = api.query_actor(TargetsQueryParam(
+            type=["士兵"], faction="敌方", location=current_position, restrain=[{"distance": 6}, {"visible": True}]))
         if near_ememies:
             for enemy in near_ememies:
                 if api.can_attack_target(unit, enemy):
@@ -191,6 +199,6 @@ while active_units:
             continue
 
         # 否则向敌方基地移动
-        api.move_units_by_location([unit],base_position)
+        api.move_units_by_location([unit], base_position)
 
     time.sleep(0.5)

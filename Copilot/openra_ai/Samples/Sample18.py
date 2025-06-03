@@ -63,18 +63,12 @@ print(format_production_queue(building_queue))
 # 检查是否有已完成的建筑需要放置
 if building_queue.get("has_ready_item"):
     print("\n发现已完成的建筑，尝试放置...")
-    # 获取所有建筑
-    buildings = api.query_actor(TargetsQueryParam(type=["电厂", "兵营", "矿场", "车间", "雷达", "维修中心", "核电", "科技中心", "机场"], faction="自己"))
-    if buildings:
-        # 使用第一个建筑的生产队列来放置
-        try:
-            # 不指定位置，让服务器随机选择位置
-            api.place_building(buildings[0])
-            print("建筑已放置")
-        except Exception as e:
-            print(f"放置建筑失败: {str(e)}")
-    else:
-        print("未找到合适的建筑来放置")
+    try:
+        # 使用Building队列类型，不指定位置，让服务器自动选择位置
+        api.place_building("Building")
+        print("建筑已放置")
+    except Exception as e:
+        print(f"放置建筑失败: {str(e)}")
 
 # 3. 测试生产队列管理
 print("\n测试生产队列管理...")
@@ -95,7 +89,7 @@ print(format_production_queue(infantry_queue))
 
 # 暂停生产
 print("\n暂停生产...")
-api.manage_production(barracks[0], "pause", "Infantry")
+api.manage_production("Infantry", "pause")
 time.sleep(1)
 infantry_queue = api.query_production_queue("Infantry")
 print("暂停后的队列信息:")
@@ -103,7 +97,7 @@ print(format_production_queue(infantry_queue))
 
 # 继续生产
 print("\n继续生产...")
-api.manage_production(barracks[0], "resume", "Infantry")
+api.manage_production("Infantry", "resume")
 time.sleep(1)
 infantry_queue = api.query_production_queue("Infantry")
 print("继续后的队列信息:")
@@ -125,7 +119,7 @@ if building_queue.get("has_ready_item"):
         barracks[0].position.x + 2,
         barracks[0].position.y
     )
-    api.place_building(barracks[0], placement_location)
+    api.place_building("Building", placement_location)
     print(f"建筑已放置在位置: {placement_location}")
 else:
     print("没有找到已就绪的建筑")
@@ -136,7 +130,7 @@ print("\n测试取消生产...")
 api.produce("雷达", 1)
 time.sleep(1)
 print("取消生产...")
-api.manage_production(barracks[0], "cancel", "Building")
+api.manage_production("Building", "cancel")
 building_queue = api.query_production_queue("Building")
 print("取消后的队列信息:")
 print(format_production_queue(building_queue))

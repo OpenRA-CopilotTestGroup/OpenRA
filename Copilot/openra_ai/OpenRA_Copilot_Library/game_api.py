@@ -872,25 +872,22 @@ class GameAPI:
         except Exception as e:
             raise GameAPIError("PRODUCTION_QUEUE_QUERY_ERROR", "查询生产队列时发生错误: {0}".format(str(e)))
 
-    def place_building(self, actor: Actor, location: Location = None, queue_type: str = None) -> None:
+    def place_building(self, queue_type: str, location: Location = None) -> None:
         '''放置建造队列顶端已就绪的建筑
 
         Args:
-            actor (Actor): 有生产队列的建筑（必须有且仅有一个）
-            location (Location, optional): 放置建筑的位置，如果不指定则使用随机位置
-            queue_type (str, optional): 队列类型，不指定则使用默认队列
+            queue_type (str): 队列类型，可选值：'Building', 'Defense', 'Infantry', 'Vehicle', 'Aircraft', 'Naval'
+            location (Location, optional): 放置建筑的位置，如果不指定则使用自动选择的位置
 
         Raises:
             GameAPIError: 当放置建筑失败时
         '''
         try:
             params = {
-                "targets": {"actorId": [actor.actor_id]}
+                "queueType": queue_type
             }
             if location:
                 params["location"] = location.to_dict()
-            if queue_type:
-                params["queueType"] = queue_type
 
             response = self._send_request('place_building', params)
             self._handle_response(response, "放置建筑失败")
@@ -899,13 +896,12 @@ class GameAPI:
         except Exception as e:
             raise GameAPIError("PLACE_BUILDING_ERROR", "放置建筑时发生错误: {0}".format(str(e)))
 
-    def manage_production(self, actor: Actor, action: str, queue_type: str = None) -> None:
+    def manage_production(self, queue_type: str, action: str) -> None:
         '''管理生产队列中的项目（暂停/取消/继续）
 
         Args:
-            actor (Actor): 有生产队列的建筑（必须有且仅有一个）
+            queue_type (str): 队列类型，可选值：'Building', 'Defense', 'Infantry', 'Vehicle', 'Aircraft', 'Naval'
             action (str): 操作类型，必须是 'pause', 'cancel', 或 'resume'
-            queue_type (str, optional): 队列类型，不指定则使用默认队列
 
         Raises:
             GameAPIError: 当管理生产队列失败时
@@ -915,11 +911,9 @@ class GameAPI:
 
         try:
             params = {
-                "targets": {"actorId": [actor.actor_id]},
+                "queueType": queue_type,
                 "action": action
             }
-            if queue_type:
-                params["queueType"] = queue_type
 
             response = self._send_request('manage_production', params)
             self._handle_response(response, "管理生产队列失败")

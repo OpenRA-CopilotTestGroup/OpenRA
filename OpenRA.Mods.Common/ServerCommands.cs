@@ -1337,64 +1337,31 @@ namespace OpenRA.Mods.Common.Commands
 			return result;
 		}
 
-		static CPos? GetRandomValidBuildingLocation(World world, ActorInfo actorInfo, BuildingInfo buildingInfo, Player player)
-		{
-			var map = world.Map;
-			var validLocations = new List<CPos>();
-			
-			// 遍历地图寻找可行位置
-			for (var x = 0; x < map.MapSize.X; x++)
-			{
-				for (var y = 0; y < map.MapSize.Y; y++)
-				{
-					var pos = new CPos(x, y);
-					if (world.CanPlaceBuilding(pos, actorInfo, buildingInfo, null))
-					{
-						validLocations.Add(pos);
-					}
-				}
-			}
-
-			if (validLocations.Count == 0)
-				return null;
-
-			// 随机选择一个位置
-			var random = new Random();
-			return validLocations[random.Next(validLocations.Count)];
-		}
-
 		public static string PlaceBuildingCommand(JObject json, World world)
 		{
 			var player = world.LocalPlayer;
-			var actors = GetTargetsFromJson(json, world);
 
-			// 确保只有一个actor被选中
-			if (actors.Count != 1)
-				throw new ArgumentException("PlaceBuilding命令必须且只能指定一个建筑");
-
-			var building = actors[0];
-
-			// 获取建筑的生产队列
-			var queues = building.TraitsImplementing<ProductionQueue>().ToList();
-			if (queues.Count == 0)
-				throw new ArgumentException("所选建筑没有生产队列");
-
+			// 获取队列类型
 			var queueType = json.TryGetFieldValue("queueType")?.ToString();
-			ProductionQueue targetQueue = null;
+			if (string.IsNullOrEmpty(queueType))
+				throw new ArgumentException("必须指定queueType参数，可选值：'Building', 'Defense', 'Infantry', 'Vehicle', 'Aircraft', 'Naval'");
 
-			// 如果指定了队列类型，查找匹配的队列
-			if (!string.IsNullOrEmpty(queueType))
-				targetQueue = queues.FirstOrDefault(q => q.Info.Type == queueType);
-			else
-				targetQueue = queues.First();
+			// 查找所有有指定类型生产队列的建筑
+			var allWithProduction = world.ActorsWithTrait<ProductionQueue>();
+			var validBuildings = allWithProduction
+				.Where(q => q.Actor.Owner == player && q.Trait.Info.Type == queueType)
+				.Select(q => new { Actor = q.Actor, Queue = q.Trait })
+				.ToList();
 
-			if (targetQueue == null)
-				throw new ArgumentException($"未找到类型为 {queueType} 的生产队列");
+			if (validBuildings.Count == 0)
+				throw new ArgumentException($"玩家没有类型为 {queueType} 的生产队列建筑");
 
-			// 获取队列中已就绪的第一个项目
-			var readyItem = targetQueue.AllQueued().FirstOrDefault(item => item.Done);
-			if (readyItem == null)
+			// 查找有就绪项目的队列
+			var readyBuilding = validBuildings.FirstOrDefault(b => b.Queue.AllQueued().Any(item => item.Done));
+			if (readyBuilding == null)
 				return "没有就绪的建筑可以放置";
+
+			var readyItem = readyBuilding.Queue.AllQueued().First(item => item.Done);
 
 			// 获取放置位置
 			var locationToken = json.TryGetFieldValue("location");
@@ -1404,31 +1371,42 @@ namespace OpenRA.Mods.Common.Commands
 			{
 				location = GetTargetLocation(locationToken, world, player);
 			}
-			else
+
+			if (location == null)
 			{
-				// 如果没有指定位置，尝试获取随机位置
+				// 使用自动放置逻辑
 				var actorInfo = world.Map.Rules.Actors[readyItem.Item];
 				var buildingInfo = actorInfo.TraitInfoOrDefault<BuildingInfo>();
 				if (buildingInfo == null)
 					throw new ArgumentException("队列中的项目不是建筑");
-					
-				location = GetRandomValidBuildingLocation(world, actorInfo, buildingInfo, player);
-				if (location == null)
-					return "找不到合适的建筑位置";
+
+				// 尝试找到合适的位置放置建筑
+				var validLocations = new List<CPos>();
+				for (var x = 0; x < world.Map.MapSize.X; x++)
+				{
+					for (var y = 0; y < world.Map.MapSize.Y; y++)
+					{
+						var testPos = new CPos(x, y);
+						if (world.CanPlaceBuilding(testPos, actorInfo, buildingInfo, null))
+						{
+							validLocations.Add(testPos);
+						}
+					}
+				}
+
+				if (validLocations.Count == 0)
+					return "找不到合适的位置放置建筑";
+
+				// 选择离基地最近的位置
+				var baseCenter = player.HomeLocation;
+				location = validLocations.OrderBy(pos => 
+					Math.Abs(pos.X - baseCenter.X) + Math.Abs(pos.Y - baseCenter.Y)).First();
 			}
 
-			if (location == null)
-				throw new ArgumentException("无效的建筑位置");
-
-			// 尝试放置建筑
-			var actorInfo = world.Map.Rules.Actors[readyItem.Item];
-			var buildingInfo = actorInfo.TraitInfoOrDefault<BuildingInfo>();
-
-			if (buildingInfo == null)
-				throw new ArgumentException("队列中的项目不是建筑");
-
 			// 检查位置是否可建造
-			if (!world.CanPlaceBuilding(location.Value, actorInfo, buildingInfo, null))
+			var actorInfo2 = world.Map.Rules.Actors[readyItem.Item];
+			var buildingInfo2 = actorInfo2.TraitInfoOrDefault<BuildingInfo>();
+			if (!world.CanPlaceBuilding(location.Value, actorInfo2, buildingInfo2, null))
 				return "无法在指定位置放置建筑";
 
 			// 放置建筑
@@ -1438,36 +1416,35 @@ namespace OpenRA.Mods.Common.Commands
 				ExtraLocation = location.Value,
 			});
 
-			return "已下达放置建筑的命令";
+			return $"已在位置({location.Value.X}, {location.Value.Y})放置建筑: {CopilotsConfig.GetChineseByConfigName(readyItem.Item)}";
 		}
 
 		public static string ManageProductionCommand(JObject json, World world)
 		{
 			var player = world.LocalPlayer;
-			var actors = GetTargetsFromJson(json, world);
 
-			// 确保只有一个actor被选中
-			if (actors.Count != 1)
-				throw new ArgumentException("ManageProduction命令必须且只能指定一个建筑");
-
-			var building = actors[0];
-
-			// 获取建筑的生产队列
-			var queues = building.TraitsImplementing<ProductionQueue>().ToList();
-			if (queues.Count == 0)
-				throw new ArgumentException("所选建筑没有生产队列");
-
+			// 获取队列类型
 			var queueType = json.TryGetFieldValue("queueType")?.ToString();
-			ProductionQueue targetQueue = null;
+			if (string.IsNullOrEmpty(queueType))
+				throw new ArgumentException("必须指定queueType参数，可选值：'Building', 'Defense', 'Infantry', 'Vehicle', 'Aircraft', 'Naval'");
 
-			// 如果指定了队列类型，查找匹配的队列
-			if (!string.IsNullOrEmpty(queueType))
-				targetQueue = queues.FirstOrDefault(q => q.Info.Type == queueType);
-			else
-				targetQueue = queues.First();
+			// 查找所有有指定类型生产队列的建筑
+			var allWithProduction = world.ActorsWithTrait<ProductionQueue>();
+			var validBuildings = allWithProduction
+				.Where(q => q.Actor.Owner == player && q.Trait.Info.Type == queueType)
+				.Select(q => new { Actor = q.Actor, Queue = q.Trait })
+				.ToList();
 
-			if (targetQueue == null)
-				throw new ArgumentException($"未找到类型为 {queueType} 的生产队列");
+			if (validBuildings.Count == 0)
+				throw new ArgumentException($"玩家没有类型为 {queueType} 的生产队列建筑");
+
+			// 查找有生产项目的队列
+			var activeBuilding = validBuildings.FirstOrDefault(b => b.Queue.AllQueued().Any());
+			if (activeBuilding == null)
+				return "没有正在进行的生产任务";
+
+			var targetQueue = activeBuilding.Queue;
+			var building = activeBuilding.Actor;
 
 			// 确保队列有项目
 			var queuedItems = targetQueue.AllQueued().ToList();
@@ -1492,7 +1469,7 @@ namespace OpenRA.Mods.Common.Commands
 						return "生产已经处于暂停状态";
 
 					world.IssueOrder(Order.PauseProduction(building, firstItem.Item, true));
-					return "已暂停生产";
+					return $"已暂停生产: {CopilotsConfig.GetChineseByConfigName(firstItem.Item)}";
 
 				case "resume":
 					// 恢复生产
@@ -1500,12 +1477,12 @@ namespace OpenRA.Mods.Common.Commands
 						return "生产已经处于进行状态";
 
 					world.IssueOrder(Order.PauseProduction(building, firstItem.Item, false));
-					return "已恢复生产";
+					return $"已恢复生产: {CopilotsConfig.GetChineseByConfigName(firstItem.Item)}";
 
 				case "cancel":
 					// 取消生产
 					world.IssueOrder(Order.CancelProduction(building, firstItem.Item, 1));
-					return "已取消生产";
+					return $"已取消生产: {CopilotsConfig.GetChineseByConfigName(firstItem.Item)}";
 
 				default:
 					throw new ArgumentException("无效的action参数，必须是 'pause', 'cancel', 或 'resume'");
