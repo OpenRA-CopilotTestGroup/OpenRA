@@ -36,7 +36,9 @@ dotnet build
 
 ## MacOs/Linux  
 
+可以安装vsc和C#相关内容后，通过vsc启动  
 
+也可以按如下命令行启动：  
 ```bash
 git clone https://github.com/OpenRA-CopilotTestGroup/OpenRA.git
 cd OpenRA
