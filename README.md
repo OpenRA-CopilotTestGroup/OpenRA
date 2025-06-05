@@ -12,28 +12,96 @@ OpenRA-Copilot 使用 asr -> llm -> python_api -> OpenRA 的方式，使用大�
 * AI执行决策和游戏建议
 * 多语言支持（中文/英文）
 
-## 安装教程
+# 安装教程
 
-1. 编译并运行OpenRA，推荐使用VS(Windows)，VS Code (MacOs/Linux)
-2. Copilot\openra_ai 文件夹为AI副官文件夹，执行以下命令安装依赖：
-   ```bash
-   cd Copilot/openra_ai
-   pip install -r requirement.txt
-   ```
+## 安装dotnet 6.0
+https://dotnet.microsoft.com/en-us/download/dotnet/6.0/runtime?cid=getdotnetcore&os=linux&arch=x64
 
-## 启动教程
+## 启动 OpenRA
 
-### 方式一：使用启动器（仅Windows）
-Copilot\Starter 文件夹中提供了图形界面启动器
+### Windows
 
-### 方式二：命令行启动
-设置环境变量并启动：  
-假设用GPT-4o，并使用Response模式，简单Sample
+可以安装vs或vsc和C#相关内容后，通过vs或vsc启动
+
+也可以按如下命令行启动：
+
 ```bash
-export OPENAI_API_KEY="sk-xxxxxx"
-export DEEPSEEK_API_KEY="sk-xxxx"
-python3 -m uni_mic.cli --remote-asr --remote-type whisper --debug-mode --gptmodel gpt-4o --single-sample --openai-response-mode
+git clone https://github.com/OpenRA-CopilotTestGroup/OpenRA.git
+cd OpenRA
+# 国内网不好先用国内cdn store一下，也可以挂代理，在国外可以忽略这一行
+dotnet restore --source https://nuget.cdn.azure.cn/v3/index.json
+dotnet build
+.\launch-game.cmd Game.Mod=copilot
 ```
+
+## MacOs/Linux  
+
+
+```bash
+git clone https://github.com/OpenRA-CopilotTestGroup/OpenRA.git
+cd OpenRA
+# 国内网不好先用国内cdn store一下，也可以挂代理，在国外可以忽略这一行
+dotnet restore --source https://nuget.cdn.azure.cn/v3/index.json
+dotnet build
+./launch-game.sh Game.Mod=copilot
+```
+
+---
+---  
+---
+
+## 启动 AI 副官
+
+### Windows
+```bash
+cd Copilot/openra_ai
+python -m venv venv
+venv\Scripts\activate
+
+pip install -r requirements.txt
+
+set OPENAI_API_KEY=sk-xxxx
+python -m uni_mic.cli --debug-mode --single-sample --openai-response-mode
+```
+
+### Ubuntu
+安装gcc和qt相关依赖
+```bash
+sudo apt update
+sudo apt install -y python3-dev build-essential libxcb-xinerama0 libxcb-xinerama0-dev libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libx11-xcb1 libglu1-mesa
+```
+安装python依赖并启动
+```bash
+cd Copilot/openra_ai
+python3 -m venv venv
+source venv/bin/activate
+
+pip install -r requirements.txt
+
+export OPENAI_API_KEY="sk-xxxxxx"
+python3 -m uni_mic.cli --debug-mode --single-sample --openai-response-mode
+```
+
+#### MacOS
+安装gcc相关依赖
+```bash
+xcode-select --install
+```
+安装python依赖并启动
+```bash
+cd Copilot/openra_ai
+python3 -m venv venv
+source venv/bin/activate
+
+pip install -r requirements.txt
+
+export OPENAI_API_KEY="sk-xxxxxx"
+python3 -m uni_mic.cli --debug-mode --single-sample --openai-response-mode
+```
+
+
+启动后会有GUI
+
 
 ## 参数说明
 
