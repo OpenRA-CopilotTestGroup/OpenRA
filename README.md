@@ -15,7 +15,9 @@ OpenRA-Copilot 使用 asr -> llm -> python_api -> OpenRA 的方式，使用大�
 # 安装教程
 
 ## 安装dotnet 6.0
-https://dotnet.microsoft.com/en-us/download/dotnet/6.0/runtime?cid=getdotnetcore&os=linux&arch=x64
+# 6.0
+# 6.0!!!
+https://dotnet.microsoft.com/en-us/download/dotnet/6.0
 
 ## 启动 OpenRA
 
@@ -34,7 +36,7 @@ dotnet build
 .\launch-game.cmd Game.Mod=copilot
 ```
 
-## MacOs/Linux  
+## Linux  
 
 可以安装vsc和C#相关内容后，通过vsc启动  
 
@@ -45,6 +47,22 @@ cd OpenRA
 # 国内网不好先用国内cdn store一下，也可以挂代理，在国外可以忽略这一行
 dotnet restore --source https://nuget.cdn.azure.cn/v3/index.json
 dotnet build
+export PATH="/usr/local/share/dotnet/x64:$PATH"
+./launch-game.sh Game.Mod=copilot
+```
+
+## MacOs
+
+可以安装vsc和C#相关内容后，通过vsc启动  
+
+也可以按如下命令行启动：    
+```bash
+git clone https://github.com/OpenRA-CopilotTestGroup/OpenRA.git
+cd OpenRA
+# 国内网不好先用国内cdn store一下，也可以挂代理，在国外可以忽略这一行
+dotnet restore --source https://nuget.cdn.azure.cn/v3/index.json
+dotnet build
+export PATH="/usr/local/share/dotnet/x64:$PATH"
 ./launch-game.sh Game.Mod=copilot
 ```
 
