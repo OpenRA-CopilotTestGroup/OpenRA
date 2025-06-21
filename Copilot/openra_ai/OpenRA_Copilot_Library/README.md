@@ -4,6 +4,8 @@
 
 ## 安装
 
+建议先开启venv后再执行
+在openra_ai文件夹或本文件夹下执行
 ```bash
 pip install -e .
 ```
@@ -15,7 +17,7 @@ pip install -e .
 在尝试创建连接前，可以使用静态方法检查服务器是否运行：
 
 ```python
-from openra_ai.OpenRA_Copilot_Library.game_api import GameAPI
+from OpenRA_Copilot_Library import GameAPI
 
 # 检查服务器是否运行
 if GameAPI.is_server_running():
@@ -31,8 +33,8 @@ if GameAPI.is_server_running(host="192.168.1.100", port=8080, timeout=1.0):
 ### 基本使用
 
 ```python
-from openra_ai.OpenRA_Copilot_Library.game_api import GameAPI
-from openra_ai.OpenRA_Copilot_Library.models import Location, TargetsQueryParam
+from OpenRA_Copilot_Library import GameAPI
+from OpenRA_Copilot_Library import Location, TargetsQueryParam
 
 # 初始化API
 api = GameAPI("localhost", 7445)

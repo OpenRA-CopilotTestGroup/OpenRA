@@ -53,6 +53,11 @@ export PATH="/usr/local/share/dotnet/x64:$PATH"
 
 ## MacOs
 
+如果没有brew，需要先安装brew
+```bash
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+```
+
 可以安装vsc和C#相关内容后，通过vsc启动  
 
 也可以按如下命令行启动：    
@@ -79,6 +84,7 @@ python -m venv venv
 venv\Scripts\activate
 
 pip install -r requirements.txt
+pip install -e .
 
 set OPENAI_API_KEY=sk-xxxx
 python -m uni_mic.cli --debug-mode --single-sample --openai-response-mode
@@ -97,6 +103,7 @@ python3 -m venv venv
 source venv/bin/activate
 
 pip install -r requirements.txt
+pip install -e .
 
 export OPENAI_API_KEY="sk-xxxxxx"
 python3 -m uni_mic.cli --debug-mode --single-sample --openai-response-mode
@@ -114,6 +121,7 @@ python3 -m venv venv
 source venv/bin/activate
 
 pip install -r requirements.txt
+pip install -e .
 
 export OPENAI_API_KEY="sk-xxxxxx"
 python3 -m uni_mic.cli --debug-mode --single-sample --openai-response-mode
