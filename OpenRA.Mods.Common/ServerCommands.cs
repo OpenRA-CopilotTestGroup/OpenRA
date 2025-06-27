@@ -31,14 +31,16 @@ namespace OpenRA.Mods.Common.Commands
 					}
 				}
 
-				var restrainss = targets["restrain"]?.ToList();
-				if (restrainss != null)
-				{
-					foreach (var restrain in restrainss)
-					{
-						var visible = restrain["visible"]?.ToObject<bool>();
-						if (visible == true)
-						{
+				// var restrainss = targets["restrain"]?.ToList();
+				// if (restrainss != null)
+				// {
+				// 	foreach (var restrain in restrainss)
+				// 	{
+						// 这里默认就只能看见 visible的才合理啊，不然作弊了
+
+						// var visible = restrain["visible"]?.ToObject<bool>();
+						// if (visible == true)
+						// {
 							result = result.Where(a =>
 							{
 								var tar = Target.FromActor(a);
@@ -46,9 +48,9 @@ namespace OpenRA.Mods.Common.Commands
 								return !targetIsHiddenActor && a.CanBeViewedByPlayer(player.PlayerActor.Owner);
 							})
 							.ToList();
-						}
-					}
-				}
+						// }
+					// }
+				// }
 
 				return result;
 			}
@@ -112,6 +114,14 @@ namespace OpenRA.Mods.Common.Commands
 				actors = actors.Where(a => types.Contains(a.Info.Name));
 			}
 
+			// 这里默认就只能看见 visible的才合理啊，不然作弊了
+			actors = actors.Where(a =>
+						{
+							var tar = Target.FromActor(a);
+							_ = tar.Recalculate(player.PlayerActor.Owner, out var targetIsHiddenActor);
+							return !targetIsHiddenActor && a.CanBeViewedByPlayer(player.PlayerActor.Owner);
+						});
+
 			var restrains = targets["restrain"]?.ToList();
 			if (restrains != null)
 			{
@@ -120,7 +130,7 @@ namespace OpenRA.Mods.Common.Commands
 					var direction = restrain["relativeDirection"]?.ToString();
 					var maxNum = restrain["maxNum"]?.ToObject<int>();
 					var dis = restrain["distance"]?.ToObject<int>();
-					var visible = restrain["visible"]?.ToObject<bool>();
+					// var visible = restrain["visible"]?.ToObject<bool>();
 
 					if (direction != null && maxNum.HasValue)
 					{
@@ -137,15 +147,10 @@ namespace OpenRA.Mods.Common.Commands
 						var loc = GetLocation(targets["location"]);
 						actors = actors.Where(a => Math.Abs(a.Location.X - loc.X) + Math.Abs(a.Location.Y - loc.Y) <= dis.Value);
 					}
-					else if (visible == true)
-					{
-						actors = actors.Where(a =>
-						{
-							var tar = Target.FromActor(a);
-							_ = tar.Recalculate(player.PlayerActor.Owner, out var targetIsHiddenActor);
-							return !targetIsHiddenActor && a.CanBeViewedByPlayer(player.PlayerActor.Owner);
-						});
-					}
+					// else if (visible == true)
+					// {
+						
+					// }
 				}
 			}
 
@@ -296,70 +301,6 @@ namespace OpenRA.Mods.Common.Commands
 			{
 				throw new NotImplementedException("Missing parameters for moveactor command");
 			}
-		}
-
-		public static JObject ActorQueryCommand(JObject json, World world)
-		{
-			var player = world.LocalPlayer;
-			var targets = json.TryGetFieldValue("targets");
-			List<Actor> targetActors;
-			if (targets == null)
-			{
-				return null;
-
-				// targetActors = world.Actors.Where(a => a.OccupiesSpace != null).ToList();
-			}
-			else
-			{
-				targetActors = GetTargets(targets, world, player);
-			}
-
-			var sum = new CPos(0, 0);
-
-			var actorsInfo = targetActors
-				.ConvertAll(actor =>
-				{
-					var hashealth = actor.Info.HasTraitInfo<HealthInfo>();
-					var health = actor.TraitOrDefault<Health>();
-					return new JObject
-					{
-						["id"] = actor.ActorID,
-						["type"] = CopilotsConfig.GetChineseByConfigName(actor.Info.Name),
-						["faction"] = actor.Owner == player ? "己方" : (actor.Owner != null && actor.Owner.IsBot ? "敌方" : "中立"),
-						["hp"] = hashealth ? health.HP : -1,
-						["maxHp"] = hashealth ? health.MaxHP : -1,
-						["isDead"] = hashealth && health.IsDead,
-						["position"] = new JObject
-						{
-							["x"] = actor.Location.X,
-							["y"] = actor.Location.Y
-						}
-					};
-				});
-
-			var result = new JObject
-			{
-				// ["status"] = "success",
-				["actors"] = new JArray(actorsInfo)
-			};
-
-			return result;
-		}
-
-		public static JObject WaitQueryCommand(JObject json, World world)
-		{
-			var waitId = json.TryGetFieldValue("waitId")?.ToObject<int>();
-			if (waitId == null)
-			{
-				return null;
-			}
-
-			var result = new JObject
-			{
-				["waitStatus"] = CopilotsUtils.QueryWaitStatus(waitId.Value)
-			};
-
-			return result;
 		}
 
 		public static string MoveActorInDirection(IEnumerable<Actor> actors, string direction, int distance, bool isAttackMove, bool isAssaultMove, World world)
@@ -548,71 +489,6 @@ namespace OpenRA.Mods.Common.Commands
 			return result;
 		}
 
-		public static JObject QueryCanProduceCommand(JObject json, World world)
-		{
-			var orders = json.TryGetFieldValue("units")?.ToObject<List<JToken>>();
-			var player = world.LocalPlayer;
-			var ret_str = "";
-			var canProduce = false;
-
-			if (orders == null || orders.Count == 0)
-			{
-				throw new ArgumentException("No units specified for CanProduce command");
-			}
-
-			var produceMap = new Dictionary<string, int>();
-			foreach (var order in orders)
-			{
-				var unitName = order.TryGetFieldValue("unit_type")?.ToObject<string>();
-				var unitNames = CopilotsConfig.GetConfigNameByChinese(unitName);
-				if (unitNames == null)
-				{
-					throw new NotImplementedException("Missing parameters for QueryCanProduceCommand");
-				}
-
-				var validUnits = unitNames
-				.Select(unitName =>
-				{
-					if (!world.Map.Rules.Actors.TryGetValue(unitName, out var unit))
-					{
-						ret_str += $"Error!! There is no unit named {unitName}!! \n";
-						return null;
-					}
-
-					var bi = unit.TraitInfo<BuildableInfo>();
-					var queue = bi.Queue
-					.SelectMany(oneQueue => AIUtils.FindQueues(player, oneQueue))
-					.Where(q => q.CanBuild(unit))
-					.ToList();
-
-					if (queue.Count > 0)
-					{
-						return unitName;
-					}
-
-					return null;
-				})
-				.Where(result => result != null)
-				.ToList();
-
-				if (validUnits.Count == 1)
-				{
-					canProduce = true;
-				}
-				else
-				{
-					ret_str += $"No suitable queue found for unit {unitName}.\n";
-				}
-			}
-
-			var result = new JObject
-			{
-				["response"] = ret_str,
-				["canProduce"] = canProduce,
-			};
-			return result;
-		}
-
 		public static string CameraMoveCommand(JObject json, World world)
 		{
 			var worldRenderer = Game.worldRenderer;
@@ -731,70 +607,6 @@ namespace OpenRA.Mods.Common.Commands
 			return compressedTileInfo;
 		}
 
-		public static string MoveActorOnTilePathCommand(JObject json, World world)
-		{
-			var actors = GetTargetsFromJson(json, world);
-			var compressLevel = json.TryGetFieldValue("compressNum")?.ToObject<int>() ?? 5;
-			var tilePathArr = json.TryGetFieldValue("pathTiles")?.ToList();
-			if (tilePathArr == null)
-			{
-				throw new NotImplementedException("Missing parameters PathTiles for Command");
-			}
-
-			var tileInfo = GetTileInfo(world, actors.Last());
-			var compressedTileInfo = CompressTileInfo(tileInfo, compressLevel);
-
-			var path = new List<CPos>();
-
-			// 移除tilePathArr第一个格子
-			tilePathArr.RemoveAt(0);
-			foreach (var tile in tilePathArr)
-			{
-				var tileCoords = tile.ToObject<int[]>();
-				if (tileCoords == null || tileCoords.Length != 2)
-				{
-					throw new ArgumentException("Invalid tile coordinates.");
-				}
-
-				var x = tileCoords[0];
-				var y = tileCoords[1];
-
-				if (x < 0 || x >= compressedTileInfo.Count || y < 0 || y >= compressedTileInfo[x].Count)
-				{
-					throw new ArgumentException($"Tile coordinates ({x}, {y}) are out of bounds.");
-				}
-
-				if (compressedTileInfo[x][y] == 1)
-				{
-					throw new ArgumentException($"Tile ({x}, {y}) is an obstacle.");
-				}
-
-				var closestEmptyPoint = FindClosestEmptyPoint(tileInfo, x * compressLevel, y * compressLevel);
-				if (closestEmptyPoint.HasValue)
-				{
-					path.Add(closestEmptyPoint.Value);
-				}
-				else
-				{
-					throw new Exception($"No empty tile found near ({x}, {y}).");
-				}
-			}
-
-			// Issue multi-point move order to all actors
-			foreach (var actor in actors)
-			{
-				actor.CancelActivity();
-
-				// Queue the move orders
-				foreach (var waypoint in path)
-				{
-					actor.QueueActivity(new Move(actor, waypoint));
-				}
-			}
-
-			return "Actor Moved";
-		}
-
 		static CPos? FindClosestEmptyPoint(List<List<byte>> map, int x, int y)
 		{
 			var centerX = x + 2;
@@ -822,59 +634,6 @@ namespace OpenRA.Mods.Common.Commands
 			}
 
 			return closestPoint;
-		}
-
-		public static JObject PathQueryCommand(JObject json, World world)
-		{
-			var actors = GetTargetsFromJson(json, world);
-			var actor = actors.Last();
-			var destination = json.TryGetFieldValue("destination");
-			if (destination == null)
-			{
-				throw new NotImplementedException("Missing parameters destination for Command");
-			}
-
-			var desPos = GetLocation(destination);
-
-			var mobile = actor.TraitOrDefault<Mobile>();
-			if (mobile == null)
-				return null;
-			var pathFinder = actor.World.WorldActor.Trait<PathFinder>();
-			var locomotor = mobile.Locomotor;
-			Func<CPos, int> customCost = null;
-			var method = json.TryGetFieldValue("method")?.ToString();
-			if (method != null)
-			{
-				customCost = CopilotsUtils.GetCustomMethod(actor.Location, desPos, method);
-			}
-
-			var path = pathFinder.FindPathToTargetCell(actor, new[] { actor.Location }, desPos, BlockedByActor.Immovable, customCost);
-
-			if (path.Count <= 0)
-			{
-				var dests = new List<CPos>();
-				for (var i = -1; i <= 1; i++)
-					for (var j = -1; j <= 1; j++)
-						dests.Add(new CPos(i + desPos.X, j + desPos.Y));
-				path = pathFinder.FindPathToTargetCells(actor, actor.Location, dests, BlockedByActor.Immovable, customCost);
-			}
-
-			var pathArray = new JArray();
-			foreach (var cpos in path)
-			{
-				pathArray.Add(new JObject
-				{
-					["x"] = cpos.X,
-					["y"] = cpos.Y
-				});
-			}
-
-			var result = new JObject
-			{
-				["path"] = pathArray
-			};
-
-			return result;
 		}
 
 		public static string AttackCommand(JObject json, World world)
@@ -1033,6 +792,358 @@ namespace OpenRA.Mods.Common.Commands
 			return "Stop Executed";
 		}
 
+		public static string SetRallyPointCommand(JObject json, World world)
+		{
+			var player = world.LocalPlayer;
+			var actors = GetTargetsFromJson(json, world);
+			var retstr = "";
+			var locationToken = json.TryGetFieldValue("location");
+			if (locationToken == null)
+				throw new ArgumentException("缺少location参数");
+
+			var location = GetTargetLocation(locationToken, world, player);
+			if (location == null)
+				throw new ArgumentException("无效的集结点位置");
+			foreach (var building in actors)
+			{
+				// 检查该建筑是否有RallyPoint特性
+				if (!building.Info.HasTraitInfo<RallyPointInfo>())
+				{
+					retstr += "建筑(ID:" + building.ActorID + ") 不支持设置集结点\n";
+					continue;
+				}
+
+				var rallyPoint = building.TraitOrDefault<RallyPoint>();
+				if (rallyPoint == null)
+				{
+					retstr += "建筑(ID:" + building.ActorID + ") 没有集结点\n";
+					continue;
+				}
+
+				world.IssueOrder(new Order("SetRallyPoint", building, Target.FromCell(world, location.Value), false)
+				{
+					SuppressVisualFeedback = true
+				});
+
+				retstr += "建筑(ID:" + building.ActorID + ") 集结点已设置\n";
+			}
+
+			return retstr;
+		}
+
+		public static string ManageProductionCommand(JObject json, World world)
+		{
+			var player = world.LocalPlayer;
+
+			// 获取队列类型
+			var queueType = json.TryGetFieldValue("queueType")?.ToString();
+			if (string.IsNullOrEmpty(queueType))
+				throw new ArgumentException("必须指定queueType参数，可选值：'Building', 'Defense', 'Infantry', 'Vehicle', 'Aircraft', 'Naval'");
+
+			// 查找所有有指定类型生产队列的建筑
+			var allWithProduction = world.ActorsWithTrait<ProductionQueue>();
+			var validBuildings = allWithProduction
+				.Where(q => q.Actor.Owner == player && q.Trait.Info.Type == queueType)
+				.Select(q => new { Actor = q.Actor, Queue = q.Trait })
+				.ToList();
+
+			if (validBuildings.Count == 0)
+				throw new ArgumentException($"玩家没有类型为 {queueType} 的生产队列建筑");
+
+			// 查找有生产项目的队列
+			var activeBuilding = validBuildings.FirstOrDefault(b => b.Queue.AllQueued().Any());
+			if (activeBuilding == null)
+				return "没有正在进行的生产任务";
+
+			var targetQueue = activeBuilding.Queue;
+			var building = activeBuilding.Actor;
+
+			// 确保队列有项目
+			var queuedItems = targetQueue.AllQueued().ToList();
+			if (queuedItems.Count == 0)
+				return "生产队列为空";
+
+			// 获取队列中第一个项目
+			var firstItem = queuedItems.First();
+			if (firstItem == null)
+				return "生产队列为空";
+
+			// 获取操作类型
+			var action = json.TryGetFieldValue("action")?.ToString();
+			if (string.IsNullOrEmpty(action))
+				throw new ArgumentException("缺少action参数，必须指定 'pause', 'cancel', 或 'resume'");
+
+			switch (action.ToLowerInvariant())
+			{
+				case "pause":
+					// 暂停生产
+					if (firstItem.Paused)
+						return "生产已经处于暂停状态";
+
+					world.IssueOrder(Order.PauseProduction(building, firstItem.Item, true));
+					return $"已暂停生产: {CopilotsConfig.GetChineseByConfigName(firstItem.Item)}";
+
+				case "resume":
+					// 恢复生产
+					if (!firstItem.Paused)
+						return "生产已经处于进行状态";
+
+					world.IssueOrder(Order.PauseProduction(building, firstItem.Item, false));
+					return $"已恢复生产: {CopilotsConfig.GetChineseByConfigName(firstItem.Item)}";
+
+				case "cancel":
+					// 取消生产
+					world.IssueOrder(Order.CancelProduction(building, firstItem.Item, 1));
+					return $"已取消生产: {CopilotsConfig.GetChineseByConfigName(firstItem.Item)}";
+
+				default:
+					throw new ArgumentException("无效的action参数，必须是 'pause', 'cancel', 或 'resume'");
+			}
+		}
+
+
+		public static string PlaceBuildingCommand(JObject json, World world)
+		{
+			var player = world.LocalPlayer;
+
+			// 获取队列类型
+			var queueType = json.TryGetFieldValue("queueType")?.ToString();
+			if (string.IsNullOrEmpty(queueType))
+				throw new ArgumentException("必须指定queueType参数，可选值：'Building', 'Defense', 'Infantry', 'Vehicle', 'Aircraft', 'Naval'");
+
+			// 查找所有有指定类型生产队列的建筑
+			var allWithProduction = world.ActorsWithTrait<ProductionQueue>();
+			var validBuildings = allWithProduction
+				.Where(q => q.Actor.Owner == player && q.Trait.Info.Type == queueType)
+				.Select(q => new { Actor = q.Actor, Queue = q.Trait })
+				.ToList();
+
+			if (validBuildings.Count == 0)
+				throw new ArgumentException($"玩家没有类型为 {queueType} 的生产队列建筑");
+
+			// 查找有就绪项目的队列
+			ProductionQueue queue = validBuildings.FirstOrDefault().Queue;
+			var readyBuilding = queue.AllQueued().Any(item => item.Done);
+			if (readyBuilding == null)
+				return "没有就绪的建筑可以放置";
+
+			var readyItem = queue.AllQueued().First(item => item.Done);
+
+			// 获取放置位置
+			var locationToken = json.TryGetFieldValue("location");
+			CPos? location = null;
+			
+			if (locationToken != null)
+			{
+				location = GetTargetLocation(locationToken, world, player);
+			}
+
+			if (location == null)
+			{
+				CopilotsUtils.TryBuild(world, readyItem.Item, player.PlayerActor, queue);
+				
+			}
+
+			// 检查位置是否可建造
+			var actorInfo2 = world.Map.Rules.Actors[readyItem.Item];
+			var buildingInfo2 = actorInfo2.TraitInfoOrDefault<BuildingInfo>();
+			if (!world.CanPlaceBuilding(location.Value, actorInfo2, buildingInfo2, null))
+				return "无法在指定位置放置建筑";
+
+			// 放置建筑
+			world.IssueOrder(new Order("PlaceBuilding", player.PlayerActor, Target.FromCell(world, location.Value), false)
+			{
+				TargetString = readyItem.Item,
+				ExtraLocation = location.Value,
+			});
+
+			return $"已在位置({location.Value.X}, {location.Value.Y})放置建筑: {CopilotsConfig.GetChineseByConfigName(readyItem.Item)}";
+		}
+
+
+		public static JObject PathQueryCommand(JObject json, World world)
+		{
+			var actors = GetTargetsFromJson(json, world);
+			var actor = actors.Last();
+			var destination = json.TryGetFieldValue("destination");
+			if (destination == null)
+			{
+				throw new NotImplementedException("Missing parameters destination for Command");
+			}
+
+			var desPos = GetLocation(destination);
+
+			var mobile = actor.TraitOrDefault<Mobile>();
+			if (mobile == null)
+				return null;
+			var pathFinder = actor.World.WorldActor.Trait<PathFinder>();
+			var locomotor = mobile.Locomotor;
+			Func<CPos, int> customCost = null;
+			var method = json.TryGetFieldValue("method")?.ToString();
+			if (method != null)
+			{
+				customCost = CopilotsUtils.GetCustomMethod(actor.Location, desPos, method);
+			}
+
+			var path = pathFinder.FindPathToTargetCell(actor, new[] { actor.Location }, desPos, BlockedByActor.Immovable, customCost);
+
+			if (path.Count <= 0)
+			{
+				var dests = new List<CPos>();
+				for (var i = -1; i <= 1; i++)
+					for (var j = -1; j <= 1; j++)
+						dests.Add(new CPos(i + desPos.X, j + desPos.Y));
+				path = pathFinder.FindPathToTargetCells(actor, actor.Location, dests, BlockedByActor.Immovable, customCost);
+			}
+
+			var pathArray = new JArray();
+			foreach (var cpos in path)
+			{
+				pathArray.Add(new JObject
+				{
+					["x"] = cpos.X,
+					["y"] = cpos.Y
+				});
+			}
+
+			var result = new JObject
+			{
+				["path"] = pathArray
+			};
+
+			return result;
+		}
+
+		public static JObject ActorQueryCommand(JObject json, World world)
+		{
+			var player = world.LocalPlayer;
+			var targets = json.TryGetFieldValue("targets");
+			List<Actor> targetActors;
+			if (targets == null)
+			{
+				return null;
+
+				// targetActors = world.Actors.Where(a => a.OccupiesSpace != null).ToList();
+			}
+			else
+			{
+				targetActors = GetTargets(targets, world, player);
+			}
+
+			var sum = new CPos(0, 0);
+
+			var actorsInfo = targetActors
+				.ConvertAll(actor =>
+				{
+					var hashealth = actor.Info.HasTraitInfo<HealthInfo>();
+					var health = actor.TraitOrDefault<Health>();
+					return new JObject
+					{
+						["id"] = actor.ActorID,
+						["type"] = CopilotsConfig.GetChineseByConfigName(actor.Info.Name),
+						["faction"] = actor.Owner == player ? "己方" : (actor.Owner != null && actor.Owner.IsBot ? "敌方" : "中立"),
+						["hp"] = hashealth ? health.HP : -1,
+						["maxHp"] = hashealth ? health.MaxHP : -1,
+						["isDead"] = hashealth && health.IsDead,
+						["position"] = new JObject
+						{
+							["x"] = actor.Location.X,
+							["y"] = actor.Location.Y
+						}
+					};
+				});
+
+			var result = new JObject
+			{
+				// ["status"] = "success",
+				["actors"] = new JArray(actorsInfo)
+			};
+
+			return result;
+		}
+
+		public static JObject WaitQueryCommand(JObject json, World world)
+		{
+			var waitId = json.TryGetFieldValue("waitId")?.ToObject<int>();
+			if (waitId == null)
+			{
+				return null;
+			}
+
+			var result = new JObject
+			{
+				["waitStatus"] = CopilotsUtils.QueryWaitStatus(waitId.Value)
+			};
+
+			return result;
+		}
+
+
+		public static JObject QueryCanProduceCommand(JObject json, World world)
+		{
+			var orders = json.TryGetFieldValue("units")?.ToObject<List<JToken>>();
+			var player = world.LocalPlayer;
+			var ret_str = "";
+			var canProduce = false;
+
+			if (orders == null || orders.Count == 0)
+			{
+				throw new ArgumentException("No units specified for CanProduce command");
+			}
+
+			var produceMap = new Dictionary<string, int>();
+			foreach (var order in orders)
+			{
+				var unitName = order.TryGetFieldValue("unit_type")?.ToObject<string>();
+				var unitNames = CopilotsConfig.GetConfigNameByChinese(unitName);
+				if (unitNames == null)
+				{
+					throw new NotImplementedException("Missing parameters for QueryCanProduceCommand");
+				}
+
+				var validUnits = unitNames
+				.Select(unitName =>
+				{
+					if (!world.Map.Rules.Actors.TryGetValue(unitName, out var unit))
+					{
+						ret_str += $"Error!! There is no unit named {unitName}!! \n";
+						return null;
+					}
+
+					var bi = unit.TraitInfo<BuildableInfo>();
+					var queue = bi.Queue
+					.SelectMany(oneQueue => AIUtils.FindQueues(player, oneQueue))
+					.Where(q => q.CanBuild(unit))
+					.ToList();
+
+					if (queue.Count > 0)
+					{
+						return unitName;
+					}
+
+					return null;
+				})
+				.Where(result => result != null)
+				.ToList();
+
+				if (validUnits.Count == 1)
+				{
+					canProduce = true;
+				}
+				else
+				{
+					ret_str += $"No suitable queue found for unit {unitName}.\n";
+				}
+			}
+
+			var result = new JObject
+			{
+				["response"] = ret_str,
+				["canProduce"] = canProduce,
+			};
+			return result;
+		}
+
 		public static JObject FogQueryCommand(JObject json, World world)
 		{
 			var jpos = json.TryGetFieldValue("pos");
@@ -1147,8 +1258,6 @@ namespace OpenRA.Mods.Common.Commands
 			// 简单返回服务器状态和API版本
 			var result = new JObject
 			{
-				["status"] = "ok",
-				["version"] = "1.0",
 				["timestamp"] = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
 			};
 
@@ -1211,45 +1320,6 @@ namespace OpenRA.Mods.Common.Commands
 			return result;
 		}
 
-		public static string SetRallyPointCommand(JObject json, World world)
-		{
-			var player = world.LocalPlayer;
-			var actors = GetTargetsFromJson(json, world);
-			var retstr = "";
-			var locationToken = json.TryGetFieldValue("location");
-			if (locationToken == null)
-				throw new ArgumentException("缺少location参数");
-
-			var location = GetTargetLocation(locationToken, world, player);
-			if (location == null)
-				throw new ArgumentException("无效的集结点位置");
-			foreach (var building in actors)
-			{
-				// 检查该建筑是否有RallyPoint特性
-				if (!building.Info.HasTraitInfo<RallyPointInfo>())
-				{
-					retstr += "建筑(ID:" + building.ActorID + ") 不支持设置集结点\n";
-					continue;
-				}
-
-				var rallyPoint = building.TraitOrDefault<RallyPoint>();
-				if (rallyPoint == null)
-				{
-					retstr += "建筑(ID:" + building.ActorID + ") 没有集结点\n";
-					continue;
-				}
-
-				world.IssueOrder(new Order("SetRallyPoint", building, Target.FromCell(world, location.Value), false)
-				{
-					SuppressVisualFeedback = true
-				});
-
-				retstr += "建筑(ID:" + building.ActorID + ") 集结点已设置\n";
-			}
-
-			return retstr;
-		}
-
 		public static JObject QueryProductionQueueCommand(JObject json, World world)
 		{
 			var player = world.LocalPlayer;
@@ -1305,133 +1375,6 @@ namespace OpenRA.Mods.Common.Commands
 			return result;
 		}
 
-		public static string PlaceBuildingCommand(JObject json, World world)
-		{
-			var player = world.LocalPlayer;
-
-			// 获取队列类型
-			var queueType = json.TryGetFieldValue("queueType")?.ToString();
-			if (string.IsNullOrEmpty(queueType))
-				throw new ArgumentException("必须指定queueType参数，可选值：'Building', 'Defense', 'Infantry', 'Vehicle', 'Aircraft', 'Naval'");
-
-			// 查找所有有指定类型生产队列的建筑
-			var allWithProduction = world.ActorsWithTrait<ProductionQueue>();
-			var validBuildings = allWithProduction
-				.Where(q => q.Actor.Owner == player && q.Trait.Info.Type == queueType)
-				.Select(q => new { Actor = q.Actor, Queue = q.Trait })
-				.ToList();
-
-			if (validBuildings.Count == 0)
-				throw new ArgumentException($"玩家没有类型为 {queueType} 的生产队列建筑");
-
-			// 查找有就绪项目的队列
-			ProductionQueue queue = validBuildings.FirstOrDefault().Queue;
-			var readyBuilding = queue.AllQueued().Any(item => item.Done);
-			if (readyBuilding == null)
-				return "没有就绪的建筑可以放置";
-
-			var readyItem = queue.AllQueued().First(item => item.Done);
-
-			// 获取放置位置
-			var locationToken = json.TryGetFieldValue("location");
-			CPos? location = null;
-			
-			if (locationToken != null)
-			{
-				location = GetTargetLocation(locationToken, world, player);
-			}
-
-			if (location == null)
-			{
-				CopilotsUtils.TryBuild(world, readyItem.Item, player.PlayerActor, queue);
-				
-			}
-
-			// 检查位置是否可建造
-			var actorInfo2 = world.Map.Rules.Actors[readyItem.Item];
-			var buildingInfo2 = actorInfo2.TraitInfoOrDefault<BuildingInfo>();
-			if (!world.CanPlaceBuilding(location.Value, actorInfo2, buildingInfo2, null))
-				return "无法在指定位置放置建筑";
-
-			// 放置建筑
-			world.IssueOrder(new Order("PlaceBuilding", player.PlayerActor, Target.FromCell(world, location.Value), false)
-			{
-				TargetString = readyItem.Item,
-				ExtraLocation = location.Value,
-			});
-
-			return $"已在位置({location.Value.X}, {location.Value.Y})放置建筑: {CopilotsConfig.GetChineseByConfigName(readyItem.Item)}";
-		}
-
-		public static string ManageProductionCommand(JObject json, World world)
-		{
-			var player = world.LocalPlayer;
-
-			// 获取队列类型
-			var queueType = json.TryGetFieldValue("queueType")?.ToString();
-			if (string.IsNullOrEmpty(queueType))
-				throw new ArgumentException("必须指定queueType参数，可选值：'Building', 'Defense', 'Infantry', 'Vehicle', 'Aircraft', 'Naval'");
-
-			// 查找所有有指定类型生产队列的建筑
-			var allWithProduction = world.ActorsWithTrait<ProductionQueue>();
-			var validBuildings = allWithProduction
-				.Where(q => q.Actor.Owner == player && q.Trait.Info.Type == queueType)
-				.Select(q => new { Actor = q.Actor, Queue = q.Trait })
-				.ToList();
-
-			if (validBuildings.Count == 0)
-				throw new ArgumentException($"玩家没有类型为 {queueType} 的生产队列建筑");
-
-			// 查找有生产项目的队列
-			var activeBuilding = validBuildings.FirstOrDefault(b => b.Queue.AllQueued().Any());
-			if (activeBuilding == null)
-				return "没有正在进行的生产任务";
-
-			var targetQueue = activeBuilding.Queue;
-			var building = activeBuilding.Actor;
-
-			// 确保队列有项目
-			var queuedItems = targetQueue.AllQueued().ToList();
-			if (queuedItems.Count == 0)
-				return "生产队列为空";
-
-			// 获取队列中第一个项目
-			var firstItem = queuedItems.First();
-			if (firstItem == null)
-				return "生产队列为空";
-
-			// 获取操作类型
-			var action = json.TryGetFieldValue("action")?.ToString();
-			if (string.IsNullOrEmpty(action))
-				throw new ArgumentException("缺少action参数，必须指定 'pause', 'cancel', 或 'resume'");
-
-			switch (action.ToLowerInvariant())
-			{
-				case "pause":
-					// 暂停生产
-					if (firstItem.Paused)
-						return "生产已经处于暂停状态";
-
-					world.IssueOrder(Order.PauseProduction(building, firstItem.Item, true));
-					return $"已暂停生产: {CopilotsConfig.GetChineseByConfigName(firstItem.Item)}";
-
-				case "resume":
-					// 恢复生产
-					if (!firstItem.Paused)
-						return "生产已经处于进行状态";
-
-					world.IssueOrder(Order.PauseProduction(building, firstItem.Item, false));
-					return $"已恢复生产: {CopilotsConfig.GetChineseByConfigName(firstItem.Item)}";
-
-				case "cancel":
-					// 取消生产
-					world.IssueOrder(Order.CancelProduction(building, firstItem.Item, 1));
-					return $"已取消生产: {CopilotsConfig.GetChineseByConfigName(firstItem.Item)}";
-
-				default:
-					throw new ArgumentException("无效的action参数，必须是 'pause', 'cancel', 或 'resume'");
-			}
-		}
 
 
 		public void WorldLoaded(World w, WorldRenderer wr)
@@ -1439,7 +1382,6 @@ namespace OpenRA.Mods.Common.Commands
 			if (w.Type == WorldType.Regular && w.CopilotServer != null)
 			{
 				w.CopilotServer.CommandHandlers["move_actor"] = MoveActorCommand;
-				w.CopilotServer.CommandHandlers["move_actor_on_tile_path"] = MoveActorOnTilePathCommand;
 				w.CopilotServer.CommandHandlers["camera_move"] = CameraMoveCommand;
 				w.CopilotServer.CommandHandlers["select_unit"] = SelectUnitCommand;
 				w.CopilotServer.CommandHandlers["form_group"] = FormGroupCommand;
@@ -1454,6 +1396,7 @@ namespace OpenRA.Mods.Common.Commands
 				w.CopilotServer.CommandHandlers["place_building"] = PlaceBuildingCommand;
 				w.CopilotServer.CommandHandlers["manage_production"] = ManageProductionCommand;
 				w.CopilotServer.QueryHandlers["start_production"] = StartProductionCommand;
+
 				w.CopilotServer.QueryHandlers["query_actor"] = ActorQueryCommand;
 				w.CopilotServer.QueryHandlers["query_wait_info"] = WaitQueryCommand;
 				w.CopilotServer.QueryHandlers["query_path"] = PathQueryCommand;
