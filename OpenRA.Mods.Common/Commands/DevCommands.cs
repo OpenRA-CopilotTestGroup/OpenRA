@@ -78,6 +78,9 @@ namespace OpenRA.Mods.Common.Commands
 		[TranslationReference]
 		const string MoveActorsDescription = "move-actors";
 
+		[TranslationReference]
+		const string ToggleAgentModeDescription = "description-toggle-agent-mode";
+
 		readonly IDictionary<string, (string Description, Action<string, World> Handler)> commandHandlers = new Dictionary<string, (string, Action<string, World>)>
 		{
 			{ "visibility", (ToggleVisiblityDescription, Visibility) },
@@ -95,6 +98,7 @@ namespace OpenRA.Mods.Common.Commands
 			{ "power-outage", (PowerOutageDescription, PowerOutage) },
 			{ "kill", (KillSelectedActorsDescription, Kill) },
 			{ "dispose", (DisposeSelectedActorsDescription, Dispose) },
+			{ "agent-mode", (ToggleAgentModeDescription, ToggleAgentMode) },
 		};
 
 		World world;
@@ -255,6 +259,13 @@ namespace OpenRA.Mods.Common.Commands
 		static void IssueDevCommand(World world, string command)
 		{
 			world.IssueOrder(new Order(command, world.LocalPlayer.PlayerActor, false));
+		}
+
+		static void ToggleAgentMode(string arg, World world)
+		{
+			Game.Settings.Game.IsAgentMode = !Game.Settings.Game.IsAgentMode;
+			var status = Game.Settings.Game.IsAgentMode ? "enabled" : "disabled";
+			TextNotificationsManager.Debug($"Agent mode {status}");
 		}
 
 		[Serializable]

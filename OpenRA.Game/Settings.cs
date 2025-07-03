@@ -298,6 +298,9 @@ namespace OpenRA
 		public bool EnableDiscordService = true;
 
 		public TextNotificationPoolFilters TextNotificationPoolFilters = TextNotificationPoolFilters.Feedback | TextNotificationPoolFilters.Transients;
+
+		[Desc("Copilot Agent-only mode. Disables all player control when enabled.")]
+		public bool IsAgentMode = false;
 	}
 
 	public class Settings
