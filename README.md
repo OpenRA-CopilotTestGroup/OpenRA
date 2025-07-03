@@ -14,9 +14,10 @@ OpenRA-Copilot 使用 asr -> llm -> python_api -> OpenRA 的方式，使用大�
 
 # 安装教程
 
-## 安装dotnet 6.0
-# 6.0
-# 6.0!!!
+## 安装x64 版本 dotnet x64 6.0
+# x64 6.0
+# x64 6.0!!!
+# m系列芯片的mac也需要安装x64版本
 https://dotnet.microsoft.com/en-us/download/dotnet/6.0
 
 ## 启动 OpenRA
@@ -58,7 +59,10 @@ export PATH="/usr/local/share/dotnet/x64:$PATH"
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
 
-可以安装vsc和C#相关内容后，通过vsc启动  
+M 系列芯片MacOS需要安装rosetta
+```bash
+Downloads /usr/sbin/softwareupdate --install-rosetta --agree-to-license
+```
 
 也可以按如下命令行启动：    
 ```bash
@@ -70,6 +74,8 @@ dotnet build
 export PATH="/usr/local/share/dotnet/x64:$PATH"
 ./launch-game.sh Game.Mod=copilot
 ```
+
+之后可以安装vsc和C#相关内容后，通过vsc启动  
 
 ---
 ---  
