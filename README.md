@@ -61,7 +61,7 @@ export PATH="/usr/local/share/dotnet/x64:$PATH"
 
 M 系列芯片MacOS需要安装rosetta
 ```bash
-Downloads /usr/sbin/softwareupdate --install-rosetta --agree-to-license
+/usr/sbin/softwareupdate --install-rosetta --agree-to-license
 ```
 
 也可以按如下命令行启动：    
