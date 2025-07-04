@@ -15,7 +15,7 @@ namespace OpenRA
 		readonly int port;
 		readonly World world;
 		bool isRunning;
-		const string CurrentApiVersion = "1.0";
+		public const string CurrentApiVersion = "1.0";
 
 		public delegate string CommandHandler(JObject json, World world);
 		public delegate JObject QueryHandler(JObject json, World world);

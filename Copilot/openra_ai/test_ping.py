@@ -14,14 +14,14 @@ def test_ping():
     
     # 检查服务器是否运行
     print("检查服务器状态...")
-    is_running = GameAPI.is_server_running()
+    is_running = GameAPI.is_server_running(host="localhost", port=7446)
     
     if is_running:
         print("✅ 服务器运行中！可以连接喵~")
         
         # 连接服务器并获取更详细信息
         try:
-            api = GameAPI("localhost", 7445)
+            api = GameAPI("localhost", 7446)
             response = api._send_request('ping', {})
             print(f"服务器详细信息: {response['data']}")
             print(f"API版本: {response['data']['version']}")

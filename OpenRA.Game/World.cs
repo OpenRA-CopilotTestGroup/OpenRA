@@ -250,7 +250,7 @@ namespace OpenRA
 
 			if (Type == WorldType.Regular)
 			{
-				CopilotServer = new CopilotCommandServer(7445, this);
+				CopilotServer = new CopilotCommandServer(gameSettings.CopilotPort, this);
 				CopilotServer.Start();
 			}
 		}

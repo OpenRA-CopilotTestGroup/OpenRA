@@ -5,6 +5,8 @@ import uuid
 from typing import List, Optional, Tuple, Dict, Any
 from .models import *
 
+# API版本常量
+API_VERSION = "1.0"
 
 class GameAPIError(Exception):
     """游戏API异常基类"""
@@ -20,7 +22,6 @@ class GameAPI:
     提供了一系列方法来与游戏服务器进行交互，包括Actor移动、生产、查询等功能。
     所有的通信都是通过socket连接完成的。'''
 
-    API_VERSION = "1.0"
     MAX_RETRIES = 3
     RETRY_DELAY = 0.5
 
@@ -38,7 +39,7 @@ class GameAPI:
         '''
         try:
             request_data = {
-                "apiVersion": GameAPI.API_VERSION,
+                "apiVersion": API_VERSION,
                 "requestId": str(uuid.uuid4()),
                 "command": "ping",
                 "params": {},
@@ -71,8 +72,7 @@ class GameAPI:
                 try:
                     response = json.loads(data)
                     if response.get("status", 0) > 0 and "data" in response:
-                        ping_data = response.get("data", {})
-                        return ping_data.get("status") == "ok"
+                        return True
                     return False
                 except json.JSONDecodeError:
                     return False
@@ -114,7 +114,7 @@ class GameAPI:
         '''
         request_id = self._generate_request_id()
         request_data = {
-            "apiVersion": self.API_VERSION,
+            "apiVersion": API_VERSION,
             "requestId": request_id,
             "command": command,
             "params": params,

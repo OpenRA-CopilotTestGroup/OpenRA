@@ -301,6 +301,9 @@ namespace OpenRA
 
 		[Desc("Copilot Agent-only mode. Disables all player control when enabled.")]
 		public bool IsAgentMode = false;
+
+		[Desc("Port number for the Copilot command server.")]
+		public int CopilotPort = 7445;
 	}
 
 	public class Settings
