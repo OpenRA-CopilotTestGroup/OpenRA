@@ -86,6 +86,15 @@ namespace OpenRA
 		static bool takeScreenshot = false;
 		static Benchmark benchmark = null;
 
+		// Flag to indicate if the game was loaded from a save file via startup arguments
+		public static bool LoadedFromStartupSave { get; private set; } = false;
+
+		// Internal method to reset the startup save flag
+		public static void ResetStartupSaveFlag()
+		{
+			LoadedFromStartupSave = false;
+		}
+
 		public static event Action OnShellmapLoaded = () => { };
 
 		public static OrderManager JoinServer(ConnectionTarget endpoint, string password, bool recordReplay = true)
@@ -545,12 +554,14 @@ namespace OpenRA
 				if (TryLoadGameSave(loadSaveArg))
 				{
 					Console.WriteLine($"Successfully loaded save file: {loadSaveArg}");
+					LoadedFromStartupSave = true;
 					return;
 				}
 				else
 				{
 					Console.WriteLine($"Failed to load save file: {loadSaveArg}");
 					Console.WriteLine("Falling back to normal game start.");
+					LoadedFromStartupSave = false;
 				}
 			}
 
