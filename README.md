@@ -139,6 +139,13 @@ python3 -m uni_mic.cli --debug-mode --single-sample --openai-response-mode
 
 ## 参数说明
 
+### OpenRA 额外参数
+- `Game.LoadSave=xxx`: 启动的时候自动读取接在后面名字的存档，并自动开始游戏
+- `Game.CopilotPort=xxx`: Copilot命令服务器端口号，默认：7445
+- `Game.CopilotDebug=xxx`: 启用Copilot命令服务器调试模式，记录所有接收和发送的JSON数据，默认：False
+
+
+
 ### ASR（语音识别）相关参数
 - `--model`: 语音识别模型，默认值："base"
 - `--device`: 运行设备，默认值："cpu"

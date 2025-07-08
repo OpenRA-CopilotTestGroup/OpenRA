@@ -547,19 +547,18 @@ namespace OpenRA
 
 			JoinLocal();
 
-			// Check for Game.LoadSave argument to automatically load a save file
-			var loadSaveArg = args.GetValue("Game.LoadSave", null);
-			if (!string.IsNullOrEmpty(loadSaveArg))
+			// Check for Game.LoadSave setting to automatically load a save file
+			if (!string.IsNullOrEmpty(Settings.Game.LoadSave))
 			{
-				if (TryLoadGameSave(loadSaveArg))
+				if (TryLoadGameSave(Settings.Game.LoadSave))
 				{
-					Console.WriteLine($"Successfully loaded save file: {loadSaveArg}");
+					Console.WriteLine($"Successfully loaded save file: {Settings.Game.LoadSave}");
 					LoadedFromStartupSave = true;
 					return;
 				}
 				else
 				{
-					Console.WriteLine($"Failed to load save file: {loadSaveArg}");
+					Console.WriteLine($"Failed to load save file: {Settings.Game.LoadSave}");
 					Console.WriteLine("Falling back to normal game start.");
 					LoadedFromStartupSave = false;
 				}

@@ -17,6 +17,9 @@ namespace OpenRA
 		bool isRunning;
 		public const string CurrentApiVersion = "1.0";
 
+		// 添加调试模式开关
+		public bool DebugMode { get; set; } = false;
+
 		public delegate string CommandHandler(JObject json, World world);
 		public delegate JObject QueryHandler(JObject json, World world);
 
@@ -151,7 +154,14 @@ namespace OpenRA
 					var buffer = new byte[16384];
 					var received = await clientSocket.ReceiveAsync(buffer, SocketFlags.None);
 					var jsonString = Encoding.UTF8.GetString(buffer, 0, received);
-					Console.WriteLine("Received:" + jsonString);
+					
+					// 只在调试模式下打印接收到的数据
+					if (DebugMode)
+					{
+						Console.WriteLine("=== 接收到的数据 ===");
+						Console.WriteLine(CustomJsonFormat(jsonString));
+						Console.WriteLine("==================");
+					}
 
 					MCPRequest request;
 					try
@@ -164,7 +174,7 @@ namespace OpenRA
 						{
 							Code = MCPErrorCodes.InvalidRequest,
 							Message = GetErrorMessage("INVALID_REQUEST", "zh")
-						});
+						}, null, DebugMode);
 						return;
 					}
 
@@ -180,7 +190,7 @@ namespace OpenRA
 					if (!isValid)
 					{
 						validationError.Message = GetErrorMessage(validationError.Code, language);
-						SendErrorResponse(clientSocket, validationError);
+						SendErrorResponse(clientSocket, validationError, null, DebugMode);
 						return;
 					}
 
@@ -191,7 +201,7 @@ namespace OpenRA
 						{
 							Code = MCPErrorCodes.InvalidVersion,
 							Message = GetErrorMessage("INVALID_VERSION", language, CurrentApiVersion)
-						});
+						}, null, DebugMode);
 						return;
 					}
 
@@ -200,7 +210,7 @@ namespace OpenRA
 					if (!isParamsValid)
 					{
 						paramsError.Message = GetErrorMessage(paramsError.Code, language);
-						SendErrorResponse(clientSocket, paramsError);
+						SendErrorResponse(clientSocket, paramsError, null, DebugMode);
 						return;
 					}
 
@@ -210,7 +220,7 @@ namespace OpenRA
 						try
 						{
 							var result = commandHandler?.Invoke(request.Params, world);
-							SendSuccessResponse(clientSocket, result, request.RequestId);
+							SendSuccessResponse(clientSocket, result, request.RequestId, null, DebugMode);
 						}
 						catch (Exception ex)
 						{
@@ -219,7 +229,7 @@ namespace OpenRA
 								Code = MCPErrorCodes.CommandExecutionError,
 								Message = GetErrorMessage("COMMAND_EXECUTION_ERROR", language),
 								Details = new JObject { ["error"] = ex.Message }
-							}, request.RequestId);
+							}, request.RequestId, DebugMode);
 						}
 					}
 					else if (QueryHandlers.TryGetValue(request.Command, out var queryHandler))
@@ -227,7 +237,7 @@ namespace OpenRA
 						try
 						{
 							var resultJson = queryHandler?.Invoke(request.Params, world);
-							SendSuccessResponse(clientSocket, null, request.RequestId, resultJson);
+							SendSuccessResponse(clientSocket, null, request.RequestId, resultJson, DebugMode);
 						}
 						catch (Exception ex)
 						{
@@ -236,7 +246,7 @@ namespace OpenRA
 								Code = MCPErrorCodes.CommandExecutionError,
 								Message = GetErrorMessage("QUERY_EXECUTION_ERROR", language),
 								Details = new JObject { ["error"] = ex.Message }
-							}, request.RequestId);
+							}, request.RequestId, DebugMode);
 						}
 					}
 					else
@@ -245,7 +255,7 @@ namespace OpenRA
 						{
 							Code = MCPErrorCodes.InvalidCommand,
 							Message = GetErrorMessage("INVALID_COMMAND", language)
-						}, request.RequestId);
+						}, request.RequestId, DebugMode);
 					}
 				}
 				catch (Exception ex)
@@ -255,12 +265,12 @@ namespace OpenRA
 						Code = MCPErrorCodes.InternalError,
 						Message = GetErrorMessage("INTERNAL_ERROR", "zh"),
 						Details = new JObject { ["error"] = ex.Message }
-					});
+					}, null, DebugMode);
 				}
 			}
 		}
 
-		static void SendSuccessResponse(Socket clientSocket, string message = null, string requestId = null, JObject data = null)
+		static void SendSuccessResponse(Socket clientSocket, string message = null, string requestId = null, JObject data = null, bool debugMode = false)
 		{
 			var response = new MCPResponse
 			{
@@ -270,11 +280,20 @@ namespace OpenRA
 				Data = data
 			};
 
-			var buffer = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(response));
+			var responseJson = JsonConvert.SerializeObject(response);
+			var buffer = Encoding.UTF8.GetBytes(responseJson);
 			_ = clientSocket.Send(buffer);
+			
+			// 只在调试模式下打印发送的数据
+			if (debugMode)
+			{
+				Console.WriteLine("=== 发送成功响应 ===");
+				Console.WriteLine(CustomJsonFormat(responseJson));
+				Console.WriteLine("==================");
+			}
 		}
 
-		static void SendErrorResponse(Socket clientSocket, MCPError error, string requestId = null)
+		static void SendErrorResponse(Socket clientSocket, MCPError error, string requestId = null, bool debugMode = false)
 		{
 			var response = new MCPResponse
 			{
@@ -283,8 +302,17 @@ namespace OpenRA
 				Error = error
 			};
 
-			var buffer = Encoding.UTF8.GetBytes(JsonConvert.SerializeObject(response));
+			var responseJson = JsonConvert.SerializeObject(response);
+			var buffer = Encoding.UTF8.GetBytes(responseJson);
 			_ = clientSocket.Send(buffer);
+			
+			// 只在调试模式下打印发送的数据
+			if (debugMode)
+			{
+				Console.WriteLine("=== 发送错误响应 ===");
+				Console.WriteLine(CustomJsonFormat(responseJson));
+				Console.WriteLine("==================");
+			}
 		}
 
 		public static string CustomJsonFormat(string json)

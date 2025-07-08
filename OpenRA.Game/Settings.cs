@@ -304,6 +304,13 @@ namespace OpenRA
 
 		[Desc("Port number for the Copilot command server.")]
 		public int CopilotPort = 7445;
+
+		[Desc("Automatically load a save file when starting the game.")]
+		public string LoadSave = null;
+
+		[Desc("Enable debug mode for Copilot command server to log all received and sent JSON data.")]
+		public bool CopilotDebug = false;
+
 	}
 
 	public class Settings
