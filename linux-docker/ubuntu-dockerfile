@@ -1,0 +1,31 @@
+# Dockerfile
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 配置中国网络环境下的代理（Clash / V2Ray 监听 7890）
+ENV http_proxy=http://host.docker.internal:7890
+ENV https_proxy=http://host.docker.internal:7890
+ENV all_proxy=socks5://host.docker.internal:7890
+
+# 安装基础工具和 curl
+RUN apt update && apt install -y \
+    x11-apps \
+    libgl1 \
+    libx11-6 \
+    libxrender1 \
+    libxi6 \
+    libsdl2-2.0-0 \
+    libsdl2-image-2.0-0 \
+    libsdl2-ttf-2.0-0 \
+    libpulse0
+
+# 添加 Microsoft GPG key 和源（专门为 Ubuntu 22.04 设置）
+RUN curl -sSL https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb -o packages-microsoft-prod.deb \
+ && dpkg -i packages-microsoft-prod.deb \
+ && rm packages-microsoft-prod.deb
+
+# 安装 .NET 6 SDK
+RUN apt update && apt install -y dotnet-sdk-6.0
+
+WORKDIR /app
