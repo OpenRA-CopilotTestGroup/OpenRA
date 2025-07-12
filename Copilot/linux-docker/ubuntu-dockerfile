@@ -1,0 +1,51 @@
+# Dockerfile
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# 配置代理
+ENV http_proxy=http://host.docker.internal:7890
+ENV https_proxy=http://host.docker.internal:7890
+ENV all_proxy=socks5://host.docker.internal:7890
+
+# 安装基础工具和依赖
+RUN apt update && apt install -y \
+    git \
+    curl \
+    x11-apps \
+    libgl1 \
+    libx11-6 \
+    libxrender1 \
+    libxi6 \
+    libsdl2-2.0-0 \
+    libsdl2-image-2.0-0 \
+    libsdl2-ttf-2.0-0 \
+    libpulse0\
+	mesa-utils \
+    libgl1-mesa-glx \
+    libgl1-mesa-dri \
+    libglx-mesa0
+	libgl1-mesa-dri \
+    libglx-mesa0 \
+    mesa-utils \
+    libxcb-glx0 \
+    libx11-xcb1
+
+# 添加 Microsoft GPG key 和源
+#RUN curl -sSL https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb -o packages-microsoft-prod.deb \
+ #&& dpkg -i packages-microsoft-prod.deb \
+ #&& rm packages-microsoft-prod.deb
+
+# 安装 .NET 6 SDK
+RUN curl -sSL https://dot.net/v1/dotnet-install.sh | bash /dev/stdin --channel 6.0\
+# 设置 PATH 和 DOTNET_ROOT
+&& export DOTNET_ROOT=$HOME/.dotnet
+&& export PATH=$DOTNET_ROOT:$PATH
+
+# 设置工作目录
+WORKDIR /app
+
+# 克隆 OpenRA 仓库
+RUN git clone https://github.com/OpenRA-CopilotTestGroup/OpenRA.git /app/OpenRA 
+RUN cd /app/OpenRA \
+&& dotnet build
