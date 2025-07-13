@@ -11,16 +11,23 @@
             background-color: #f0f0f0;
         }
         .container {
-            max-width: 1200px;
+            width: 100%;
+            max-width: none;
             margin: 0 auto;
             background: white;
             padding: 20px;
             border-radius: 8px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            box-sizing: border-box;
         }
         .video-container {
             text-align: center;
             margin: 20px 0;
+            overflow: visible;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 200px;
         }
         video {
             border: 1px solid #ccc;
@@ -88,16 +95,88 @@
             border-radius: 4px;
             margin: 10px 0;
         }
+        .game-status {
+            margin-left: 10px;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        .game-status.running {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .game-status.stopped {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .command-group {
+            flex-direction: column;
+            align-items: flex-start !important;
+            width: 100%;
+        }
+        .command-group textarea {
+            width: 100%;
+            min-height: 80px;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            resize: vertical;
+        }
+        .command-group button {
+            margin: 0;
+        }
+        .response-group {
+            flex-direction: column;
+            align-items: flex-start !important;
+            width: 100%;
+        }
+        .response-group textarea {
+            width: 100%;
+            min-height: 120px;
+            margin: 10px 0;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            resize: vertical;
+            background-color: #f8f9fa;
+        }
+        .response-group button {
+            margin: 0;
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>OpenRA Copilot Server</h1>
-        <p>这是一个 WebRTC 屏幕共享服务器，用于 OpenRA Copilot 功能。</p>
+        <p>这是一个 WebRTC 游戏转发系统，用于 OpenRA Copilot 功能。</p>
         
+        <!-- 游戏控制区域 -->
         <div class="controls">
             <div class="control-group">
-                <button id="startButton">开始连接</button>
+                <label>游戏控制:</label>
+                <button id="startGameButton">启动游戏</button>
+                <button id="stopGameButton" disabled>停止游戏</button>
+                <span id="gameStatus" class="game-status">游戏未运行</span>
+            </div>
+            
+            <div class="control-group">
+                <label>存档选择:</label>
+                <select id="loadSaveSelect">
+                    <option value="01" selected>01</option>
+                    <option value="02">02</option>
+                    <option value="03">03</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- WebRTC控制区域 -->
+        <div class="controls">
+            <div class="control-group">
+                <label>WebRTC连接:</label>
+                <button id="startButton" disabled>开始连接</button>
                 <button id="stopButton" disabled>停止连接</button>
             </div>
             
@@ -113,6 +192,24 @@
                 <button id="prevResolution">上一个</button>
                 <select id="resolutionList"></select>
                 <button id="nextResolution">下一个</button>
+            </div>
+        </div>
+        
+        <!-- 命令发送区域 -->
+        <div class="controls">
+            <div class="control-group command-group">
+                <label>游戏命令:</label>
+                <textarea id="commandInput" placeholder='输入JSON格式的命令，例如: {"action": "move", "unit": "tank"} 或 {"command": "move", "params": {"unit": "tank"}}'></textarea>
+                <button id="sendCommandButton" disabled>发送命令</button>
+            </div>
+        </div>
+        
+        <!-- 服务器响应区域 -->
+        <div class="controls">
+            <div class="control-group response-group">
+                <label>服务器响应:</label>
+                <textarea id="responseOutput" readonly placeholder="服务器响应将显示在这里..."></textarea>
+                <button id="clearResponseButton">清空响应</button>
             </div>
         </div>
         
@@ -141,6 +238,16 @@
         const prevResolution = document.getElementById('prevResolution');
         const nextResolution = document.getElementById('nextResolution');
         const resolutionList = document.getElementById('resolutionList');
+        
+        // 游戏控制元素
+        const startGameButton = document.getElementById('startGameButton');
+        const stopGameButton = document.getElementById('stopGameButton');
+        const gameStatus = document.getElementById('gameStatus');
+        const loadSaveSelect = document.getElementById('loadSaveSelect');
+        const commandInput = document.getElementById('commandInput');
+        const sendCommandButton = document.getElementById('sendCommandButton');
+        const responseOutput = document.getElementById('responseOutput');
+        const clearResponseButton = document.getElementById('clearResponseButton');
 
         function updateStatus(message, isError = false) {
             statusDiv.textContent = message;
@@ -152,28 +259,97 @@
             infoDiv.style.display = 'block';
         }
 
+        function appendResponse(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            const formattedMessage = `[${timestamp}] ${message}\n`;
+            responseOutput.value += formattedMessage;
+            responseOutput.scrollTop = responseOutput.scrollHeight;
+        }
+
+        // 游戏状态管理
+        let gameRunning = false;
+        let statusCheckInterval = null;
+
+        function updateGameStatus(running) {
+            gameRunning = running;
+            if (running) {
+                gameStatus.textContent = '游戏运行中';
+                gameStatus.className = 'game-status running';
+                startGameButton.disabled = true;
+                stopGameButton.disabled = false;
+                startButton.disabled = false;
+                sendCommandButton.disabled = false;
+            } else {
+                gameStatus.textContent = '游戏未运行';
+                gameStatus.className = 'game-status stopped';
+                startGameButton.disabled = false;
+                stopGameButton.disabled = true;
+                startButton.disabled = true;
+                sendCommandButton.disabled = true;
+                
+                // 如果游戏停止，也停止WebRTC连接
+                if (pc && pc.connectionState !== 'closed') {
+                    stopConnection();
+                }
+            }
+        }
+
+        async function checkGameStatus() {
+            try {
+                const response = await fetch('/game_status');
+                const data = await response.json();
+                const wasRunning = gameRunning;
+                updateGameStatus(data.running);
+                
+                // 如果状态发生变化，在响应框中显示
+                if (wasRunning !== data.running) {
+                    appendResponse(`游戏状态变化: ${data.running ? '运行中' : '已停止'}`);
+                }
+            } catch (error) {
+                console.error('检查游戏状态失败:', error);
+            }
+        }
+
+        function startStatusCheck() {
+            if (statusCheckInterval) {
+                clearInterval(statusCheckInterval);
+            }
+            statusCheckInterval = setInterval(checkGameStatus, 2000); // 每2秒检查一次
+        }
+
+        function stopStatusCheck() {
+            if (statusCheckInterval) {
+                clearInterval(statusCheckInterval);
+                statusCheckInterval = null;
+            }
+        }
+
         function updateVideoSize(width, height) {
-            // 计算适合屏幕的最大尺寸
-            const maxWidth = Math.min(1200, window.innerWidth - 100);
-            const maxHeight = Math.min(800, window.innerHeight - 200);
-            
-            // 保持宽高比
+            // 以窗口宽度为准，但不超过视频原始尺寸
+            const screenWidth = window.innerWidth;
             const aspectRatio = width / height;
-            let newWidth = width/2.0;
-            let newHeight = height/2.0;
             
-            if (newWidth > maxWidth) {
-                newWidth = maxWidth;
-                newHeight = newWidth / aspectRatio;
+            // 计算适合窗口宽度的尺寸
+            let newWidth = screenWidth - 100; // 留出边距
+            let newHeight = newWidth / aspectRatio;
+            
+            // 确保不超过视频原始尺寸
+            if (newWidth > width) {
+                newWidth = width;
+                newHeight = height;
             }
             
-            if (newHeight > maxHeight) {
-                newHeight = maxHeight;
-                newWidth = newHeight * aspectRatio;
-            }
-            
+            // 设置视频尺寸
             video.style.width = `${newWidth}px`;
             video.style.height = `${newHeight}px`;
+            
+            // 动态调整容器尺寸以适应大分辨率
+            const container = document.querySelector('.container');
+            if (newWidth > 1200) {
+                container.style.maxWidth = `${newWidth + 100}px`;
+            } else {
+                container.style.maxWidth = 'none';
+            }
             
             updateInfo(`视频尺寸: ${width}x${height} (显示: ${Math.round(newWidth)}x${Math.round(newHeight)})`);
         }
@@ -362,6 +538,17 @@
             await refreshCaptureList();
             await refreshResolutionList();
             updateVideoSize(currentResolution.width, currentResolution.height);
+            
+            // 检查游戏状态并开始定期检查
+            await checkGameStatus();
+            startStatusCheck();
+        });
+        
+        // 监听窗口大小变化，自动调整视频尺寸
+        window.addEventListener('resize', () => {
+            if (currentResolution) {
+                updateVideoSize(currentResolution.width, currentResolution.height);
+            }
         });
 
         // 停止连接的函数
@@ -381,6 +568,12 @@
         // 开始连接的函数
         async function startConnection() {
             try {
+                // 检查游戏是否运行
+                if (!gameRunning) {
+                    updateStatus('请先启动游戏', true);
+                    return;
+                }
+                
                 updateStatus('正在建立连接...');
                 startButton.disabled = true;
 
@@ -466,6 +659,109 @@
 
         startButton.addEventListener('click', startConnection);
         stopButton.addEventListener('click', stopConnection);
+
+        // 游戏控制事件监听器
+        startGameButton.addEventListener('click', async () => {
+            try {
+                const loadSave = loadSaveSelect.value;
+                updateStatus('正在启动游戏...');
+                
+                const response = await fetch('/start_game', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ load_save: loadSave })
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    updateStatus(data.message);
+                    // 启动游戏后自动开始WebRTC连接
+                    setTimeout(async () => {
+                        await checkGameStatus();
+                        if (gameRunning) {
+                            await startConnection();
+                        }
+                    }, 3000); // 等待3秒让游戏完全启动
+                } else {
+                    updateStatus(data.error, true);
+                }
+            } catch (error) {
+                updateStatus(`启动游戏失败: ${error.message}`, true);
+            }
+        });
+
+        stopGameButton.addEventListener('click', async () => {
+            try {
+                updateStatus('正在停止游戏...');
+                
+                const response = await fetch('/stop_game', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({})
+                });
+                
+                const data = await response.json();
+                if (response.ok) {
+                    updateStatus(data.message);
+                } else {
+                    updateStatus(data.error, true);
+                }
+            } catch (error) {
+                updateStatus(`停止游戏失败: ${error.message}`, true);
+            }
+        });
+
+        // 命令发送事件监听器
+        sendCommandButton.addEventListener('click', async () => {
+            try {
+                const command = commandInput.value.trim();
+                if (!command) {
+                    updateStatus('请输入命令', true);
+                    return;
+                }
+
+                // 验证JSON格式
+                try {
+                    JSON.parse(command);
+                } catch (e) {
+                    updateStatus('命令格式错误，请输入有效的JSON', true);
+                    return;
+                }
+
+                appendResponse(`发送命令: ${command}`);
+
+                const response = await fetch('/send_command', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command: command })
+                });
+
+                const data = await response.json();
+                if (response.ok) {
+                    updateStatus('命令发送成功');
+                    appendResponse(`服务器响应: ${JSON.stringify(data, null, 2)}`);
+                    commandInput.value = ''; // 清空输入框
+                } else {
+                    updateStatus(data.error, true);
+                    appendResponse(`错误响应: ${JSON.stringify(data, null, 2)}`);
+                }
+            } catch (error) {
+                updateStatus(`发送命令失败: ${error.message}`, true);
+                appendResponse(`发送失败: ${error.message}`);
+            }
+        });
+
+        // 清空响应按钮
+        clearResponseButton.addEventListener('click', () => {
+            responseOutput.value = '';
+        });
+
+        // 回车键发送命令
+        commandInput.addEventListener('keydown', (e) => {
+            if (e.ctrlKey && e.key === 'Enter') {
+                sendCommandButton.click();
+            }
+        });
     </script>
 </body>
 </html>
