@@ -9,6 +9,9 @@ import argparse
 import subprocess
 import sys
 import traceback
+import os
+import time
+import tempfile
 
 parser = argparse.ArgumentParser()
 parser.add_argument("-p", "--port", type=int, default=8080)
@@ -43,10 +46,10 @@ def list_video_devices():
 
 # 捕获方法列表
 CAPTURE_METHODS = [
-    {"name": "摄像头0", "desc": "摄像头0", "arg": 0},
-    {"name": "摄像头1", "desc": "摄像头1", "arg": 1},
-    {"name": "屏幕4", "desc": "屏幕捕获4", "arg": "ffmpeg -f avfoundation -framerate 15 -video_size 1280x720 -i 4:none -pix_fmt bgr0 -vcodec rawvideo -f rawvideo -"},
-    {"name": "屏幕1", "desc": "屏幕捕获1", "arg": "ffmpeg -f avfoundation -framerate 15 -video_size 1280x720 -i 1 -pix_fmt bgr0 -vcodec rawvideo -f rawvideo -"},
+    {"name": "摄像头0", "desc": "MacBook Pro Camera", "arg": 0},
+    {"name": "摄像头1", "desc": "kamico Camera", "arg": 1},
+    {"name": "屏幕截图", "desc": "Screen capture (screencapture)", "arg": "screencapture"},
+    {"name": "测试帧", "desc": "彩色测试帧", "arg": None},
 ]
 capture_method_index = 0  # 默认使用第一个方法
 
@@ -55,18 +58,37 @@ class ScreenTrack(VideoStreamTrack):
         super().__init__()
         global capture_method_index
         method = CAPTURE_METHODS[capture_method_index]
-        print(f"当前捕获方法: {method['name']}")
+        print(f"当前捕获方法: {method['name']} - {method['desc']}")
         
-        if isinstance(method["arg"], int):
-            self.cap = cv2.VideoCapture(method["arg"])
-        else:
-            self.cap = cv2.VideoCapture(method["arg"], cv2.CAP_FFMPEG)
-            
-        if self.cap and self.cap.isOpened():
-            print("捕获设备打开成功")
-        else:
-            print("捕获设备打开失败，使用测试帧")
+        if method["arg"] is None:
+            # 使用测试帧
             self.cap = None
+            self.temp_file = None
+            print("使用测试帧模式")
+        elif method["arg"] == "screencapture":
+            # 使用 screencapture 方法
+            self.cap = None
+            self.temp_file = None
+            self.setup_screencapture()
+        elif isinstance(method["arg"], int):
+            # 摄像头
+            self.cap = cv2.VideoCapture(method["arg"])
+            self.temp_file = None
+            if self.cap and self.cap.isOpened():
+                print(f"✅ 摄像头 {method['arg']} 打开成功")
+            else:
+                print(f"❌ 摄像头 {method['arg']} 打开失败，使用测试帧")
+                self.cap = None
+    
+    def setup_screencapture(self):
+        """设置基于 screencapture 的屏幕捕获"""
+        try:
+            self.temp_file = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
+            self.temp_file.close()
+            print(f"✅ screencapture 临时文件创建成功: {self.temp_file.name}")
+        except Exception as e:
+            print(f"❌ screencapture 临时文件创建失败: {e}")
+            self.temp_file = None
 
     async def recv(self):
         pts, time_base = await self.next_timestamp()
@@ -77,6 +99,35 @@ class ScreenTrack(VideoStreamTrack):
                 frame = cv2.resize(frame, (1280, 720))
             else:
                 # 如果读取失败，创建测试帧
+                frame = self.create_test_frame()
+        elif self.temp_file and self.temp_file.name.endswith('.png'):
+            # 使用 screencapture
+            try:
+                current_time = time.time()
+                if not hasattr(self, 'last_capture_time') or current_time - self.last_capture_time > 1:  # 每秒截图一次
+                    self.last_capture_time = current_time
+                    
+                    # 截图
+                    cmd = ['screencapture', '-x', self.temp_file.name]
+                    try:
+                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
+                        if result.returncode != 0:
+                            print(f"截图失败: {result.stderr}")
+                    except Exception as e:
+                        print(f"截图异常: {e}")
+                
+                # 读取截图
+                if os.path.exists(self.temp_file.name):
+                    frame = cv2.imread(self.temp_file.name)
+                    if frame is not None:
+                        frame = cv2.resize(frame, (1280, 720))
+                    else:
+                        frame = self.create_test_frame()
+                else:
+                    frame = self.create_test_frame()
+                    
+            except Exception as e:
+                print(f"screencapture 读取失败: {e}")
                 frame = self.create_test_frame()
         else:
             # 如果没有摄像头，创建测试帧
@@ -114,6 +165,19 @@ class ScreenTrack(VideoStreamTrack):
         cv2.putText(frame, 'No camera detected', (50, 420), font, 1, (255, 255, 255), 2)
         
         return frame
+    
+    def stop(self):
+        """停止视频捕获"""
+        if self.cap:
+            self.cap.release()
+            self.cap = None
+        if self.temp_file and os.path.exists(self.temp_file.name):
+            try:
+                os.remove(self.temp_file.name)
+                print(f"临时文件 {self.temp_file.name} 已删除")
+            except Exception as e:
+                print(f"删除临时文件失败: {e}")
+            self.temp_file = None
 
 pcs = set()
 
