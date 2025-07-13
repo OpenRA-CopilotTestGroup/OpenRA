@@ -41,43 +41,32 @@ def list_video_devices():
     except Exception as e:
         print(f"无法检查 FFmpeg 设备: {e}")
 
+# 捕获方法列表
+CAPTURE_METHODS = [
+    {"name": "摄像头0", "desc": "摄像头0", "arg": 0},
+    {"name": "摄像头1", "desc": "摄像头1", "arg": 1},
+    {"name": "屏幕4", "desc": "屏幕捕获4", "arg": "ffmpeg -f avfoundation -framerate 15 -video_size 1280x720 -i 4:none -pix_fmt bgr0 -vcodec rawvideo -f rawvideo -"},
+    {"name": "屏幕1", "desc": "屏幕捕获1", "arg": "ffmpeg -f avfoundation -framerate 15 -video_size 1280x720 -i 1 -pix_fmt bgr0 -vcodec rawvideo -f rawvideo -"},
+]
+capture_method_index = 0  # 默认使用第一个方法
+
 class ScreenTrack(VideoStreamTrack):
     def __init__(self):
         super().__init__()
-        # 尝试多种视频捕获方法
-        self.cap = None
-        self.setup_capture()
-    
-    def setup_capture(self):
-        """设置视频捕获，尝试多种方法"""
-        capture_methods = [
-            # 方法1: 使用默认设备
-            lambda: cv2.VideoCapture(0),
-            # 方法2: 使用 FFMPEG 和 avfoundation
-            lambda: cv2.VideoCapture("ffmpeg -f avfoundation -framerate 15 -video_size 1280x720 -i 0:none -pix_fmt bgr0 -vcodec rawvideo -f rawvideo -", cv2.CAP_FFMPEG),
-            # 方法3: 使用 FFMPEG 和不同的设备索引
-            lambda: cv2.VideoCapture("ffmpeg -f avfoundation -framerate 15 -video_size 1280x720 -i 1:none -pix_fmt bgr0 -vcodec rawvideo -f rawvideo -", cv2.CAP_FFMPEG),
-            # 方法4: 使用 FFMPEG 和屏幕捕获
-            lambda: cv2.VideoCapture("ffmpeg -f avfoundation -framerate 15 -video_size 1280x720 -i 1 -pix_fmt bgr0 -vcodec rawvideo -f rawvideo -", cv2.CAP_FFMPEG),
-        ]
+        global capture_method_index
+        method = CAPTURE_METHODS[capture_method_index]
+        print(f"当前捕获方法: {method['name']}")
         
-        for i, method in enumerate(capture_methods):
-            try:
-                print(f"尝试视频捕获方法 {i+1}...")
-                self.cap = method()
-                if self.cap.isOpened():
-                    print(f"视频捕获方法 {i+1} 成功")
-                    return
-                else:
-                    self.cap.release()
-            except Exception as e:
-                print(f"视频捕获方法 {i+1} 失败: {e}")
-                if self.cap:
-                    self.cap.release()
-        
-        # 如果所有方法都失败，创建一个测试帧
-        print("所有视频捕获方法都失败，使用测试帧")
-        self.cap = None
+        if isinstance(method["arg"], int):
+            self.cap = cv2.VideoCapture(method["arg"])
+        else:
+            self.cap = cv2.VideoCapture(method["arg"], cv2.CAP_FFMPEG)
+            
+        if self.cap and self.cap.isOpened():
+            print("捕获设备打开成功")
+        else:
+            print("捕获设备打开失败，使用测试帧")
+            self.cap = None
 
     async def recv(self):
         pts, time_base = await self.next_timestamp()
@@ -125,12 +114,6 @@ class ScreenTrack(VideoStreamTrack):
         cv2.putText(frame, 'No camera detected', (50, 420), font, 1, (255, 255, 255), 2)
         
         return frame
-    
-    def stop(self):
-        """停止视频捕获"""
-        if self.cap:
-            self.cap.release()
-            self.cap = None
 
 pcs = set()
 
@@ -145,18 +128,12 @@ async def offer(request):
         pc = RTCPeerConnection()
         pcs.add(pc)
 
-        # 添加视频轨道
-        track = ScreenTrack()
-        pc.addTrack(track)
+        pc.addTrack(ScreenTrack())
 
         # 创建 RTCSessionDescription 对象
         offer = RTCSessionDescription(sdp=params["sdp"], type=params["type"])
         await pc.setRemoteDescription(offer)
-        
-        # 创建 answer
         answer = await pc.createAnswer()
-        
-        # 设置本地描述
         await pc.setLocalDescription(answer)
 
         return web.json_response({"sdp": pc.localDescription.sdp, "type": pc.localDescription.type})
@@ -164,15 +141,6 @@ async def offer(request):
     except Exception as e:
         print(f"Error in offer handler: {e}")
         print(traceback.format_exc())
-        
-        # 清理连接
-        try:
-            if 'pc' in locals():
-                await pc.close()
-                pcs.discard(pc)
-        except:
-            pass
-            
         return web.json_response({"error": str(e)}, status=500)
 
 async def index(request):
@@ -180,21 +148,38 @@ async def index(request):
     response.headers['Content-Type'] = 'text/html; charset=utf-8'
     return response
 
-async def cleanup(request):
-    """清理所有连接"""
+async def set_capture_mode(request):
+    global capture_method_index
     try:
-        for pc in list(pcs):
-            pc.close()
-        pcs.clear()
-        return web.json_response({"status": "success", "message": "All connections cleaned up"})
+        data = await request.json()
+        index_change = data.get('index')
+        if index_change is not None:
+            new_index = int(index_change)
+            if 0 <= new_index < len(CAPTURE_METHODS):
+                capture_method_index = new_index
+                print(f"捕获方法已切换为: {CAPTURE_METHODS[capture_method_index]['name']}")
+                return web.json_response({'status': 'ok', 'index': capture_method_index})
+            else:
+                return web.json_response({'error': 'Invalid index'}, status=400)
+        else:
+            return web.json_response({'error': 'Missing index parameter'}, status=400)
     except Exception as e:
-        return web.json_response({"error": str(e)}, status=500)
+        return web.json_response({'error': str(e)}, status=500)
+
+async def get_capture_methods(request):
+    """获取所有可用的捕获方法"""
+    try:
+        methods = [{"index": i, "name": method["name"]} for i, method in enumerate(CAPTURE_METHODS)]
+        return web.json_response({"methods": methods, "current_index": capture_method_index})
+    except Exception as e:
+        return web.json_response({'error': str(e)}, status=500)
 
 app = web.Application()
 app.router.add_get("/", index)
 app.router.add_get("/index.html", index)
 app.router.add_post("/offer", offer)
-app.router.add_post("/cleanup", cleanup)
+app.router.add_post("/set_capture_mode", set_capture_mode)
+app.router.add_get("/capture_methods", get_capture_methods)
 
 # 启动前检查设备
 list_video_devices()
