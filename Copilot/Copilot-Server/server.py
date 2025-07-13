@@ -66,30 +66,35 @@ RESOLUTION_OPTIONS = [
 ]
 resolution_index = 1  # 默认使用720p
 
-class SmartScreenCapture:
-    """智能屏幕捕获类"""
-    def __init__(self, max_fps=30, min_fps=5, target_width=1280, target_height=720):
-        self.max_fps = max_fps
-        self.min_fps = min_fps
-        self.current_fps = 15
-        self.last_frame = None
-        self.last_capture_time = 0
-        self.frame_history = deque(maxlen=10)  # 保存最近10帧用于变化检测
-        self.network_quality = 1.0  # 网络质量指标 (0.0-1.0)
-        self.motion_threshold = 0.02  # 运动检测阈值
-        self.temp_file = None
+class ScreenCapture:
+    """统一的屏幕捕获类"""
+    def __init__(self, mode="normal", target_width=1280, target_height=720):
+        self.mode = mode  # "normal" 或 "smart"
         self.target_width = target_width
         self.target_height = target_height
-        self.setup_temp_file()
+        self.temp_file = None
         
+        # 智能模式特有属性
+        if mode == "smart":
+            self.max_fps = 30
+            self.min_fps = 5
+            self.current_fps = 15
+            self.frame_history = deque(maxlen=10)
+            self.network_quality = 1.0
+            self.motion_threshold = 0.02
+        
+        self.last_frame = None
+        self.last_capture_time = 0
+        self.setup_temp_file()
+    
     def setup_temp_file(self):
         """设置临时文件"""
         try:
             self.temp_file = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
             self.temp_file.close()
-            print(f"✅ 智能截图临时文件创建成功: {self.temp_file.name}")
+            print(f"✅ 屏幕捕获临时文件创建成功: {self.temp_file.name}")
         except Exception as e:
-            print(f"❌ 智能截图临时文件创建失败: {e}")
+            print(f"❌ 屏幕捕获临时文件创建失败: {e}")
             self.temp_file = None
     
     def update_resolution(self, width, height):
@@ -98,46 +103,44 @@ class SmartScreenCapture:
         self.target_height = height
         print(f"✅ 分辨率已更新为: {width}x{height}")
     
+    def update_network_quality(self, quality):
+        """更新网络质量指标（仅智能模式）"""
+        if self.mode == "smart":
+            self.network_quality = max(0.1, min(1.0, quality))
+            print(f"网络质量更新: {self.network_quality:.2f}")
+    
     def calculate_frame_difference(self, frame1, frame2):
-        """计算两帧之间的差异"""
+        """计算两帧之间的差异（仅智能模式）"""
         if frame1 is None or frame2 is None:
             return 1.0
         
-        # 转换为灰度图
         gray1 = cv2.cvtColor(frame1, cv2.COLOR_BGR2GRAY)
         gray2 = cv2.cvtColor(frame2, cv2.COLOR_BGR2GRAY)
         
-        # 计算差异
         diff = cv2.absdiff(gray1, gray2)
         mean_diff = np.mean(diff) / 255.0
         
         return mean_diff
     
     def detect_motion(self, current_frame):
-        """检测运动"""
-        if len(self.frame_history) < 2:
+        """检测运动（仅智能模式）"""
+        if self.mode != "smart" or len(self.frame_history) < 2:
             return True
         
-        # 计算与上一帧的差异
         last_frame = self.frame_history[-1]
         motion_level = self.calculate_frame_difference(last_frame, current_frame)
-        
         return motion_level > self.motion_threshold
     
     def adjust_fps_based_on_motion(self, has_motion):
-        """根据运动情况调整帧率"""
+        """根据运动情况调整帧率（仅智能模式）"""
+        if self.mode != "smart":
+            return
+        
         if has_motion:
-            # 有运动时，根据网络质量调整帧率
             target_fps = int(self.max_fps * self.network_quality)
             self.current_fps = max(self.min_fps, min(self.max_fps, target_fps))
         else:
-            # 无运动时，降低帧率
             self.current_fps = max(self.min_fps, self.current_fps // 2)
-    
-    def update_network_quality(self, quality):
-        """更新网络质量指标"""
-        self.network_quality = max(0.1, min(1.0, quality))
-        print(f"网络质量更新: {self.network_quality:.2f}")
     
     def capture_frame(self):
         """捕获一帧"""
@@ -145,12 +148,18 @@ class SmartScreenCapture:
             return None
         
         current_time = time.time()
-        frame_interval = 1.0 / self.current_fps
         
-        # 检查是否需要捕获新帧
-        if current_time - self.last_capture_time < frame_interval:
-            # 返回上一帧
-            return self.last_frame
+        # 智能模式的帧率控制
+        if self.mode == "smart":
+            frame_interval = 1.0 / self.current_fps
+            if current_time - self.last_capture_time < frame_interval and self.last_frame is not None:
+                return self.last_frame
+        
+        # 普通模式的固定间隔控制
+        elif self.mode == "normal":
+            frame_interval = 0.1  # 每秒10次
+            if current_time - self.last_capture_time < frame_interval:
+                return self.last_frame
         
         try:
             # 截图
@@ -160,25 +169,43 @@ class SmartScreenCapture:
             if result.returncode == 0 and os.path.exists(self.temp_file.name):
                 frame = cv2.imread(self.temp_file.name)
                 if frame is not None:
-                    # 检测运动
-                    has_motion = self.detect_motion(frame)
+                    # 智能模式的处理
+                    if self.mode == "smart":
+                        has_motion = self.detect_motion(frame)
+                        self.adjust_fps_based_on_motion(has_motion)
+                        self.frame_history.append(frame.copy())
+                        
+                        if has_motion:
+                            print(f"检测到运动，帧率: {self.current_fps}fps")
                     
-                    # 调整帧率
-                    self.adjust_fps_based_on_motion(has_motion)
-                    
-                    # 更新历史
-                    self.frame_history.append(frame.copy())
+                    # 更新状态
                     self.last_frame = frame
                     self.last_capture_time = current_time
-                    
-                    if has_motion:
-                        print(f"检测到运动，帧率: {self.current_fps}fps")
-                    
                     return frame
+                else:
+                    print("❌ 读取截图失败")
+            else:
+                print(f"❌ 截图命令失败: {result.stderr}")
         except Exception as e:
-            print(f"智能截图异常: {e}")
+            print(f"屏幕捕获异常: {e}")
         
-        return self.last_frame
+        # 如果捕获失败但有上一帧，返回上一帧
+        if self.last_frame is not None:
+            return self.last_frame
+        
+        return None
+    
+    def cleanup(self):
+        """清理资源"""
+        if self.temp_file and os.path.exists(self.temp_file.name):
+            try:
+                os.remove(self.temp_file.name)
+                print(f"临时文件 {self.temp_file.name} 已删除")
+                print("traceback:")
+                print(traceback.format_exc())
+            except Exception as e:
+                print(f"删除临时文件失败: {e}")
+            self.temp_file = None
 
 class ScreenTrack(VideoStreamTrack):
     def __init__(self):
@@ -192,24 +219,24 @@ class ScreenTrack(VideoStreamTrack):
         if method["arg"] is None:
             # 使用测试帧
             self.cap = None
-            self.temp_file = None
-            self.smart_capture = None
+            self.screen_capture = None
             self.target_width = resolution['width']
             self.target_height = resolution['height']
             print("使用测试帧模式")
         elif method["arg"] == "screencapture":
-            # 使用 screencapture 方法
+            # 使用普通屏幕捕获
             self.cap = None
-            self.temp_file = None
-            self.smart_capture = None
-            self.target_width = resolution['width']
-            self.target_height = resolution['height']
-            self.setup_screencapture()
+            self.screen_capture = ScreenCapture(
+                mode="normal",
+                target_width=resolution['width'], 
+                target_height=resolution['height']
+            )
+            print("✅ 普通屏幕捕获初始化成功")
         elif method["arg"] == "smart_screencapture":
-            # 使用智能 screencapture 方法
+            # 使用智能屏幕捕获
             self.cap = None
-            self.temp_file = None
-            self.smart_capture = SmartScreenCapture(
+            self.screen_capture = ScreenCapture(
+                mode="smart",
                 target_width=resolution['width'], 
                 target_height=resolution['height']
             )
@@ -217,8 +244,7 @@ class ScreenTrack(VideoStreamTrack):
         elif isinstance(method["arg"], int):
             # 摄像头
             self.cap = cv2.VideoCapture(method["arg"])
-            self.temp_file = None
-            self.smart_capture = None
+            self.screen_capture = None
             self.target_width = resolution['width']
             self.target_height = resolution['height']
             if self.cap and self.cap.isOpened():
@@ -231,19 +257,9 @@ class ScreenTrack(VideoStreamTrack):
         """更新分辨率"""
         self.target_width = width
         self.target_height = height
-        if self.smart_capture:
-            self.smart_capture.update_resolution(width, height)
+        if self.screen_capture:
+            self.screen_capture.update_resolution(width, height)
         print(f"✅ 视频轨道分辨率已更新为: {width}x{height}")
-    
-    def setup_screencapture(self):
-        """设置基于 screencapture 的屏幕捕获"""
-        try:
-            self.temp_file = tempfile.NamedTemporaryFile(suffix='.png', delete=False)
-            self.temp_file.close()
-            print(f"✅ screencapture 临时文件创建成功: {self.temp_file.name}")
-        except Exception as e:
-            print(f"❌ screencapture 临时文件创建失败: {e}")
-            self.temp_file = None
 
     async def recv(self):
         pts, time_base = await self.next_timestamp()
@@ -256,43 +272,13 @@ class ScreenTrack(VideoStreamTrack):
             else:
                 # 如果读取失败，创建测试帧
                 frame = self.create_test_frame()
-        elif self.smart_capture:
-            # 使用智能屏幕捕获
-            frame = self.smart_capture.capture_frame()
+        elif self.screen_capture:
+            # 使用统一的屏幕捕获
+            frame = self.screen_capture.capture_frame()
             if frame is not None:
                 # 保持宽高比的resize
                 frame = self.resize_with_aspect_ratio(frame, max_width=self.target_width, max_height=self.target_height)
             else:
-                frame = self.create_test_frame()
-        elif self.temp_file and self.temp_file.name.endswith('.png'):
-            # 使用 screencapture
-            try:
-                current_time = time.time()
-                if not hasattr(self, 'last_capture_time') or current_time - self.last_capture_time > 0.1:  # 每秒截图十次
-                    self.last_capture_time = current_time
-                    
-                    # 截图
-                    cmd = ['screencapture', '-x', self.temp_file.name]
-                    try:
-                        result = subprocess.run(cmd, capture_output=True, text=True, timeout=5)
-                        if result.returncode != 0:
-                            print(f"截图失败: {result.stderr}")
-                    except Exception as e:
-                        print(f"截图异常: {e}")
-                
-                # 读取截图
-                if os.path.exists(self.temp_file.name):
-                    frame = cv2.imread(self.temp_file.name)
-                    if frame is not None:
-                        # 保持宽高比的resize
-                        frame = self.resize_with_aspect_ratio(frame, max_width=self.target_width, max_height=self.target_height)
-                    else:
-                        frame = self.create_test_frame()
-                else:
-                    frame = self.create_test_frame()
-                    
-            except Exception as e:
-                print(f"screencapture 读取失败: {e}")
                 frame = self.create_test_frame()
         else:
             # 如果没有摄像头，创建测试帧
@@ -367,16 +353,12 @@ class ScreenTrack(VideoStreamTrack):
     
     def stop(self):
         """停止视频捕获"""
+        print("stop")
         if self.cap:
             self.cap.release()
             self.cap = None
-        if self.temp_file and os.path.exists(self.temp_file.name):
-            try:
-                os.remove(self.temp_file.name)
-                print(f"临时文件 {self.temp_file.name} 已删除")
-            except Exception as e:
-                print(f"删除临时文件失败: {e}")
-            self.temp_file = None
+        if self.screen_capture:
+            self.screen_capture.cleanup()
 
 pcs = set()
 
@@ -412,8 +394,8 @@ async def offer(request):
                     network_quality = analyze_network_quality(stats)
                     
                     # 更新智能捕获的网络质量
-                    if hasattr(video_track, 'smart_capture') and video_track.smart_capture:
-                        video_track.smart_capture.update_network_quality(network_quality)
+                    if hasattr(video_track, 'screen_capture') and video_track.screen_capture:
+                        video_track.screen_capture.update_network_quality(network_quality)
                     
                     await asyncio.sleep(5)  # 每5秒检查一次
                 except Exception as e:
@@ -454,7 +436,8 @@ async def set_capture_mode(request):
             new_index = int(index_change)
             if 0 <= new_index < len(CAPTURE_METHODS):
                 capture_method_index = new_index
-                print(f"捕获方法已切换为: {CAPTURE_METHODS[capture_method_index]['name']}")
+                method = CAPTURE_METHODS[capture_method_index]
+                print(f"捕获方法已切换为: {method['name']} - {method['desc']}")
                 return web.json_response({'status': 'ok', 'index': capture_method_index})
             else:
                 return web.json_response({'error': 'Invalid index'}, status=400)
