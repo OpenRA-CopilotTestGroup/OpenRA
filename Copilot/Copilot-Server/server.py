@@ -96,7 +96,8 @@ class ScreenTrack(VideoStreamTrack):
         if self.cap and self.cap.isOpened():
             ret, frame = self.cap.read()
             if ret:
-                frame = cv2.resize(frame, (1280, 720))
+                # 保持宽高比的resize
+                frame = self.resize_with_aspect_ratio(frame, max_width=1280, max_height=720)
             else:
                 # 如果读取失败，创建测试帧
                 frame = self.create_test_frame()
@@ -120,7 +121,8 @@ class ScreenTrack(VideoStreamTrack):
                 if os.path.exists(self.temp_file.name):
                     frame = cv2.imread(self.temp_file.name)
                     if frame is not None:
-                        frame = cv2.resize(frame, (1280, 720))
+                        # 保持宽高比的resize
+                        frame = self.resize_with_aspect_ratio(frame, max_width=1280, max_height=720)
                     else:
                         frame = self.create_test_frame()
                 else:
@@ -137,6 +139,40 @@ class ScreenTrack(VideoStreamTrack):
         new_frame.pts = pts
         new_frame.time_base = time_base
         return new_frame
+    
+    def resize_with_aspect_ratio(self, frame, max_width=1280, max_height=720):
+        """保持宽高比的resize"""
+        height, width = frame.shape[:2]
+        
+        # 计算缩放比例
+        scale_width = max_width / width
+        scale_height = max_height / height
+        scale = min(scale_width, scale_height)  # 使用较小的缩放比例以保持宽高比
+        
+        # 计算新的尺寸
+        new_width = int(width * scale)
+        new_height = int(height * scale)
+        
+        # 如果尺寸没有变化，直接返回
+        if new_width == width and new_height == height:
+            return frame
+        
+        # 执行resize
+        resized_frame = cv2.resize(frame, (new_width, new_height), interpolation=cv2.INTER_AREA)
+        
+        # 如果需要，创建固定尺寸的画布并居中放置
+        if new_width < max_width or new_height < max_height:
+            canvas = np.zeros((max_height, max_width, 3), dtype=np.uint8)
+            
+            # 计算居中位置
+            x_offset = (max_width - new_width) // 2
+            y_offset = (max_height - new_height) // 2
+            
+            # 将resized图像放置到画布中心
+            canvas[y_offset:y_offset+new_height, x_offset:x_offset+new_width] = resized_frame
+            return canvas
+        
+        return resized_frame
     
     def create_test_frame(self):
         """创建测试帧"""
