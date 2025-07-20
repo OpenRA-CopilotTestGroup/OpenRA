@@ -22,6 +22,13 @@ api.ensure_can_build_wait("兵营")
 build = api.produce_wait("兵营", 1, True)
 
 
+if api.ensure_can_produce_unit("步兵"):
+    print("开始生产3个步兵...")
+    wtank = api.produce("步兵", 3)
+else:
+    raise RuntimeError("无法生产防空车")
+
+
 # 建造"矿场"、"车间"以便生产载具
 
 api.ensure_can_build_wait("矿场")
@@ -29,16 +36,17 @@ api.produce_wait("矿场", 1)
 api.ensure_can_build_wait("车间")
 api.produce_wait("车间", 1)
 
-# 生产4个防空车
+# 生产2个防空车
 
 if api.ensure_can_produce_unit("防空车"):
     print("开始生产4辆防空车...")
-    wtank = api.produce("防空车", 4)
+    wtank = api.produce("防空车", 2)
     if wtank:
         api.wait(wtank, max_wait_time=30)
         print("防空车已生产完毕")
 else:
     raise RuntimeError("无法生产防空车")
+
 
 
 # 防空车去敌方基地兜一圈
