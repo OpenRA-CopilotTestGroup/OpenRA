@@ -19,6 +19,14 @@ namespace OpenRA
 
 		// 添加调试模式开关
 		public bool DebugMode { get; set; } = false;
+		
+		// 统计记录器接口
+		public interface IGameStatsRecorder
+		{
+			void RecordApiCall(string command, bool isQuery);
+		}
+		
+		public IGameStatsRecorder StatsRecorder { get; set; }
 
 		public delegate string CommandHandler(JObject json, World world);
 		public delegate JObject QueryHandler(JObject json, World world);
@@ -219,6 +227,9 @@ namespace OpenRA
 					{
 						try
 						{
+							// 记录API调用统计
+							StatsRecorder?.RecordApiCall(request.Command, false);
+							
 							var result = commandHandler?.Invoke(request.Params, world);
 							SendSuccessResponse(clientSocket, result, request.RequestId, null, DebugMode);
 						}
@@ -236,6 +247,9 @@ namespace OpenRA
 					{
 						try
 						{
+							// 记录API调用统计
+							StatsRecorder?.RecordApiCall(request.Command, true);
+							
 							var resultJson = queryHandler?.Invoke(request.Params, world);
 							SendSuccessResponse(clientSocket, null, request.RequestId, resultJson, DebugMode);
 						}

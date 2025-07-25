@@ -41,13 +41,13 @@ api.produce_wait("车间", 1)
 if api.ensure_can_produce_unit("防空车"):
     print("开始生产4辆防空车...")
     wtank = api.produce("防空车", 2)
-    if wtank:
-        api.wait(wtank, max_wait_time=30)
-        print("防空车已生产完毕")
 else:
     raise RuntimeError("无法生产防空车")
 
-
+api.ensure_can_build_wait("雷达")
+api.produce_wait("雷达", 1)
+api.ensure_can_build_wait("大电")
+api.produce_wait("大电", 1)
 
 # 防空车去敌方基地兜一圈
 # 这里已经知道防空车的actor_id是23

@@ -11,6 +11,7 @@ has_mod=false
 has_loadsave=false
 has_port=false
 has_debug=false
+has_is_agent_mode=false
 
 # 其他参数收集
 other_args=()
@@ -22,12 +23,13 @@ for arg in "$@"; do
     Game.LoadSave=*) loadsave="$arg"; has_loadsave=true ;;
     Game.CopilotPort=*) port="$arg"; has_port=true ;;
     Game.CopilotDebug=*) debug="$arg"; has_debug=true ;;
+    Game.IsAgentMode=*) is_agent_mode="$arg"; has_is_agent_mode=true ;;
     *) other_args+=("$arg") ;;
   esac
 done
 
 # 组装命令行
-cmd="./launch-game.sh $mod $loadsave $port $debug"
+cmd="./launch-game.sh $mod $loadsave $port $debug $is_agent_mode"
 for arg in "${other_args[@]}"; do
   cmd="$cmd $arg"
 done
