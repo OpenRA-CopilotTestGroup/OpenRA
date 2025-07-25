@@ -19,13 +19,13 @@ namespace OpenRA
 
 		// 添加调试模式开关
 		public bool DebugMode { get; set; } = false;
-		
+
 		// 统计记录器接口
 		public interface IGameStatsRecorder
 		{
 			void RecordApiCall(string command, bool isQuery);
 		}
-		
+
 		public IGameStatsRecorder StatsRecorder { get; set; }
 
 		public delegate string CommandHandler(JObject json, World world);
@@ -162,7 +162,7 @@ namespace OpenRA
 					var buffer = new byte[16384];
 					var received = await clientSocket.ReceiveAsync(buffer, SocketFlags.None);
 					var jsonString = Encoding.UTF8.GetString(buffer, 0, received);
-					
+
 					// 只在调试模式下打印接收到的数据
 					if (DebugMode)
 					{
@@ -229,7 +229,7 @@ namespace OpenRA
 						{
 							// 记录API调用统计
 							StatsRecorder?.RecordApiCall(request.Command, false);
-							
+
 							var result = commandHandler?.Invoke(request.Params, world);
 							SendSuccessResponse(clientSocket, result, request.RequestId, null, DebugMode);
 						}
@@ -249,7 +249,7 @@ namespace OpenRA
 						{
 							// 记录API调用统计
 							StatsRecorder?.RecordApiCall(request.Command, true);
-							
+
 							var resultJson = queryHandler?.Invoke(request.Params, world);
 							SendSuccessResponse(clientSocket, null, request.RequestId, resultJson, DebugMode);
 						}
@@ -297,7 +297,7 @@ namespace OpenRA
 			var responseJson = JsonConvert.SerializeObject(response);
 			var buffer = Encoding.UTF8.GetBytes(responseJson);
 			_ = clientSocket.Send(buffer);
-			
+
 			// 只在调试模式下打印发送的数据
 			if (debugMode)
 			{
@@ -319,7 +319,7 @@ namespace OpenRA
 			var responseJson = JsonConvert.SerializeObject(response);
 			var buffer = Encoding.UTF8.GetBytes(responseJson);
 			_ = clientSocket.Send(buffer);
-			
+
 			// 只在调试模式下打印发送的数据
 			if (debugMode)
 			{

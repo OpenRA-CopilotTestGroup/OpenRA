@@ -1,12 +1,9 @@
+using Newtonsoft.Json;
+using OpenRA.Mods.Common.Traits;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
-using Newtonsoft.Json;
-using OpenRA.Traits;
-using OpenRA.Mods.Common.Traits;
 
 namespace OpenRA
 {
@@ -35,7 +32,7 @@ namespace OpenRA
 		{
 			public Dictionary<string, int> UnitsProduced { get; set; } = new();
 			public Dictionary<string, int> BuildingsBuilt { get; set; } = new();
-			
+
 			// 单位统计数据
 			public int UnitsKilled { get; set; }
 			public int UnitsLost { get; set; }
@@ -86,7 +83,7 @@ namespace OpenRA
 			stats.StartTime = DateTime.Now;
 			stats.MapName = world.Map.Title;
 			stats.PlayerName = player.PlayerName;
-			
+
 			var playerRes = player.PlayerActor.Trait<PlayerResources>();
 			var resources = player.PlayerActor.TraitOrDefault<PlayerResources>();
 			if (resources != null)
@@ -94,14 +91,14 @@ namespace OpenRA
 				initialCash = resources.Cash;
 				stats.Resources.InitialCash = initialCash;
 			}
-			
+
 			isRecording = true;
 		}
 
 		public void RecordObjective(string id, string name)
 		{
 			if (!isRecording) return;
-			
+
 			stats.Objectives.Add(new ObjectiveInfo
 			{
 				Id = id,
@@ -113,7 +110,7 @@ namespace OpenRA
 		public void CompleteObjective(string id)
 		{
 			if (!isRecording) return;
-			
+
 			var objective = stats.Objectives.FirstOrDefault(o => o.Id == id);
 			if (objective != null)
 			{
@@ -127,7 +124,7 @@ namespace OpenRA
 		public void RecordUnitProduced(string unitType)
 		{
 			if (!isRecording) return;
-			
+
 			if (!stats.Units.UnitsProduced.ContainsKey(unitType))
 				stats.Units.UnitsProduced[unitType] = 0;
 			stats.Units.UnitsProduced[unitType]++;
@@ -136,7 +133,7 @@ namespace OpenRA
 		public void RecordBuildingBuilt(string buildingType)
 		{
 			if (!isRecording) return;
-			
+
 			if (!stats.Units.BuildingsBuilt.ContainsKey(buildingType))
 				stats.Units.BuildingsBuilt[buildingType] = 0;
 			stats.Units.BuildingsBuilt[buildingType]++;
@@ -145,7 +142,7 @@ namespace OpenRA
 		public void RecordApiCall(string command, bool isQuery)
 		{
 			if (!isRecording) return;
-			
+
 			var now = DateTime.Now;
 			if (stats.ApiCalls.TotalCalls == 0)
 				stats.ApiCalls.FirstCall = now;
@@ -175,11 +172,11 @@ namespace OpenRA
 		public void EndSession(bool victory)
 		{
 			if (!isRecording) return;
-			
+
 			stats.EndTime = DateTime.Now;
 			stats.Duration = stats.EndTime - stats.StartTime;
 			stats.Victory = victory;
-			
+
 			// 记录最终资源状态
 			var resources = player.PlayerActor.TraitOrDefault<PlayerResources>();
 			if (resources != null)
@@ -194,7 +191,7 @@ namespace OpenRA
 				stats.Resources.PowerGenerated = powerManager.PowerProvided;
 				stats.Resources.PowerConsumed = powerManager.PowerDrained;
 			}
-			
+
 			// 记录单位统计数据
 			var playerStats = player.PlayerActor.TraitOrDefault<PlayerStatistics>();
 			if (playerStats != null)
@@ -210,7 +207,7 @@ namespace OpenRA
 				stats.Units.OrderCount = playerStats.OrderCount;
 				stats.Units.Experience = playerStats.Experience;
 			}
-			
+
 			isRecording = false;
 		}
 
@@ -219,7 +216,7 @@ namespace OpenRA
 			var jsonStats = JsonConvert.SerializeObject(stats, Formatting.Indented);
 			var hash = EncryptionUtils.ComputeHash(jsonStats);
 			var signature = "";
-			
+
 			// 如果提供了公钥，使用RSA签名Hash
 			if (!string.IsNullOrEmpty(rsaPublicKey))
 			{
@@ -233,7 +230,7 @@ namespace OpenRA
 					signature = "SIGNATURE_ERROR";
 				}
 			}
-			
+
 			// 添加头部信息
 			var logHeader = new
 			{
@@ -245,25 +242,25 @@ namespace OpenRA
 				Signature = signature,
 				HasSignature = !string.IsNullOrEmpty(signature) && signature != "SIGNATURE_ERROR" && signature != "CLIENT_SIDE_NO_SIGNATURE"
 			};
-			
+
 			var headerJson = JsonConvert.SerializeObject(logHeader, Formatting.Indented);
-			
+
 			return $"===OPENRA_STATS_LOG_BEGIN===\n{headerJson}\n===STATS_DATA===\n{jsonStats}\n===OPENRA_STATS_LOG_END===";
 		}
 
 		public void SaveLogToFile(string filePath = null, string rsaPublicKey = "")
 		{
 			var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-			var mapName = world.Map.Title.Replace(" ", "_").Replace("/", "_").Replace("\\", "_");
-            var statName = $"{stats.PlayerName}_{mapName}_{timestamp}.log";
-			
+			var mapName = world.Map.Title.Replace(" ", "_").Replace("/", "_").Replace("\\", "_").Replace(":", "_");
+			var statName = $"{stats.PlayerName}_{mapName}_{timestamp}.log";
+
 			// 使用OpenRA的Log系统保存日志
 			var signedLog = GenerateSignedLog(rsaPublicKey);
-			
-            Log.AddChannel(statName, statName);
+
+			Log.AddChannel(statName, statName);
 			// 保存到OpenRA的日志目录
 			Log.Write(statName, signedLog);
-			
+
 			Console.WriteLine($"游戏统计日志已保存到OpenRA日志目录，log名字：{statName}，地图: {mapName}, 时间: {timestamp}");
 		}
 
@@ -286,7 +283,7 @@ namespace OpenRA
 			{
 				using var rsa = RSA.Create();
 				rsa.FromXmlString(publicKeyXml);
-				
+
 				var hashBytes = Convert.FromBase64String(hash);
 				// 使用公钥加密hash值作为签名
 				var signatureBytes = rsa.Encrypt(hashBytes, RSAEncryptionPadding.OaepSHA256);
@@ -305,14 +302,14 @@ namespace OpenRA
 			{
 				using var rsa = RSA.Create();
 				rsa.FromXmlString(privateKeyXml);
-				
+
 				var hashBytes = Convert.FromBase64String(hash);
 				var signatureBytes = Convert.FromBase64String(signature);
-				
+
 				// 使用私钥解密签名，然后比较hash值
 				var decryptedHashBytes = rsa.Decrypt(signatureBytes, RSAEncryptionPadding.OaepSHA256);
 				var decryptedHash = Convert.ToBase64String(decryptedHashBytes);
-				
+
 				return hash == decryptedHash;
 			}
 			catch (Exception ex)
@@ -329,4 +326,4 @@ namespace OpenRA
 			return (rsa.ToXmlString(false), rsa.ToXmlString(true));
 		}
 	}
-} 
+}
