@@ -34,23 +34,19 @@ namespace OpenRA
 		public class UnitStats
 		{
 			public Dictionary<string, int> UnitsProduced { get; set; } = new();
-			public Dictionary<string, int> UnitsLost { get; set; } = new();
-			public Dictionary<string, int> UnitsKilled { get; set; } = new();
 			public Dictionary<string, int> BuildingsBuilt { get; set; } = new();
-			public Dictionary<string, int> BuildingsLost { get; set; } = new();
-			public Dictionary<string, int> BuildingsDestroyed { get; set; } = new();
 			
-			// OpenRA官方统计数据
-			public int OfficialUnitsKilled { get; set; }
-			public int OfficialUnitsLost { get; set; }
-			public int OfficialBuildingsKilled { get; set; }
-			public int OfficialBuildingsLost { get; set; }
-			public int OfficialKillsCost { get; set; }
-			public int OfficialDeathsCost { get; set; }
-			public int OfficialArmyValue { get; set; }
-			public int OfficialAssetsValue { get; set; }
-			public int OfficialOrderCount { get; set; }
-			public int OfficialExperience { get; set; }
+			// 单位统计数据
+			public int UnitsKilled { get; set; }
+			public int UnitsLost { get; set; }
+			public int BuildingsKilled { get; set; }
+			public int BuildingsLost { get; set; }
+			public int KillsCost { get; set; }
+			public int DeathsCost { get; set; }
+			public int ArmyValue { get; set; }
+			public int AssetsValue { get; set; }
+			public int OrderCount { get; set; }
+			public int Experience { get; set; }
 		}
 
 		public class ApiCallStats
@@ -127,8 +123,7 @@ namespace OpenRA
 			}
 		}
 
-		// 注意：单位统计现在使用OpenRA官方的PlayerStatistics系统
-		// 这些方法保留用于自定义统计，但主要数据来自官方系统
+		// 单位生产统计方法
 		public void RecordUnitProduced(string unitType)
 		{
 			if (!isRecording) return;
@@ -145,42 +140,6 @@ namespace OpenRA
 			if (!stats.Units.BuildingsBuilt.ContainsKey(buildingType))
 				stats.Units.BuildingsBuilt[buildingType] = 0;
 			stats.Units.BuildingsBuilt[buildingType]++;
-		}
-
-		public void RecordUnitLost(string unitType)
-		{
-			if (!isRecording) return;
-			
-			if (!stats.Units.UnitsLost.ContainsKey(unitType))
-				stats.Units.UnitsLost[unitType] = 0;
-			stats.Units.UnitsLost[unitType]++;
-		}
-
-		public void RecordBuildingLost(string buildingType)
-		{
-			if (!isRecording) return;
-			
-			if (!stats.Units.BuildingsLost.ContainsKey(buildingType))
-				stats.Units.BuildingsLost[buildingType] = 0;
-			stats.Units.BuildingsLost[buildingType]++;
-		}
-
-		public void RecordUnitKilled(string unitType)
-		{
-			if (!isRecording) return;
-			
-			if (!stats.Units.UnitsKilled.ContainsKey(unitType))
-				stats.Units.UnitsKilled[unitType] = 0;
-			stats.Units.UnitsKilled[unitType]++;
-		}
-
-		public void RecordBuildingDestroyed(string buildingType)
-		{
-			if (!isRecording) return;
-			
-			if (!stats.Units.BuildingsDestroyed.ContainsKey(buildingType))
-				stats.Units.BuildingsDestroyed[buildingType] = 0;
-			stats.Units.BuildingsDestroyed[buildingType]++;
 		}
 
 		public void RecordApiCall(string command, bool isQuery)
@@ -236,20 +195,20 @@ namespace OpenRA
 				stats.Resources.PowerConsumed = powerManager.PowerDrained;
 			}
 			
-			// 记录OpenRA官方统计数据
+			// 记录单位统计数据
 			var playerStats = player.PlayerActor.TraitOrDefault<PlayerStatistics>();
 			if (playerStats != null)
 			{
-				stats.Units.OfficialUnitsKilled = playerStats.UnitsKilled;
-				stats.Units.OfficialUnitsLost = playerStats.UnitsDead;
-				stats.Units.OfficialBuildingsKilled = playerStats.BuildingsKilled;
-				stats.Units.OfficialBuildingsLost = playerStats.BuildingsDead;
-				stats.Units.OfficialKillsCost = playerStats.KillsCost;
-				stats.Units.OfficialDeathsCost = playerStats.DeathsCost;
-				stats.Units.OfficialArmyValue = playerStats.ArmyValue;
-				stats.Units.OfficialAssetsValue = playerStats.AssetsValue;
-				stats.Units.OfficialOrderCount = playerStats.OrderCount;
-				stats.Units.OfficialExperience = playerStats.Experience;
+				stats.Units.UnitsKilled = playerStats.UnitsKilled;
+				stats.Units.UnitsLost = playerStats.UnitsDead;
+				stats.Units.BuildingsKilled = playerStats.BuildingsKilled;
+				stats.Units.BuildingsLost = playerStats.BuildingsDead;
+				stats.Units.KillsCost = playerStats.KillsCost;
+				stats.Units.DeathsCost = playerStats.DeathsCost;
+				stats.Units.ArmyValue = playerStats.ArmyValue;
+				stats.Units.AssetsValue = playerStats.AssetsValue;
+				stats.Units.OrderCount = playerStats.OrderCount;
+				stats.Units.Experience = playerStats.Experience;
 			}
 			
 			isRecording = false;
